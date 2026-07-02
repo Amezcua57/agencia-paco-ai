@@ -782,6 +782,18 @@
               <button class="btn-primary" style="margin-top:12px;font-size:12px;" onclick="showToast('✅ Modelos guardados')">Guardar cambios</button>
             </div>
           </div>
+          <!-- API KEY CARD -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">🔑 API Key de Claude</span></div>
+            <div class="card-body">
+              <p style="font-size:12px;color:#6b7280;margin-bottom:14px;">Ingresa tu API Key de Anthropic para que los agentes respondan con inteligencia real. La obtienes en <strong>console.anthropic.com</strong>.</p>
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+                <input type="password" id="claude-api-key-input" placeholder="sk-ant-api03-..." style="flex:1;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:12px;font-family:monospace;" oninput="this.style.borderColor='#6366f1'" />
+                <button class="btn-primary" style="font-size:12px;white-space:nowrap;" onclick="saveApiKey()">Guardar</button>
+              </div>
+              <div id="api-key-status" style="font-size:11px;color:#6b7280;min-height:18px;"></div>
+            </div>
+          </div>
         </div>
 
         <!-- Reglas -->
@@ -1237,6 +1249,65 @@ function finishOnboarding() {
 }
 
 // ─── CHAT ───
+// ─── CLAUDE REAL API ───
+let claudeApiKey = localStorage.getItem('claudeApiKey') || '';
+
+async function callClaude(messages, systemPrompt) {
+  if (!claudeApiKey) {
+    return '⚠️ Para activar la inteligencia real, agrega tu API Key de Claude en **Configuración → IA y Agentes**.';
+  }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': claudeApiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: messages
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (err.error?.type === 'authentication_error') return '❌ API Key incorrecta. Revísala en Configuración → IA y Agentes.';
+      return '❌ Error ' + res.status + ': ' + (err.error?.message || 'Error desconocido');
+    }
+    const data = await res.json();
+    return data.content[0].text;
+  } catch(e) {
+    return '❌ Error de conexión: ' + e.message;
+  }
+}
+
+function getBizContext(short) {
+  const biz = state.businesses[state.currentBiz];
+  const base = `Eres la Secretaria General AI de "Agencia Paco AI", plataforma de marketing con inteligencia artificial.
+Negocio activo: ${biz.name} (${biz.type || 'marketing digital'}).
+Dueño: Francisco "Paco" Amezcua, empresario mexicano.
+Otros negocios: Seguros, Bienes Raíces, Servicios Digitales.
+Responde siempre en español mexicano, de forma directa, profesional y accionable. Usa emojis con moderación. Sé conciso.`;
+  if (short) return base + '\nDa respuestas de máximo 2-3 líneas. Ve al grano.';
+  return base;
+}
+
+function saveApiKey() {
+  const input = document.getElementById('claude-api-key-input');
+  const key = (input.value || '').trim();
+  if (!key.startsWith('sk-ant-')) {
+    showToast('⚠️ La clave debe empezar con sk-ant-...');
+    return;
+  }
+  claudeApiKey = key;
+  localStorage.setItem('claudeApiKey', key);
+  document.getElementById('api-key-status').innerHTML = '<span style="color:#10b981;font-weight:700;">✅ API Key guardada — los agentes ahora usan Claude real</span>';
+  showToast('✅ ¡Claude activado! Los agentes responden con IA real');
+}
+
 const aiResponses = {
   default: ['Entendido, Paco. Voy a coordinar a los agentes para eso ahora mismo. ¿Quieres que empiece por los anuncios o por la landing page?', 'Perfecto. Le paso la instrucción al Director de Mercadotecnia y al Generador de Anuncios. Te presento las opciones en unos momentos.', 'Anotado en el Cerebro Vivo. ¿Quieres que el Pre-Autorizador lo evalúe antes de continuar?'],
   anuncio: ['Le doy la instrucción al Generador de Anuncios ahora mismo. Voy a pedirle 5 versiones: emocional, premium, familiar, urgente e inversionista. ¿Para cuál negocio y con qué presupuesto?'],
@@ -1264,10 +1335,17 @@ function sendChat() {
   input.value = '';
   input.style.height = 'auto';
   const typing = addTyping();
-  setTimeout(() => {
-    typing.remove();
-    addAIMsg(getAIResponse(msg));
-  }, 1200 + Math.random()*600);
+  if (claudeApiKey) {
+    callClaude([{role:'user', content:msg}], getBizContext(false)).then(response => {
+      typing.remove();
+      addAIMsg(response);
+    });
+  } else {
+    setTimeout(() => {
+      typing.remove();
+      addAIMsg(getAIResponse(msg));
+    }, 1200 + Math.random()*600);
+  }
 }
 function sendQuickMsg(msg) {
   showPage('chat', null);
@@ -1360,11 +1438,17 @@ function fpSend() {
   addFPMsg(msg, 'user');
   input.value = '';
   const typing = addFPTyping();
-  setTimeout(() => {
-    typing.remove();
-    const response = getFPResponse(msg);
-    addFPMsg(response, 'ai', true);
-  }, 900 + Math.random() * 500);
+  if (claudeApiKey) {
+    callClaude([{role:'user', content:msg}], getBizContext(true)).then(response => {
+      typing.remove();
+      addFPMsg(response, 'ai', true);
+    });
+  } else {
+    setTimeout(() => {
+      typing.remove();
+      addFPMsg(getFPResponse(msg), 'ai', true);
+    }, 900 + Math.random() * 500);
+  }
 }
 
 function fpSendQuick(msg) {
@@ -1372,10 +1456,17 @@ function fpSendQuick(msg) {
   setTimeout(() => {
     addFPMsg(msg, 'user');
     const typing = addFPTyping();
-    setTimeout(() => {
-      typing.remove();
-      addFPMsg(getFPResponse(msg), 'ai', true);
-    }, 900);
+    if (claudeApiKey) {
+      callClaude([{role:'user', content:msg}], getBizContext(true)).then(response => {
+        typing.remove();
+        addFPMsg(response, 'ai', true);
+      });
+    } else {
+      setTimeout(() => {
+        typing.remove();
+        addFPMsg(getFPResponse(msg), 'ai', true);
+      }, 900);
+    }
   }, floatOpen ? 0 : 350);
 }
 
@@ -1506,6 +1597,14 @@ function showCfg(id, el) {
   if (panel) panel.classList.add('active');
   if (id === 'negocios') renderBizListCfg();
   if (id === 'integraciones') renderIntegrations();
+  if (id === 'ia') {
+    const statusEl = document.getElementById('api-key-status');
+    const inputEl = document.getElementById('claude-api-key-input');
+    if (statusEl && claudeApiKey) {
+      statusEl.innerHTML = '<span style="color:#10b981;font-weight:700;">✅ API Key guardada — los agentes usan Claude real</span>';
+      if (inputEl) inputEl.placeholder = '••••••••••••••••••••••• (guardada)';
+    }
+  }
 }
 
 function renderBizListCfg() {
