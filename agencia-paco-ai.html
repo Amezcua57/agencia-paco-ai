@@ -485,6 +485,7 @@
       <div class="nav-item" onclick="showPage('agents',this)"><span class="nav-icon">🎭</span> Agentes</div>
       <div class="nav-item" onclick="showPage('auth',this)"><span class="nav-icon">✅</span> Autorizaciones <span class="nav-badge">2</span></div>
       <div class="nav-item" onclick="showPage('reports',this)"><span class="nav-icon">📈</span> Reportes</div>
+      <div class="nav-item" onclick="showPage('competencia',this)"><span class="nav-icon">🕵️</span> Competencia <span class="nav-badge" style="background:#f59e0b;">HOY</span></div>
       <div class="nav-section">Sistema</div>
       <div class="nav-item" onclick="showPage('config',this)"><span class="nav-icon">⚙️</span> Configuración</div>
     </nav>
@@ -682,13 +683,33 @@
           <div class="card" style="padding:14px;text-align:center;cursor:pointer;" onclick="showToast('Filtrando por documentos...')"><div style="font-size:28px;margin-bottom:4px;">📄</div><div style="font-size:12px;font-weight:700;">Documentos</div><div style="font-size:20px;font-weight:800;color:var(--primary);">15</div></div>
           <div class="card" style="padding:14px;text-align:center;cursor:pointer;" onclick="showToast('Filtrando por conocimiento...')"><div style="font-size:28px;margin-bottom:4px;">💬</div><div style="font-size:12px;font-weight:700;">Respuestas</div><div style="font-size:20px;font-weight:800;color:var(--primary);">41</div></div>
         </div>
+        <!-- Business Profile Card -->
+        <div class="card" style="margin-bottom:12px;border-left:4px solid var(--primary);">
+          <div class="card-header"><span class="card-title">🐚 Perfil del negocio — Caracol Diamante</span><button class="btn-sm" style="background:var(--primary-light);color:var(--primary);font-size:11px;" onclick="showToast('Editar perfil próximamente')">Editar</button></div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
+              <div><span style="color:#6b7280;">Tipo:</span> <strong>Desarrollo inmobiliario de playa</strong></div>
+              <div><span style="color:#6b7280;">Ubicación:</span> <strong>Acapulco, Guerrero</strong></div>
+              <div><span style="color:#6b7280;">Producto estrella:</span> <strong>Departamentos desde $2.8M MXN</strong></div>
+              <div><span style="color:#6b7280;">Mercado:</span> <strong>Familias e Inversionistas</strong></div>
+              <div><span style="color:#6b7280;">Canales activos:</span> <strong>Meta Ads, WhatsApp, Instagram</strong></div>
+              <div><span style="color:#6b7280;">Equipo:</span> <strong>Karina, Eréndira, Oliver</strong></div>
+              <div><span style="color:#6b7280;">Tono de comunicación:</span> <strong>Premium, aspiracional, familiar</strong></div>
+              <div><span style="color:#6b7280;">CPA promedio:</span> <strong>$41 MXN por lead</strong></div>
+            </div>
+          </div>
+        </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">Contenido reciente</span></div>
+          <div class="card-header"><span class="card-title">Conocimiento activo</span><span style="font-size:11px;color:#6b7280;">87 entradas · Última actualización: hoy</span></div>
           <div class="card-body" id="cerebro-items-list">
-            <div class="auth-item"><div style="font-size:20px;">💰</div><div class="auth-info"><div class="auth-name">Lista de precios actualizada — Julio 2026</div><div class="auth-desc">Tipo: Precios · Estado: Activo · Confianza: ⭐⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
-            <div class="auth-item"><div style="font-size:20px;">🏖️</div><div class="auth-info"><div class="auth-name">Fotos departamentos Torre A — 12 imágenes</div><div class="auth-desc">Tipo: Fotos · Uso: Anuncios y landing pages · Confianza: ⭐⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
-            <div class="auth-item"><div style="font-size:20px;">❓</div><div class="auth-info"><div class="auth-name">Preguntas frecuentes — 28 respuestas</div><div class="auth-desc">Tipo: FAQ · Usado por: Chatbot, Secretaria, WhatsApp · Confianza: ⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
-            <div class="auth-item"><div style="font-size:20px;">🛡️</div><div class="auth-info"><div class="auth-name">Objeciones frecuentes y respuestas ganadoras</div><div class="auth-desc">Tipo: Objeciones · Estado: Activo · Confianza: ⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
+            <div class="auth-item"><div style="font-size:20px;">💰</div><div class="auth-info"><div class="auth-name">Lista de precios — Julio 2026</div><div class="auth-desc">Torre A: desde $2.8M · Torre B: desde $3.4M · Penthouse: desde $6.2M · Confianza: ⭐⭐⭐⭐⭐ Oficial</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
+            <div class="auth-item"><div style="font-size:20px;">🏖️</div><div class="auth-info"><div class="auth-name">Fotos departamentos Torre A — 24 imágenes</div><div class="auth-desc">Interiores, vistas al mar, alberca, lobby · Uso: Anuncios y landing pages · Confianza: ⭐⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
+            <div class="auth-item"><div style="font-size:20px;">👨‍👩‍👧</div><div class="auth-info"><div class="auth-name">Perfil cliente FAMILIAS</div><div class="auth-desc">35-55 años, CDMX/Guadalajara, busca segunda residencia vacacional, presupuesto $3-5M, motivación: vacaciones + plusvalía · Confianza: ⭐⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
+            <div class="auth-item"><div style="font-size:20px;">💼</div><div class="auth-info"><div class="auth-name">Perfil cliente INVERSIONISTAS</div><div class="auth-desc">40-65 años, empresarios, buscan ROI + rentas, presupuesto $4-8M, Score calidad 4.2/5 · Confianza: ⭐⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
+            <div class="auth-item"><div style="font-size:20px;">❓</div><div class="auth-info"><div class="auth-name">Preguntas frecuentes — 28 respuestas listas</div><div class="auth-desc">¿Cuándo entregan? ¿Hay financiamiento? ¿Cuánto renta? ¿Incluye amenidades? · Confianza: ⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
+            <div class="auth-item"><div style="font-size:20px;">🛡️</div><div class="auth-info"><div class="auth-name">Objeciones y respuestas ganadoras — 18 scripts</div><div class="auth-desc">"Está muy caro" · "Acapulco no es seguro" · "Lo voy a pensar" · "¿Me dan descuento?" · Confianza: ⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
+            <div class="auth-item"><div style="font-size:20px;">📢</div><div class="auth-info"><div class="auth-name">Mejores anuncios activos — campaña "Playa Familias"</div><div class="auth-desc">24 leads · $41 CPA · CTR 3.2% · Texto: "Tu familia merece un verano diferente..." · Confianza: ⭐⭐⭐⭐⭐</div></div><span style="font-size:11px;color:var(--green);font-weight:700;">✓ Activo</span></div>
+            <div class="auth-item"><div style="font-size:20px;">🎬</div><div class="auth-info"><div class="auth-name">Guión de presentación — Recorrido virtual Torre A</div><div class="auth-desc">2:30 min · Narración + puntos clave de venta · Listo para reel y video de WhatsApp · Confianza: ⭐⭐⭐⭐</div></div><button class="btn-sm" style="background:#f3f4f6;color:#374151;font-size:10px;" onclick="showToast('Abriendo guión...')">Ver</button></div>
           </div>
         </div>
       </div>
@@ -699,15 +720,119 @@
       <div class="page" id="page-landings"><div class="empty-state"><div class="empty-icon">📄</div><p>Constructor de landing pages<br><br>Cada negocio con sus propias páginas configurables.</p><br><button class="btn-primary" onclick="showToast('Abriendo constructor...')">Crear landing page</button></div></div>
       <div class="page" id="page-whatsapp"><div class="empty-state"><div class="empty-icon">📱</div><p>Módulo de WhatsApp<br><br>Mensajes programados y secuencias de seguimiento.<br>Integración con Cloud API de Meta en Fase 2.</p></div></div>
       <div class="page" id="page-auth">
-        <div class="page-header"><div><h2>✅ Autorizaciones pendientes</h2><p>Acciones que esperan tu aprobación</p></div></div>
-        <div class="card">
+        <div class="page-header">
+          <div><h2>✅ Pre-Autorizador</h2><p>Todo el contenido pasa por revisión antes de publicarse</p></div>
+          <button class="btn-primary" onclick="openPreAuthEval()" id="preauth-eval-btn">🤖 Evaluar nuevo contenido</button>
+        </div>
+        <!-- Stats -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+          <div class="card" style="padding:14px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--yellow);" id="auth-pending-count">2</div><div style="font-size:11px;color:#6b7280;">Pendientes</div></div>
+          <div class="card" style="padding:14px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--green);">18</div><div style="font-size:11px;color:#6b7280;">Aprobados hoy</div></div>
+          <div class="card" style="padding:14px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--red);">3</div><div style="font-size:11px;color:#6b7280;">Rechazados</div></div>
+          <div class="card" style="padding:14px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--primary);">91</div><div style="font-size:11px;color:#6b7280;">Score promedio</div></div>
+        </div>
+        <!-- Pending -->
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-header"><span class="card-title">⏳ Pendientes de aprobación</span><span id="auth-badge" style="background:var(--yellow);color:white;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">2</span></div>
+          <div class="card-body" id="auth-pending-list">
+            <div class="auth-item" id="auth-1">
+              <div style="background:#fef3c7;border-radius:8px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📢</div>
+              <div class="auth-info">
+                <div class="auth-name">Anuncio "Departamentos desde $2.8M" — Instagram</div>
+                <div class="auth-desc" style="margin-bottom:6px;">Generador de Anuncios · <strong style="color:var(--green);">Score: 87/100</strong> · Viralidad: 82 · Conversión: 87 · Riesgo: 12</div>
+                <div style="font-size:11px;color:#6b7280;font-style:italic;">"Tu familia merece vivir a metros del mar. Departamentos en Acapulco desde $2.8M con vista al Pacífico..."</div>
+              </div>
+              <div class="auth-actions">
+                <button class="btn-sm btn-approve" onclick="aprobarContenido('auth-1','Anuncio Instagram aprobado')">✅ Aprobar</button>
+                <button class="btn-sm btn-reject" onclick="rechazarContenido('auth-1')">✗ Rechazar</button>
+                <button class="btn-sm" style="background:#f3f4f6;color:#374151;" onclick="preAuthEvaluar('auth-1',this)">🤖 Re-evaluar</button>
+              </div>
+            </div>
+            <div class="auth-item" id="auth-2">
+              <div style="background:#dbeafe;border-radius:8px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">💬</div>
+              <div class="auth-info">
+                <div class="auth-name">Secuencia WhatsApp — 45 leads dormidos</div>
+                <div class="auth-desc" style="margin-bottom:6px;">Programador de Mensajes · <strong style="color:var(--yellow);">Score: 74/100</strong> · 3 mensajes · 7 días entre cada uno · Riesgo: 28</div>
+                <div style="font-size:11px;color:#6b7280;font-style:italic;">"Hola [nombre], ¿recuerdas que te interesó Caracol Diamante? Tenemos una novedad que te puede interesar..."</div>
+              </div>
+              <div class="auth-actions">
+                <button class="btn-sm btn-approve" onclick="aprobarContenido('auth-2','Secuencia WhatsApp autorizada — se enviará a 45 leads')">✅ Aprobar</button>
+                <button class="btn-sm btn-reject" onclick="rechazarContenido('auth-2')">✗ Rechazar</button>
+                <button class="btn-sm" style="background:#f3f4f6;color:#374151;" onclick="preAuthEvaluar('auth-2',this)">🤖 Re-evaluar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Eval input -->
+        <div class="card" id="preauth-eval-card" style="display:none;margin-bottom:14px;">
+          <div class="card-header"><span class="card-title">🤖 Evaluación de nuevo contenido</span><button class="btn-sm" onclick="document.getElementById('preauth-eval-card').style.display='none'">✕</button></div>
           <div class="card-body">
-            <div class="auth-item"><div class="auth-dot" style="background:var(--yellow)"></div><div class="auth-info"><div class="auth-name">Anuncio "Departamentos desde $2.8M" — Instagram</div><div class="auth-desc">Generador de Anuncios · Score viralidad 82 · Score conversión 87 · Riesgo: 12</div></div><div class="auth-actions"><button class="btn-sm btn-approve" onclick="showToast('✅ Aprobado')">Aprobar</button><button class="btn-sm btn-reject" onclick="showToast('❌ Rechazado')">Rechazar</button></div></div>
-            <div class="auth-item"><div class="auth-dot" style="background:var(--red)"></div><div class="auth-info"><div class="auth-name">Secuencia WhatsApp — 45 leads dormidos</div><div class="auth-desc">Programador de Mensajes · 3 mensajes · 7 días entre cada uno</div></div><div class="auth-actions"><button class="btn-sm btn-approve" onclick="showToast('✅ Secuencia autorizada')">Aprobar</button><button class="btn-sm btn-reject" onclick="showToast('❌ Rechazado')">Rechazar</button></div></div>
+            <textarea id="preauth-content-input" style="width:100%;min-height:100px;border:1.5px solid #e5e7eb;border-radius:8px;padding:10px;font-size:12px;font-family:inherit;margin-bottom:10px;resize:vertical;" placeholder="Pega aquí el anuncio, landing page, mensaje o contenido que quieres evaluar..."></textarea>
+            <div style="display:flex;gap:8px;">
+              <select id="preauth-type-select" style="border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;">
+                <option value="anuncio">📢 Anuncio Meta Ads</option>
+                <option value="whatsapp">💬 Mensaje WhatsApp</option>
+                <option value="landing">📄 Landing Page</option>
+                <option value="email">📧 Email / Newsletter</option>
+                <option value="reel">🎬 Guión de Reel</option>
+              </select>
+              <button class="btn-primary" onclick="ejecutarPreAuth()" style="font-size:12px;">🤖 Evaluar con IA</button>
+            </div>
+            <div id="preauth-eval-result" style="margin-top:12px;"></div>
+          </div>
+        </div>
+        <!-- History -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">📋 Historial reciente</span></div>
+          <div class="card-body" id="auth-history-list">
+            <div class="auth-item"><div style="font-size:18px;">✅</div><div class="auth-info"><div class="auth-name">Landing page "Familias Verano 2026"</div><div class="auth-desc">Score: 91/100 · Aprobado por Paco · hace 2h</div></div></div>
+            <div class="auth-item"><div style="font-size:18px;">✅</div><div class="auth-info"><div class="auth-name">Reel "Vista al Pacífico — Torre B"</div><div class="auth-desc">Score: 88/100 · Aprobado por Paco · hace 5h</div></div></div>
+            <div class="auth-item"><div style="font-size:18px;">❌</div><div class="auth-info"><div class="auth-name">Anuncio "Precio especial solo hoy"</div><div class="auth-desc">Score: 52/100 · Rechazado · Motivo: lenguaje de urgencia falsa · hace 1 día</div></div></div>
           </div>
         </div>
       </div>
       <div class="page" id="page-reports"><div class="empty-state"><div class="empty-icon">📈</div><p>Reportes y métricas<br><br>Leads, conversiones, campañas, vendedores y más.</p></div></div>
+
+      <!-- ── COMPETENCIA ── -->
+      <div class="page" id="page-competencia">
+        <div class="page-header">
+          <div><h2>🕵️ Inteligencia Competitiva</h2><p id="comp-last-update">Anuncios de la competencia · Actualizado hoy</p></div>
+          <button class="btn-primary" onclick="buscarCompetencia()" id="comp-search-btn">🔍 Buscar anuncios hoy</button>
+        </div>
+        <!-- Search config -->
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-header"><span class="card-title">⚙️ Competidores monitoreados</span></div>
+          <div class="card-body">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;" id="comp-keywords-list">
+              <span style="background:var(--primary-light);color:var(--primary);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;">departamentos playa acapulco</span>
+              <span style="background:var(--primary-light);color:var(--primary);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;">condominios guerrero</span>
+              <span style="background:var(--primary-light);color:var(--primary);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;">desarrollo inmobiliario playa</span>
+              <span style="background:var(--primary-light);color:var(--primary);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;">preventa departamento</span>
+              <span style="background:#f3f4f6;color:#6b7280;border-radius:20px;padding:4px 12px;font-size:11px;cursor:pointer;" onclick="showToast('Escribe el nombre del competidor en el chat')">＋ Agregar</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <a href="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=MX&q=departamentos+playa+acapulco&search_type=keyword_unordered" target="_blank" class="btn-primary" style="font-size:11px;text-decoration:none;">📊 Abrir Biblioteca de Anuncios Meta</a>
+              <a href="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=MX&q=caracol+diamante" target="_blank" class="btn-sm" style="font-size:11px;text-decoration:none;background:#f3f4f6;color:#374151;">Ver mis propios anuncios</a>
+            </div>
+          </div>
+        </div>
+        <!-- AI Analysis -->
+        <div class="card" style="margin-bottom:14px;" id="comp-ai-card">
+          <div class="card-header"><span class="card-title">🤖 Análisis IA de la competencia</span><button class="btn-sm" style="background:var(--primary-light);color:var(--primary);font-size:11px;" onclick="analizarCompetencia()">Analizar ahora</button></div>
+          <div class="card-body" id="comp-ai-result">
+            <p style="font-size:12px;color:#6b7280;">Haz clic en "Analizar ahora" para que el Agente Competitivo investigue qué están haciendo los competidores y te dé recomendaciones específicas para Caracol Diamante.</p>
+          </div>
+        </div>
+        <!-- Saved ads -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">⭐ Anuncios guardados para inspiración</span></div>
+          <div class="card-body" id="comp-saved-ads">
+            <div class="auth-item"><div style="font-size:24px;">🏖️</div><div class="auth-info"><div class="auth-name">"Vive a metros del mar — Desde $2.5M" · Competidor A</div><div class="auth-desc">Facebook · Video 30s · 45K impresiones · Guardado: hace 3 días · Fortaleza: precio directo</div></div><div class="auth-actions"><button class="btn-sm btn-approve" onclick="showToast('Enviando a Generador de Anuncios...')">Usar de inspiración</button></div></div>
+            <div class="auth-item"><div style="font-size:24px;">🌊</div><div class="auth-info"><div class="auth-name">"Tu inversión te paga sola — Rentas garantizadas" · Competidor B</div><div class="auth-desc">Instagram · Imagen carrusel · 28K impresiones · Guardado: hace 5 días · Fortaleza: argumento inversión</div></div><div class="auth-actions"><button class="btn-sm btn-approve" onclick="showToast('Enviando a Generador de Anuncios...')">Usar de inspiración</button></div></div>
+            <div class="auth-item"><div style="font-size:24px;">👨‍👩‍👧</div><div class="auth-info"><div class="auth-name">"El lugar donde tu familia crea recuerdos" · Competidor C</div><div class="auth-desc">Facebook · Imagen única · 19K impresiones · Guardado: hace 1 semana · Fortaleza: emoción familiar</div></div><div class="auth-actions"><button class="btn-sm btn-approve" onclick="showToast('Enviando a Generador de Anuncios...')">Usar de inspiración</button></div></div>
+          </div>
+        </div>
+      </div>
       <!-- ── CONFIGURACIÓN ── -->
       <div class="page" id="page-config">
         <div class="page-header"><div><h2>⚙️ Configuración</h2><p>Negocios, usuarios, roles, integraciones y reglas del sistema</p></div></div>
@@ -1111,7 +1236,8 @@ function showPage(id, el) {
     dashboard: 'Dashboard', chat: 'Hablar con la Agencia', cerebro: 'Cerebro Vivo',
     crm: 'CRM', campaigns: 'Campañas', agents: 'Agentes', auth: 'Autorizaciones',
     reports: 'Reportes', config: 'Configuración', ideas: 'Ideas Pendientes',
-    calendar: 'Calendario de Seguimiento', landings: 'Landing Pages', whatsapp: 'WhatsApp'
+    calendar: 'Calendario de Seguimiento', landings: 'Landing Pages', whatsapp: 'WhatsApp',
+    competencia: 'Inteligencia Competitiva'
   };
   document.getElementById('topbar-title').textContent = titles[id] || id;
   document.getElementById('biz-dropdown').classList.remove('open');
@@ -1741,10 +1867,118 @@ function closeGDriveHelp() {
 
 // Init config page on first load
 document.addEventListener('DOMContentLoaded', () => {
-  // Activate first config tab
   const firstTab = document.querySelector('.cfg-tab');
   if (firstTab) showCfg('negocios', firstTab);
+  // Show saved key status on load
+  if (claudeApiKey) {
+    const s = document.getElementById('api-key-status');
+    if (s) s.innerHTML = '<span style="color:#10b981;font-weight:700;">✅ API Key guardada — los agentes usan Claude real</span>';
+  }
 });
+
+// ─── COMPETENCIA ───
+async function buscarCompetencia() {
+  const btn = document.getElementById('comp-search-btn');
+  btn.textContent = '⏳ Buscando...';
+  btn.disabled = true;
+  const result = await callClaude([{role:'user', content:'Investiga qué tipo de anuncios están corriendo los competidores de departamentos de playa en Acapulco y Guerrero en Facebook e Instagram ahora mismo. Dame un resumen de las estrategias más comunes, los ángulos de venta que están usando y 3 recomendaciones específicas para que Caracol Diamante se diferencie. Sé concreto y accionable.'}],
+    getBizContext(false) + '\nEres el Agente de Inteligencia Competitiva. Tu trabajo es analizar el mercado y dar ventaja estratégica a Paco.');
+  const el = document.getElementById('comp-ai-result');
+  el.innerHTML = '<div style="font-size:12px;line-height:1.7;background:var(--primary-light);border-radius:8px;padding:14px;">' +
+    result.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') + '</div>';
+  document.getElementById('comp-last-update').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
+  btn.textContent = '🔍 Buscar anuncios hoy';
+  btn.disabled = false;
+}
+
+async function analizarCompetencia() {
+  const el = document.getElementById('comp-ai-result');
+  el.innerHTML = '<div style="font-size:12px;color:#6b7280;padding:10px;"><div class="typing"><span></span><span></span><span></span></div> Analizando competencia...</div>';
+  await buscarCompetencia();
+}
+
+// ─── PRE-AUTORIZADOR ───
+function openPreAuthEval() {
+  const card = document.getElementById('preauth-eval-card');
+  card.style.display = 'block';
+  card.scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById('preauth-content-input').focus();
+}
+
+async function ejecutarPreAuth() {
+  const content = document.getElementById('preauth-content-input').value.trim();
+  const type = document.getElementById('preauth-type-select').value;
+  const resultEl = document.getElementById('preauth-eval-result');
+  if (!content) { showToast('⚠️ Pega el contenido a evaluar primero'); return; }
+  resultEl.innerHTML = '<div style="font-size:12px;color:#6b7280;padding:10px;"><div class="typing"><span></span><span></span><span></span></div> Evaluando calidad...</div>';
+  const typeLabels = {anuncio:'Anuncio Meta Ads', whatsapp:'Mensaje WhatsApp', landing:'Landing Page', email:'Email', reel:'Guión de Reel'};
+  const systemPrompt = getBizContext(false) + `\nEres el Pre-Autorizador de calidad de Agencia Paco AI. Tu trabajo es evaluar contenido ANTES de que se publique.
+Evalúa el siguiente ${typeLabels[type]} y responde con:
+1. **Score total: X/100** (0=pésimo, 100=perfecto)
+2. **Veredicto:** APROBAR ✅ / RECHAZAR ❌ / REVISAR ⚠️ (si score < 60 rechaza, 60-75 revisa, 76+ aprueba)
+3. **Fortalezas** (2-3 puntos)
+4. **Problemas** (si los hay)
+5. **Mejora sugerida** (una línea concreta)
+Sé directo, como un director de marketing exigente.`;
+  const result = await callClaude([{role:'user', content:content}], systemPrompt);
+  const score = result.match(/Score total:\s*(\d+)/i)?.[1] || '—';
+  const isApproved = result.includes('APROBAR') || result.includes('✅');
+  const isRejected = result.includes('RECHAZAR') || result.includes('❌');
+  const color = isApproved ? '#10b981' : isRejected ? '#ef4444' : '#f59e0b';
+  resultEl.innerHTML = `
+    <div style="border:1.5px solid ${color};border-radius:10px;padding:14px;">
+      <div style="font-size:18px;font-weight:800;color:${color};margin-bottom:8px;">Score: ${score}/100</div>
+      <div style="font-size:12px;line-height:1.7;">${result.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div>
+      ${isApproved ? `<button class="btn-sm btn-approve" style="margin-top:10px;" onclick="addToAuthHistory('${typeLabels[type]}',${score})">✅ Agregar a aprobados</button>` : ''}
+    </div>`;
+}
+
+async function preAuthEvaluar(itemId, btn) {
+  const item = document.getElementById(itemId);
+  const desc = item.querySelector('.auth-name').textContent;
+  const preview = item.querySelector('div[style*="font-style"]')?.textContent || '';
+  btn.textContent = '⏳';
+  const systemPrompt = getBizContext(false) + '\nEres el Pre-Autorizador. Evalúa este contenido: dame Score/100, veredicto APROBAR/RECHAZAR/REVISAR, y 1 mejora concreta. Sé muy breve (3 líneas máximo).';
+  const result = await callClaude([{role:'user', content:desc + ': ' + preview}], systemPrompt);
+  const scoreEl = item.querySelector('.auth-desc strong');
+  if (scoreEl) scoreEl.textContent = result.slice(0,80) + '...';
+  showToast('🤖 Re-evaluación lista');
+  btn.textContent = '🤖 Re-evaluar';
+}
+
+function aprobarContenido(itemId, msg) {
+  const item = document.getElementById(itemId);
+  if (item) {
+    const name = item.querySelector('.auth-name').textContent;
+    addToAuthHistory(name, null);
+    item.style.opacity = '0.4';
+    item.style.pointerEvents = 'none';
+    const badge = document.getElementById('auth-badge');
+    const count = document.getElementById('auth-pending-count');
+    const n = Math.max(0, parseInt(badge?.textContent||'0') - 1);
+    if (badge) badge.textContent = n;
+    if (count) count.textContent = n;
+  }
+  showToast('✅ ' + (msg || 'Contenido aprobado y listo para publicar'));
+}
+
+function rechazarContenido(itemId) {
+  const item = document.getElementById(itemId);
+  if (item) {
+    item.style.opacity = '0.4';
+    item.style.pointerEvents = 'none';
+  }
+  showToast('❌ Rechazado — el agente recibirá el feedback');
+}
+
+function addToAuthHistory(name, score) {
+  const list = document.getElementById('auth-history-list');
+  if (!list) return;
+  const div = document.createElement('div');
+  div.className = 'auth-item';
+  div.innerHTML = `<div style="font-size:18px;">✅</div><div class="auth-info"><div class="auth-name">${name}</div><div class="auth-desc">${score ? 'Score: ' + score + '/100 · ' : ''}Aprobado por Paco · ahora</div></div>`;
+  list.insertBefore(div, list.firstChild);
+}
 </script>
 </body>
 </html>
