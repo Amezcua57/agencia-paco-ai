@@ -406,6 +406,9 @@
   .int-connect-btn { margin-left: auto; background: var(--primary); color: white; border: none; border-radius: 7px; padding: 7px 14px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
   .int-connected-badge { margin-left: auto; color: #10b981; font-size: 11px; font-weight: 700; white-space: nowrap; }
 </style>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -416,9 +419,29 @@
     <div class="login-title">Agencia Paco AI</div>
     <div class="login-sub">Tu agencia de marketing operada por inteligencia artificial</div>
     <input class="login-field" type="email" placeholder="correo@empresa.com" value="paco@agenciapaco.ai" id="login-email">
-    <input class="login-field" type="password" placeholder="Contraseña" value="••••••••" id="login-pass">
+    <div id="pin-field-wrap" style="display:none;margin-bottom:12px;">
+      <input class="login-field" type="password" placeholder="PIN de administrador" id="login-pin" maxlength="8" style="margin-bottom:0;letter-spacing:6px;font-size:22px;text-align:center;" onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="pin-error" style="color:#ef4444;font-size:12px;margin-top:6px;text-align:center;display:none;"></div>
+    </div>
+    <div id="set-pin-wrap" style="display:none;margin-bottom:12px;background:#f0fdf4;border-radius:10px;padding:12px;font-size:12px;color:#166534;text-align:left;">
+      <strong>Primera vez:</strong> Crea tu PIN de admin (4–8 dígitos). Este PIN te dará acceso completo y podrás bloquear negocios para el equipo.
+      <input class="login-field" type="password" placeholder="Crear PIN (4–8 dígitos)" id="new-pin-input" maxlength="8" style="margin:8px 0 4px;letter-spacing:4px;text-align:center;font-size:18px;" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
     <button class="login-btn" onclick="doLogin()">Entrar a la Agencia →</button>
-    <div class="login-hint">v1.0 MVP · Plataforma privada de Francisco Amezcua</div>
+    <div class="login-hint">v1.1 · Con Firebase Sync · Plataforma privada de Francisco Amezcua</div>
+  </div>
+</div>
+
+<!-- ═══════════════════ BIZ LOCK OVERLAY ═══════════════════ -->
+<div id="biz-lock-overlay" style="display:none;position:fixed;inset:0;background:rgba(30,27,75,0.92);z-index:500;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:36px;width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+    <div style="font-size:36px;margin-bottom:8px;" id="biz-lock-icon">🔒</div>
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px;" id="biz-lock-name">Negocio bloqueado</div>
+    <div style="font-size:12px;color:#9ca3af;margin-bottom:20px;">Este negocio está protegido. Ingresa el PIN de administrador.</div>
+    <input type="password" id="biz-unlock-pin" maxlength="8" placeholder="PIN admin" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:10px;font-size:22px;text-align:center;letter-spacing:6px;margin-bottom:8px;outline:none;" onkeydown="if(event.key==='Enter')unlockBiz()">
+    <div id="biz-pin-error" style="color:#ef4444;font-size:12px;margin-bottom:12px;display:none;">PIN incorrecto</div>
+    <button onclick="unlockBiz()" style="width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">Desbloquear →</button>
+    <button onclick="document.getElementById('biz-lock-overlay').style.display='none'" style="width:100%;padding:10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">Cancelar</button>
   </div>
 </div>
 
@@ -1220,8 +1243,55 @@ const wizardSteps = [
 
 // ─── LOGIN ───
 function doLogin() {
+  if (_pinHash) {
+    // Existing PIN — validate
+    const entered = (document.getElementById('login-pin')?.value || '').trim();
+    if (!entered) { _showPinError('Ingresa tu PIN'); return; }
+    if (_hp(entered) !== _pinHash) { _showPinError('PIN incorrecto'); return; }
+    isAdmin = true;
+  } else {
+    // First time — create PIN
+    const newPin = (document.getElementById('new-pin-input')?.value || '').trim();
+    if (newPin.length < 4) { _showPinError('El PIN debe tener al menos 4 dígitos'); return; }
+    _pinHash = _hp(newPin);
+    localStorage.setItem('adminPinHash', _pinHash);
+    isAdmin = true;
+    showToast('🔐 PIN de admin creado. Solo tú puedes entrar con él.');
+  }
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  // Start Firestore listener for current biz
+  setTimeout(() => listenCerebro(state.currentBiz), 1000);
+}
+function _showPinError(msg) {
+  const errEl = document.getElementById('pin-error');
+  if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+  const errEl2 = document.getElementById('set-pin-wrap');
+  if (_pinHash && errEl) { errEl.style.display = 'block'; }
+}
+
+function unlockBiz() {
+  const pin = (document.getElementById('biz-unlock-pin')?.value || '').trim();
+  const errEl = document.getElementById('biz-pin-error');
+  if (_hp(pin) !== _pinHash) {
+    if (errEl) errEl.style.display = 'block';
+    return;
+  }
+  if (errEl) errEl.style.display = 'none';
+  const overlay = document.getElementById('biz-lock-overlay');
+  const bizId = overlay.dataset.bizId;
+  overlay.style.display = 'none';
+  document.getElementById('biz-unlock-pin').value = '';
+  // Actually switch to the biz
+  const biz = state.businesses[bizId];
+  if (biz) _doBizSwitch(bizId, biz.icon, biz.name, biz.color);
+}
+
+function toggleBizLock(bizId) {
+  _lockedBiz[bizId] = !_lockedBiz[bizId];
+  localStorage.setItem('lockedBiz', JSON.stringify(_lockedBiz));
+  showToast(_lockedBiz[bizId] ? '🔒 Negocio bloqueado para otros usuarios' : '🔓 Negocio desbloqueado');
+  renderBizListCfg();
 }
 
 // ─── NAVIGATION ───
@@ -1250,6 +1320,20 @@ function toggleBizDropdown() {
   document.getElementById('biz-dropdown').classList.toggle('open');
 }
 function switchBiz(key, icon, name, color) {
+  if (_lockedBiz[key] && !isAdmin) {
+    // Show lock overlay
+    const overlay = document.getElementById('biz-lock-overlay');
+    overlay.dataset.bizId = key;
+    document.getElementById('biz-lock-name').textContent = icon + ' ' + name;
+    document.getElementById('biz-lock-icon').textContent = '🔒';
+    document.getElementById('biz-pin-error').style.display = 'none';
+    document.getElementById('biz-unlock-pin').value = '';
+    overlay.style.display = 'flex';
+    return;
+  }
+  _doBizSwitch(key, icon, name, color);
+}
+function _doBizSwitch(key, icon, name, color) {
   state.currentBiz = key;
   document.getElementById('current-biz-icon').textContent = icon;
   document.getElementById('current-biz-icon').style.background = color;
@@ -1261,6 +1345,8 @@ function switchBiz(key, icon, name, color) {
   if (cerebEl) cerebEl.textContent = 'Conocimiento de ' + name;
   document.getElementById('biz-dropdown').classList.remove('open');
   showToast('Cambiando a ' + name + ' — Cerebro Vivo actualizado');
+  // Sync Firestore for new biz
+  setTimeout(() => listenCerebro(key), 400);
 }
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.biz-switcher')) document.getElementById('biz-dropdown').classList.remove('open');
@@ -1375,6 +1461,73 @@ function finishOnboarding() {
 }
 
 // ─── CHAT ───
+// ─── FIREBASE ───
+const _fbCfg = {
+  apiKey: "AIzaSyDnn5s6kfDRVxVBDviLIvI7itI5reFbklk",
+  authDomain: "infografia-porter.firebaseapp.com",
+  projectId: "infografia-porter",
+  storageBucket: "infografia-porter.firebasestorage.app",
+  messagingSenderId: "84089325665",
+  appId: "1:84089325665:web:d68df807b8841e46cd4220"
+};
+let db = null;
+let fbReady = false;
+try {
+  if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
+  db = firebase.firestore();
+  fbReady = true;
+} catch(e) { console.warn('Firebase init failed:', e); }
+
+function fbSave(collection, data) {
+  if (!fbReady) return;
+  db.collection(collection).add({ ...data, ts: firebase.firestore.FieldValue.serverTimestamp() })
+    .catch(e => console.warn('fbSave error:', e));
+}
+
+function listenCerebro(bizId) {
+  if (!fbReady) return;
+  db.collection('cerebro').where('biz','==',bizId)
+    .orderBy('ts','desc').limit(50)
+    .onSnapshot(snap => {
+      snap.docChanges().forEach(ch => {
+        if (ch.type === 'added') {
+          const d = ch.doc.data();
+          const list = document.getElementById('cerebro-items-list');
+          if (!list) return;
+          // Check if already in DOM (avoid duplicates from local add)
+          if (document.getElementById('fb-' + ch.doc.id)) return;
+          const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
+          const confLabel = (d.confidence||3) >= 5 ? '⭐⭐⭐⭐⭐ Oficial' : (d.confidence||3) >= 3 ? '⭐⭐⭐ Confiable' : '⭐ Tentativo';
+          const row = document.createElement('div');
+          row.id = 'fb-' + ch.doc.id;
+          row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:8px;background:white;';
+          row.innerHTML = '<div style="width:34px;height:34px;background:var(--primary-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">' + (typeEmoji[d.type]||'📁') + '</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (d.title||'Sin título') + '</div><div style="font-size:10px;color:#9ca3af;margin-top:2px;">' + (d.type||'texto').toUpperCase() + ' · ' + confLabel + ' · ' + (d.bizName||d.biz) + ' · Sincronizado ☁️</div></div><span style="font-size:10px;background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:8px;font-weight:700;">Activo</span>';
+          list.appendChild(row);
+        }
+      });
+    }, e => console.warn('onSnapshot error:', e));
+}
+
+// ─── PIN ADMIN ───
+let _pinHash = localStorage.getItem('adminPinHash') || '';
+let isAdmin = false;
+let _lockedBiz = JSON.parse(localStorage.getItem('lockedBiz') || '{}');
+
+function _hp(pin) {
+  let h = 5381;
+  for (let c of String(pin)) h = ((h << 5) + h) + c.charCodeAt(0);
+  return (h >>> 0).toString(36);
+}
+
+// Show correct login UI on page load
+(function initLoginUI() {
+  if (_pinHash) {
+    document.getElementById('pin-field-wrap').style.display = 'block';
+  } else {
+    document.getElementById('set-pin-wrap').style.display = 'block';
+  }
+})();
+
 // ─── CLAUDE REAL API ───
 let claudeApiKey = localStorage.getItem('claudeApiKey') || '';
 
@@ -1736,16 +1889,21 @@ function showCfg(id, el) {
 function renderBizListCfg() {
   const el = document.getElementById('biz-list-cfg');
   if (!el) return;
-  el.innerHTML = Object.entries(state.businesses).map(([key, b]) => `
-    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:10px;background:white;">
+  el.innerHTML = Object.entries(state.businesses).map(([key, b]) => {
+    const locked = _lockedBiz[key];
+    const lockBtn = isAdmin
+      ? `<button onclick="toggleBizLock('${key}')" style="background:${locked?'#fef3c7':'#f3f4f6'};border:none;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;" title="${locked?'Desbloquear':'Bloquear para equipo'}">${locked?'🔒':'🔓'}</button>`
+      : '';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid ${locked?'#fde68a':'#e5e7eb'};border-radius:10px;margin-bottom:10px;background:white;">
       <div style="width:36px;height:36px;background:${b.color};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">${b.icon}</div>
       <div style="flex:1;">
-        <div style="font-size:13px;font-weight:700;">${b.name}</div>
-        <div style="font-size:11px;color:#9ca3af;">ID: ${key}</div>
+        <div style="font-size:13px;font-weight:700;">${b.name} ${locked?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-weight:700;">BLOQUEADO</span>':''}</div>
+        <div style="font-size:11px;color:#9ca3af;">ID: ${key} · ${locked?'Solo accesible con PIN admin':'Acceso libre para el equipo'}</div>
       </div>
-      <span style="font-size:10px;padding:3px 8px;border-radius:8px;font-weight:700;background:#d1fae5;color:#065f46;">Activo</span>
-      <button onclick="switchBiz('${key}','${b.icon}','${b.name}','${b.color}');showToast('Cambiado a ${b.name}')" style="background:#f3f4f6;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;color:#374151;">Ver →</button>
-    </div>`).join('');
+      ${lockBtn}
+      <button onclick="_doBizSwitch('${key}','${b.icon}','${b.name}','${b.color}');showPage('cerebro',null);showToast('Cambiado a ${b.name}')" style="background:#f3f4f6;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;color:#374151;">Ver →</button>
+    </div>`;
+  }).join('');
 }
 
 const integrations = [
@@ -1852,7 +2010,9 @@ function saveKnowledge() {
     list.prepend(row);
   }
   closeAddKnowledge();
-  showToast('🧠 Guardado en Cerebro Vivo de ' + biz.name);
+  // Save to Firestore for team sync
+  fbSave('cerebro', { title: title || content.substring(0,60), content, type: knowType, confidence: knowConfidence, biz: state.currentBiz, bizName: biz.name });
+  showToast('🧠 Guardado en Cerebro Vivo de ' + biz.name + (fbReady ? ' ☁️' : ''));
 }
 
 function showGDriveHelp() {
