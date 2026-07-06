@@ -428,6 +428,9 @@
       <input class="login-field" type="password" placeholder="Crear PIN (4–8 dígitos)" id="new-pin-input" maxlength="8" style="margin:8px 0 4px;letter-spacing:4px;text-align:center;font-size:18px;" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="login-btn" onclick="doLogin()">Entrar a la Agencia →</button>
+    <div id="forgot-pin-link" style="display:none;margin-top:10px;">
+      <button onclick="resetPin()" style="background:none;border:none;color:#9ca3af;font-size:11px;cursor:pointer;text-decoration:underline;">¿Olvidaste tu PIN? Restablecer</button>
+    </div>
     <div class="login-hint">v1.1 · Con Firebase Sync · Plataforma privada de Francisco Amezcua</div>
   </div>
 </div>
@@ -1523,10 +1526,19 @@ function _hp(pin) {
 (function initLoginUI() {
   if (_pinHash) {
     document.getElementById('pin-field-wrap').style.display = 'block';
+    document.getElementById('forgot-pin-link').style.display = 'block';
   } else {
     document.getElementById('set-pin-wrap').style.display = 'block';
   }
 })();
+
+function resetPin() {
+  const confirmed = confirm('¿Seguro que quieres restablecer tu PIN de admin?\n\nSe borrará el PIN actual y podrás crear uno nuevo. Los datos de la app NO se borran.');
+  if (!confirmed) return;
+  localStorage.removeItem('adminPinHash');
+  localStorage.removeItem('lockedBiz');
+  location.reload();
+}
 
 // ─── CLAUDE REAL API ───
 let claudeApiKey = localStorage.getItem('claudeApiKey') || '';
