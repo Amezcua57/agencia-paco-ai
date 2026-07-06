@@ -1515,6 +1515,7 @@ function listenCerebro(bizId) {
 let _pinHash = localStorage.getItem('adminPinHash') || '';
 let isAdmin = false;
 let _lockedBiz = JSON.parse(localStorage.getItem('lockedBiz') || '{}');
+let bizPhones = JSON.parse(localStorage.getItem('bizPhones') || '{}');
 
 function _hp(pin) {
   let h = 5381;
@@ -1906,16 +1907,36 @@ function renderBizListCfg() {
     const lockBtn = isAdmin
       ? `<button onclick="toggleBizLock('${key}')" style="background:${locked?'#fef3c7':'#f3f4f6'};border:none;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;" title="${locked?'Desbloquear':'Bloquear para equipo'}">${locked?'🔒':'🔓'}</button>`
       : '';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid ${locked?'#fde68a':'#e5e7eb'};border-radius:10px;margin-bottom:10px;background:white;">
-      <div style="width:36px;height:36px;background:${b.color};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">${b.icon}</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:700;">${b.name} ${locked?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-weight:700;">BLOQUEADO</span>':''}</div>
-        <div style="font-size:11px;color:#9ca3af;">ID: ${key} · ${locked?'Solo accesible con PIN admin':'Acceso libre para el equipo'}</div>
+    const phone = bizPhones[key] || '';
+    return `<div style="border:1.5px solid ${locked?'#fde68a':'#e5e7eb'};border-radius:10px;margin-bottom:10px;background:white;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;">
+        <div style="width:36px;height:36px;background:${b.color};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">${b.icon}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;">${b.name} ${locked?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-weight:700;">BLOQUEADO</span>':''}</div>
+          <div style="font-size:11px;color:#9ca3af;">ID: ${key} · ${locked?'Solo accesible con PIN admin':'Acceso libre para el equipo'}</div>
+        </div>
+        ${lockBtn}
+        <button onclick="_doBizSwitch('${key}','${b.icon}','${b.name}','${b.color}');showPage('cerebro',null);showToast('Cambiado a ${b.name}')" style="background:#f3f4f6;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;color:#374151;">Ver →</button>
       </div>
-      ${lockBtn}
-      <button onclick="_doBizSwitch('${key}','${b.icon}','${b.name}','${b.color}');showPage('cerebro',null);showToast('Cambiado a ${b.name}')" style="background:#f3f4f6;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;color:#374151;">Ver →</button>
+      <div style="border-top:1px solid #f3f4f6;padding:10px 16px;background:#fafafa;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">📱</span>
+        <span style="font-size:11px;font-weight:600;color:#6b7280;white-space:nowrap;">WhatsApp:</span>
+        <input id="wp-${key}" type="tel" value="${phone}" placeholder="+52 55 1234 5678" style="flex:1;border:1.5px solid #e5e7eb;border-radius:6px;padding:5px 10px;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')saveBizPhone('${key}')">
+        <button onclick="saveBizPhone('${key}')" style="background:#25d366;color:white;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>
+        ${phone ? `<a href="https://wa.me/${phone.replace(/[^0-9]/g,'')}" target="_blank" style="background:#f0fdf4;color:#166534;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap;">Probar ↗</a>` : ''}
+      </div>
     </div>`;
   }).join('');
+}
+
+function saveBizPhone(key) {
+  const input = document.getElementById('wp-' + key);
+  if (!input) return;
+  const phone = input.value.trim();
+  bizPhones[key] = phone;
+  localStorage.setItem('bizPhones', JSON.stringify(bizPhones));
+  showToast('📱 WhatsApp de ' + state.businesses[key]?.name + ' guardado: ' + (phone || 'borrado'));
+  renderBizListCfg();
 }
 
 const integrations = [
