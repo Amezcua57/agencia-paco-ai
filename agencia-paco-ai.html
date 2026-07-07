@@ -417,36 +417,21 @@
   <div class="login-box">
     <div class="login-logo">🤖</div>
     <div class="login-title">Agencia Marketing AMEZ</div>
-    <div class="login-sub">Tu agencia de marketing operada por inteligencia artificial</div>
-    <input class="login-field" type="email" placeholder="correo@empresa.com" value="paco@agenciapaco.ai" id="login-email">
-    <div id="pin-field-wrap" style="display:none;margin-bottom:12px;">
-      <input class="login-field" type="password" placeholder="PIN de administrador" id="login-pin" maxlength="8" style="margin-bottom:0;letter-spacing:6px;font-size:22px;text-align:center;" onkeydown="if(event.key==='Enter')doLogin()">
-      <div id="pin-error" style="color:#ef4444;font-size:12px;margin-top:6px;text-align:center;display:none;"></div>
+    <div class="login-sub" id="login-mode-sub">Tu agencia de marketing operada por inteligencia artificial</div>
+    <div id="login-name-wrap" style="display:none;">
+      <input class="login-field" type="text" placeholder="Tu nombre completo" id="login-name">
     </div>
-    <div id="set-pin-wrap" style="display:none;margin-bottom:12px;background:#f0fdf4;border-radius:10px;padding:12px;font-size:12px;color:#166534;text-align:left;">
-      <strong>Primera vez:</strong> Crea tu PIN de admin (4–8 dígitos). Este PIN te dará acceso completo y podrás bloquear negocios para el equipo.
-      <input class="login-field" type="password" placeholder="Crear PIN (4–8 dígitos)" id="new-pin-input" maxlength="8" style="margin:8px 0 4px;letter-spacing:4px;text-align:center;font-size:18px;" onkeydown="if(event.key==='Enter')doLogin()">
+    <input class="login-field" type="email" placeholder="tu@correo.com" id="login-email">
+    <input class="login-field" type="password" placeholder="Contraseña" id="login-pass" style="margin-bottom:6px;" onkeydown="if(event.key==='Enter'){if(_loginMode==='login')doLogin();else doRegister();}">
+    <div id="login-error" style="color:#ef4444;font-size:12px;text-align:center;min-height:18px;margin-bottom:8px;"></div>
+    <button class="login-btn" id="login-main-btn" onclick="doLogin()">Entrar a la Agencia →</button>
+    <div style="margin-top:12px;text-align:center;font-size:12px;color:#9ca3af;">
+      <span id="login-toggle-text">¿Primera vez? </span><button id="login-toggle-btn" onclick="toggleLoginMode()" style="background:none;border:none;color:#6366f1;font-weight:700;cursor:pointer;font-size:12px;text-decoration:underline;">Crear cuenta</button>
     </div>
-    <button class="login-btn" onclick="doLogin()">Entrar a la Agencia →</button>
-    <div id="forgot-pin-link" style="display:none;margin-top:10px;">
-      <button onclick="resetPin()" style="background:none;border:none;color:#9ca3af;font-size:11px;cursor:pointer;text-decoration:underline;">¿Olvidaste tu PIN? Restablecer</button>
-    </div>
-    <div class="login-hint">v1.1 · Con Firebase Sync · Plataforma privada de Francisco Amezcua</div>
+    <div class="login-hint">v1.2 · Firebase Sync · Agencia Marketing AMEZ</div>
   </div>
 </div>
 
-<!-- ═══════════════════ BIZ LOCK OVERLAY ═══════════════════ -->
-<div id="biz-lock-overlay" style="display:none;position:fixed;inset:0;background:rgba(30,27,75,0.92);z-index:500;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:16px;padding:36px;width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-    <div style="font-size:36px;margin-bottom:8px;" id="biz-lock-icon">🔒</div>
-    <div style="font-size:18px;font-weight:800;margin-bottom:4px;" id="biz-lock-name">Negocio bloqueado</div>
-    <div style="font-size:12px;color:#9ca3af;margin-bottom:20px;">Este negocio está protegido. Ingresa el PIN de administrador.</div>
-    <input type="password" id="biz-unlock-pin" maxlength="8" placeholder="PIN admin" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:10px;font-size:22px;text-align:center;letter-spacing:6px;margin-bottom:8px;outline:none;" onkeydown="if(event.key==='Enter')unlockBiz()">
-    <div id="biz-pin-error" style="color:#ef4444;font-size:12px;margin-bottom:12px;display:none;">PIN incorrecto</div>
-    <button onclick="unlockBiz()" style="width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">Desbloquear →</button>
-    <button onclick="document.getElementById('biz-lock-overlay').style.display='none'" style="width:100%;padding:10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">Cancelar</button>
-  </div>
-</div>
 
 <!-- ═══════════════════ APP ═══════════════════ -->
 <div id="app">
@@ -465,25 +450,7 @@
         <div class="biz-chevron">▼</div>
       </div>
       <div class="biz-dropdown" id="biz-dropdown">
-        <div class="biz-option" onclick="switchBiz('caracol','🐚','Caracol Diamante','#fef3c7')">
-          <div class="biz-icon" style="background:#fef3c7;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;">🐚</div>
-          <div><div class="biz-option-name">Caracol Diamante</div><div class="biz-option-type">Inmobiliaria · Acapulco</div></div>
-        </div>
-        <div class="biz-option" onclick="switchBiz('seguros','🛡️','Seguros y Fianzas','#dbeafe')">
-          <div class="biz-icon" style="background:#dbeafe;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;">🛡️</div>
-          <div><div class="biz-option-name">Seguros y Fianzas</div><div class="biz-option-type">Sector asegurador</div></div>
-        </div>
-        <div class="biz-option" onclick="switchBiz('bienes','🏠','Bienes Raíces','#d1fae5')">
-          <div class="biz-icon" style="background:#d1fae5;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;">🏠</div>
-          <div><div class="biz-option-name">Bienes Raíces</div><div class="biz-option-type">Propiedades generales</div></div>
-        </div>
-        <div class="biz-option" onclick="switchBiz('personal','📣','Campañas Personales','#f3e8ff')">
-          <div class="biz-icon" style="background:#f3e8ff;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;">📣</div>
-          <div><div class="biz-option-name">Campañas Personales</div><div class="biz-option-type">Proyectos de Paco</div></div>
-        </div>
-        <div class="biz-add" onclick="openOnboarding()">
-          <span style="font-size:18px;">＋</span> Agregar negocio
-        </div>
+        <!-- populated by renderBizDropdown() after login -->
       </div>
     </div>
 
@@ -515,6 +482,17 @@
       <div class="nav-section">Sistema</div>
       <div class="nav-item" onclick="showPage('config',this)"><span class="nav-icon">⚙️</span> Configuración</div>
     </nav>
+    <!-- User info + logout -->
+    <div style="margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,0.1);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;" id="sidebar-avatar">?</div>
+        <div style="flex:1;min-width:0;">
+          <div id="sidebar-user-name" style="font-size:12px;font-weight:700;color:white;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Cargando...</div>
+          <div id="sidebar-user-role" style="font-size:10px;color:rgba(255,255,255,0.6);">Usuario</div>
+        </div>
+        <button onclick="doLogout()" title="Cerrar sesión" style="background:rgba(255,255,255,0.1);border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;color:rgba(255,255,255,0.7);font-size:14px;display:flex;align-items:center;justify-content:center;">↩</button>
+      </div>
+    </div>
   </div>
 
   <!-- MAIN -->
@@ -523,7 +501,7 @@
     <div class="topbar">
       <div class="topbar-title" id="topbar-title">Dashboard</div>
       <span class="topbar-biz-badge" id="topbar-biz">🐚 Caracol Diamante</span>
-      <div class="topbar-avatar" title="Francisco Amezcua">PA</div>
+      <div class="topbar-avatar" id="topbar-avatar" title="Usuario">?</div>
     </div>
 
     <!-- CONTENT -->
@@ -891,18 +869,7 @@
 
         <!-- Usuarios -->
         <div class="cfg-panel" id="cfg-usuarios">
-          <div class="card">
-            <div class="card-header"><span class="card-title">👥 Usuarios con acceso</span><button class="btn-primary" style="font-size:11px;padding:6px 14px;" onclick="showToast('Abriendo formulario de usuario...')">＋ Agregar usuario</button></div>
-            <div class="card-body" style="padding:0;">
-              <table style="width:100%;font-size:12px;border-collapse:collapse;">
-                <tr style="background:#f9f9f9;"><th style="padding:9px 14px;text-align:left;font-weight:700;color:#6b7280;font-size:11px;">Nombre</th><th style="padding:9px 14px;text-align:left;font-weight:700;color:#6b7280;font-size:11px;">Rol</th><th style="padding:9px 14px;text-align:left;font-weight:700;color:#6b7280;font-size:11px;">Negocios</th><th style="padding:9px 14px;text-align:left;font-weight:700;color:#6b7280;font-size:11px;">Estado</th><th style="padding:9px 14px;"></th></tr>
-                <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:10px 14px;font-weight:700;">Francisco Amezcua</td><td style="padding:10px 14px;"><span style="background:#ede9fe;color:#6366f1;border-radius:6px;padding:2px 10px;font-size:10px;font-weight:800;">Administrador</span></td><td style="padding:10px 14px;color:#6b7280;">Todos</td><td style="padding:10px 14px;"><span style="color:#10b981;font-weight:700;font-size:11px;">● Activo</span></td><td style="padding:10px 14px;"><button class="btn-sm" style="background:#f3f4f6;color:#374151;">Editar</button></td></tr>
-                <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:10px 14px;font-weight:700;">Karina</td><td style="padding:10px 14px;"><span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 10px;font-size:10px;font-weight:800;">Vendedora</span></td><td style="padding:10px 14px;color:#6b7280;">Caracol, Bienes Raíces</td><td style="padding:10px 14px;"><span style="color:#10b981;font-weight:700;font-size:11px;">● Activa</span></td><td style="padding:10px 14px;"><button class="btn-sm" style="background:#f3f4f6;color:#374151;">Editar</button></td></tr>
-                <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:10px 14px;font-weight:700;">Eréndira</td><td style="padding:10px 14px;"><span style="background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 10px;font-size:10px;font-weight:800;">Vendedora</span></td><td style="padding:10px 14px;color:#6b7280;">Seguros y Fianzas</td><td style="padding:10px 14px;"><span style="color:#10b981;font-weight:700;font-size:11px;">● Activa</span></td><td style="padding:10px 14px;"><button class="btn-sm" style="background:#f3f4f6;color:#374151;">Editar</button></td></tr>
-                <tr><td style="padding:10px 14px;font-weight:700;">Oliver</td><td style="padding:10px 14px;"><span style="background:#dbeafe;color:#1d4ed8;border-radius:6px;padding:2px 10px;font-size:10px;font-weight:800;">Operador</span></td><td style="padding:10px 14px;color:#6b7280;">Caracol Diamante</td><td style="padding:10px 14px;"><span style="color:#10b981;font-weight:700;font-size:11px;">● Activo</span></td><td style="padding:10px 14px;"><button class="btn-sm" style="background:#f3f4f6;color:#374151;">Editar</button></td></tr>
-              </table>
-            </div>
-          </div>
+          <!-- populated by renderUsersTab() -->
         </div>
 
         <!-- Integraciones -->
@@ -1244,58 +1211,108 @@ const wizardSteps = [
   }
 ];
 
-// ─── LOGIN ───
-function doLogin() {
-  if (_pinHash) {
-    // Existing PIN — validate
-    const entered = (document.getElementById('login-pin')?.value || '').trim();
-    if (!entered) { _showPinError('Ingresa tu PIN'); return; }
-    if (_hp(entered) !== _pinHash) { _showPinError('PIN incorrecto'); return; }
-    isAdmin = true;
-  } else {
-    // First time — create PIN
-    const newPin = (document.getElementById('new-pin-input')?.value || '').trim();
-    if (newPin.length < 4) { _showPinError('El PIN debe tener al menos 4 dígitos'); return; }
-    _pinHash = _hp(newPin);
-    localStorage.setItem('adminPinHash', _pinHash);
-    isAdmin = true;
-    showToast('🔐 PIN de admin creado. Solo tú puedes entrar con él.');
-  }
+// ─── LOGIN / AUTH ───
+async function doLogin() {
+  const email = (document.getElementById('login-email')?.value || '').trim().toLowerCase();
+  const pass  = (document.getElementById('login-pass')?.value || '').trim();
+  if (!email) { _showLoginError('Ingresa tu correo'); return; }
+  if (!pass)  { _showLoginError('Ingresa tu contraseña'); return; }
+  if (!fbReady) { _showLoginError('Sin conexión. Verifica tu internet.'); return; }
+  _setLoginLoading(true); _showLoginError('');
+  try {
+    const doc = await db.collection('users').doc(_emailKey(email)).get();
+    if (!doc.exists) { _setLoginLoading(false); _showLoginError('Correo no registrado. ¿Primera vez? Crea una cuenta.'); return; }
+    const ud = doc.data();
+    if (ud.passHash !== _hp(pass)) { _setLoginLoading(false); _showLoginError('Contraseña incorrecta'); return; }
+    currentUser = { email: ud.email, displayName: ud.displayName, role: ud.role||'user', assignedBiz: ud.assignedBiz||[] };
+    isAdmin = currentUser.role === 'admin';
+    _setLoginLoading(false);
+    enterApp();
+  } catch(e) { _setLoginLoading(false); _showLoginError('Error: ' + e.message); }
+}
+
+async function doRegister() {
+  const name  = (document.getElementById('login-name')?.value || '').trim();
+  const email = (document.getElementById('login-email')?.value || '').trim().toLowerCase();
+  const pass  = (document.getElementById('login-pass')?.value || '').trim();
+  if (!name)  { _showLoginError('Ingresa tu nombre'); return; }
+  if (!email) { _showLoginError('Ingresa tu correo'); return; }
+  if (pass.length < 6) { _showLoginError('La contraseña debe tener al menos 6 caracteres'); return; }
+  if (!fbReady) { _showLoginError('Sin conexión. Verifica tu internet.'); return; }
+  _setLoginLoading(true); _showLoginError('');
+  try {
+    const ref = db.collection('users').doc(_emailKey(email));
+    const ex  = await ref.get();
+    if (ex.exists) { _setLoginLoading(false); _showLoginError('Este correo ya está registrado. Inicia sesión.'); return; }
+    const adminEmail = email === ADMIN_EMAIL;
+    const newU = { email, displayName: name, passHash: _hp(pass), role: adminEmail ? 'admin' : 'user',
+      assignedBiz: adminEmail ? Object.keys(state.businesses) : [],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+    await ref.set(newU);
+    currentUser = { email, displayName: name, role: newU.role, assignedBiz: newU.assignedBiz };
+    isAdmin = currentUser.role === 'admin';
+    _setLoginLoading(false);
+    enterApp();
+    showToast(isAdmin ? '🎉 Cuenta de administrador creada. ¡Bienvenido!' : '👋 Cuenta creada. El admin te asignará acceso a los negocios.');
+  } catch(e) { _setLoginLoading(false); _showLoginError('Error al registrar: ' + e.message); }
+}
+
+function _showLoginError(msg) { const el = document.getElementById('login-error'); if (el) el.textContent = msg; }
+function _setLoginLoading(on) {
+  const btn = document.getElementById('login-main-btn');
+  if (!btn) return;
+  btn.disabled = on;
+  btn.textContent = on ? 'Cargando...' : (_loginMode === 'login' ? 'Entrar a la Agencia →' : 'Crear cuenta →');
+}
+function toggleLoginMode() {
+  _loginMode = _loginMode === 'login' ? 'register' : 'login';
+  const isReg = _loginMode === 'register';
+  document.getElementById('login-name-wrap').style.display = isReg ? 'block' : 'none';
+  document.getElementById('login-main-btn').textContent = isReg ? 'Crear cuenta →' : 'Entrar a la Agencia →';
+  document.getElementById('login-main-btn').onclick = isReg ? doRegister : doLogin;
+  document.getElementById('login-toggle-btn').textContent = isReg ? 'Ya tengo cuenta' : 'Crear cuenta';
+  document.getElementById('login-toggle-text').textContent = isReg ? '' : '¿Primera vez? ';
+  document.getElementById('login-mode-sub').textContent = isReg ? 'Crea tu cuenta para acceder a la agencia' : 'Tu agencia de marketing operada por inteligencia artificial';
+  _showLoginError('');
+}
+
+function enterApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
-  // Start Firestore listener for current biz
+  const initials = (currentUser?.displayName || 'U').substring(0,2).toUpperCase();
+  const av1 = document.getElementById('topbar-avatar'); if (av1) av1.textContent = initials;
+  const av2 = document.getElementById('sidebar-avatar'); if (av2) av2.textContent = initials;
+  const un  = document.getElementById('sidebar-user-name'); if (un) un.textContent = currentUser?.displayName || currentUser?.email;
+  const ur  = document.getElementById('sidebar-user-role'); if (ur) ur.textContent = isAdmin ? '👑 Administrador' : '👤 Usuario';
+  renderBizDropdown();
+  const acc = isAdmin ? Object.keys(state.businesses) : (currentUser?.assignedBiz || []);
+  const fst = acc[0];
+  if (fst && state.businesses[fst]) { const b = state.businesses[fst]; _doBizSwitch(fst, b.icon, b.name, b.color); }
+  else if (!isAdmin && acc.length === 0) showToast('⚠️ Aún sin negocios asignados. El admin te dará acceso.');
   setTimeout(() => listenCerebro(state.currentBiz), 1000);
 }
-function _showPinError(msg) {
-  const errEl = document.getElementById('pin-error');
-  if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
-  const errEl2 = document.getElementById('set-pin-wrap');
-  if (_pinHash && errEl) { errEl.style.display = 'block'; }
+
+function renderBizDropdown() {
+  const dd = document.getElementById('biz-dropdown'); if (!dd) return;
+  const acc = isAdmin ? Object.keys(state.businesses) : (currentUser?.assignedBiz || []);
+  dd.innerHTML = acc.map(key => {
+    const b = state.businesses[key]; if (!b) return '';
+    return `<div class="biz-option" onclick="switchBiz('${key}','${b.icon}','${b.name}','${b.color}')">
+      <div class="biz-icon" style="background:${b.color};width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;">${b.icon}</div>
+      <div><div class="biz-option-name">${b.name}</div><div class="biz-option-type">${b.type||'Marketing'}</div></div></div>`;
+  }).join('') + (isAdmin ? `<div class="biz-add" onclick="openOnboarding()"><span style="font-size:18px;">＋</span> Agregar negocio</div>` : '');
 }
 
-function unlockBiz() {
-  const pin = (document.getElementById('biz-unlock-pin')?.value || '').trim();
-  const errEl = document.getElementById('biz-pin-error');
-  if (_hp(pin) !== _pinHash) {
-    if (errEl) errEl.style.display = 'block';
-    return;
-  }
-  if (errEl) errEl.style.display = 'none';
-  const overlay = document.getElementById('biz-lock-overlay');
-  const bizId = overlay.dataset.bizId;
-  overlay.style.display = 'none';
-  document.getElementById('biz-unlock-pin').value = '';
-  // Actually switch to the biz
-  const biz = state.businesses[bizId];
-  if (biz) _doBizSwitch(bizId, biz.icon, biz.name, biz.color);
+function doLogout() {
+  currentUser = null; isAdmin = false;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pass').value = '';
+  if (_loginMode === 'register') toggleLoginMode();
+  _showLoginError('');
 }
 
-function toggleBizLock(bizId) {
-  _lockedBiz[bizId] = !_lockedBiz[bizId];
-  localStorage.setItem('lockedBiz', JSON.stringify(_lockedBiz));
-  showToast(_lockedBiz[bizId] ? '🔒 Negocio bloqueado para otros usuarios' : '🔓 Negocio desbloqueado');
-  renderBizListCfg();
-}
 
 // ─── NAVIGATION ───
 function showPage(id, el) {
@@ -1323,15 +1340,9 @@ function toggleBizDropdown() {
   document.getElementById('biz-dropdown').classList.toggle('open');
 }
 function switchBiz(key, icon, name, color) {
-  if (_lockedBiz[key] && !isAdmin) {
-    // Show lock overlay
-    const overlay = document.getElementById('biz-lock-overlay');
-    overlay.dataset.bizId = key;
-    document.getElementById('biz-lock-name').textContent = icon + ' ' + name;
-    document.getElementById('biz-lock-icon').textContent = '🔒';
-    document.getElementById('biz-pin-error').style.display = 'none';
-    document.getElementById('biz-unlock-pin').value = '';
-    overlay.style.display = 'flex';
+  const acc = isAdmin ? Object.keys(state.businesses) : (currentUser?.assignedBiz || []);
+  if (!acc.includes(key)) {
+    showToast('❌ No tienes acceso a este negocio. Pide al administrador que te lo asigne.');
     return;
   }
   _doBizSwitch(key, icon, name, color);
@@ -1511,34 +1522,20 @@ function listenCerebro(bizId) {
     }, e => console.warn('onSnapshot error:', e));
 }
 
-// ─── PIN ADMIN ───
-let _pinHash = localStorage.getItem('adminPinHash') || '';
+// ─── USER AUTH SYSTEM ───
+const ADMIN_EMAIL = 'amezcuaizquierdo@gmail.com';
+let currentUser = null;
 let isAdmin = false;
-let _lockedBiz = JSON.parse(localStorage.getItem('lockedBiz') || '{}');
+let _loginMode = 'login';
 let bizPhones = JSON.parse(localStorage.getItem('bizPhones') || '{}');
 
-function _hp(pin) {
+function _hp(str) {
   let h = 5381;
-  for (let c of String(pin)) h = ((h << 5) + h) + c.charCodeAt(0);
+  for (let c of String(str)) h = ((h << 5) + h) + c.charCodeAt(0);
   return (h >>> 0).toString(36);
 }
-
-// Show correct login UI on page load
-(function initLoginUI() {
-  if (_pinHash) {
-    document.getElementById('pin-field-wrap').style.display = 'block';
-    document.getElementById('forgot-pin-link').style.display = 'block';
-  } else {
-    document.getElementById('set-pin-wrap').style.display = 'block';
-  }
-})();
-
-function resetPin() {
-  const confirmed = confirm('¿Seguro que quieres restablecer tu PIN de admin?\n\nSe borrará el PIN actual y podrás crear uno nuevo. Los datos de la app NO se borran.');
-  if (!confirmed) return;
-  localStorage.removeItem('adminPinHash');
-  localStorage.removeItem('lockedBiz');
-  location.reload();
+function _emailKey(email) {
+  return email.toLowerCase().replace(/@/g,'_at_').replace(/\./g,'_dot_').replace(/[^a-z0-9_]/g,'_');
 }
 
 // ─── CLAUDE REAL API ───
@@ -1888,6 +1885,7 @@ function showCfg(id, el) {
   const panel = document.getElementById('cfg-' + id);
   if (panel) panel.classList.add('active');
   if (id === 'negocios') renderBizListCfg();
+  if (id === 'usuarios') renderUsersTab();
   if (id === 'integraciones') renderIntegrations();
   if (id === 'ia') {
     const statusEl = document.getElementById('api-key-status');
@@ -1903,19 +1901,14 @@ function renderBizListCfg() {
   const el = document.getElementById('biz-list-cfg');
   if (!el) return;
   el.innerHTML = Object.entries(state.businesses).map(([key, b]) => {
-    const locked = _lockedBiz[key];
-    const lockBtn = isAdmin
-      ? `<button onclick="toggleBizLock('${key}')" style="background:${locked?'#fef3c7':'#f3f4f6'};border:none;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;" title="${locked?'Desbloquear':'Bloquear para equipo'}">${locked?'🔒':'🔓'}</button>`
-      : '';
     const phone = bizPhones[key] || '';
-    return `<div style="border:1.5px solid ${locked?'#fde68a':'#e5e7eb'};border-radius:10px;margin-bottom:10px;background:white;overflow:hidden;">
+    return `<div style="border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:10px;background:white;overflow:hidden;">
       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;">
         <div style="width:36px;height:36px;background:${b.color};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">${b.icon}</div>
         <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;">${b.name} ${locked?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-weight:700;">BLOQUEADO</span>':''}</div>
-          <div style="font-size:11px;color:#9ca3af;">ID: ${key} · ${locked?'Solo accesible con PIN admin':'Acceso libre para el equipo'}</div>
+          <div style="font-size:13px;font-weight:700;">${b.name}</div>
+          <div style="font-size:11px;color:#9ca3af;">ID: ${key}</div>
         </div>
-        ${lockBtn}
         <button onclick="_doBizSwitch('${key}','${b.icon}','${b.name}','${b.color}');showPage('cerebro',null);showToast('Cambiado a ${b.name}')" style="background:#f3f4f6;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;color:#374151;">Ver →</button>
       </div>
       <div style="border-top:1px solid #f3f4f6;padding:10px 16px;background:#fafafa;display:flex;align-items:center;gap:8px;">
@@ -1937,6 +1930,68 @@ function saveBizPhone(key) {
   localStorage.setItem('bizPhones', JSON.stringify(bizPhones));
   showToast('📱 WhatsApp de ' + state.businesses[key]?.name + ' guardado: ' + (phone || 'borrado'));
   renderBizListCfg();
+}
+
+async function renderUsersTab() {
+  const el = document.getElementById('cfg-usuarios');
+  if (!el) return;
+  if (!isAdmin) {
+    el.innerHTML = `<div class="card"><div class="card-body" style="text-align:center;color:#9ca3af;padding:24px;">🔒 Solo el administrador puede gestionar usuarios.</div></div>`;
+    return;
+  }
+  if (!fbReady) {
+    el.innerHTML = `<div class="card"><div class="card-body" style="color:#ef4444;padding:18px;">Sin conexión a Firebase.</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="card"><div class="card-body" style="text-align:center;color:#9ca3af;padding:24px;">Cargando usuarios...</div></div>`;
+  try {
+    const snap = await db.collection('users').get();
+    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    el.innerHTML = `<div class="card">
+      <div class="card-header" style="justify-content:space-between;">
+        <span class="card-title">👥 Usuarios registrados (${users.length})</span>
+        <span style="font-size:11px;color:#9ca3af;">Los usuarios se registran solos en la pantalla de login</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        ${users.map(u => `
+          <div style="padding:14px 16px;border-bottom:1px solid #f3f4f6;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:${u.role!=='admin'?'10':'0'}px;">
+              <div style="width:34px;height:34px;background:${u.role==='admin'?'#ede9fe':'#d1fae5'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${u.role==='admin'?'👑':'👤'}</div>
+              <div style="flex:1;">
+                <div style="font-weight:700;font-size:13px;">${u.displayName||'Sin nombre'} <span style="font-size:10px;background:${u.role==='admin'?'#ede9fe':'#d1fae5'};color:${u.role==='admin'?'#6366f1':'#065f46'};padding:2px 8px;border-radius:6px;font-weight:800;">${u.role==='admin'?'ADMIN':'USUARIO'}</span></div>
+                <div style="font-size:11px;color:#9ca3af;">${u.email}</div>
+              </div>
+            </div>
+            ${u.role !== 'admin' ? `
+            <div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:6px;">Acceso a negocios:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              ${Object.entries(state.businesses).map(([key,b]) => {
+                const has = (u.assignedBiz||[]).includes(key);
+                return `<label style="display:flex;align-items:center;gap:4px;background:${has?'#d1fae5':'#f3f4f6'};padding:5px 10px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;">
+                  <input type="checkbox" style="margin:0;" ${has?'checked':''} onchange="toggleUserBiz('${u.id}','${key}',this.checked)">
+                  ${b.icon} ${b.name}
+                </label>`;
+              }).join('')}
+            </div>` : `<div style="font-size:11px;color:#9ca3af;">✅ Acceso total a todos los negocios</div>`}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="card"><div class="card-body" style="color:#ef4444;padding:18px;">Error al cargar usuarios: ${e.message}</div></div>`;
+  }
+}
+
+async function toggleUserBiz(userEmailKey, bizKey, checked) {
+  if (!fbReady) return;
+  try {
+    const ref = db.collection('users').doc(userEmailKey);
+    const doc = await ref.get();
+    if (!doc.exists) return;
+    const cur = doc.data().assignedBiz || [];
+    const upd = checked ? [...new Set([...cur, bizKey])] : cur.filter(k => k !== bizKey);
+    await ref.update({ assignedBiz: upd });
+    showToast((checked ? '✅ Acceso dado a ' : '❌ Acceso quitado de ') + state.businesses[bizKey]?.name);
+  } catch(e) { showToast('Error: ' + e.message); }
 }
 
 const integrations = [
