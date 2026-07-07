@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agencia Paco AI</title>
+<title>Agencia Marketing AMEZ</title>
 <style>
   :root {
     --primary: #6366f1;
@@ -416,7 +416,7 @@
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">🤖</div>
-    <div class="login-title">Agencia Paco AI</div>
+    <div class="login-title">Agencia Marketing AMEZ</div>
     <div class="login-sub">Tu agencia de marketing operada por inteligencia artificial</div>
     <input class="login-field" type="email" placeholder="correo@empresa.com" value="paco@agenciapaco.ai" id="login-email">
     <div id="pin-field-wrap" style="display:none;margin-bottom:12px;">
@@ -453,7 +453,7 @@
   <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-text">🤖 Agencia Paco AI</div>
+      <div class="logo-text">🤖 Agencia Marketing AMEZ</div>
       <div class="logo-sub">Panel de control</div>
     </div>
 
@@ -1578,7 +1578,7 @@ async function callClaude(messages, systemPrompt) {
 
 function getBizContext(short) {
   const biz = state.businesses[state.currentBiz];
-  const base = `Eres la Secretaria General AI de "Agencia Paco AI", plataforma de marketing con inteligencia artificial.
+  const base = `Eres la Secretaria General AI de "Agencia Marketing AMEZ", plataforma de marketing con inteligencia artificial.
 Negocio activo: ${biz.name} (${biz.type || 'marketing digital'}).
 Dueño: Francisco "Paco" Amezcua, empresario mexicano.
 Otros negocios: Seguros, Bienes Raíces, Servicios Digitales.
@@ -2105,7 +2105,7 @@ async function ejecutarPreAuth() {
   if (!content) { showToast('⚠️ Pega el contenido a evaluar primero'); return; }
   resultEl.innerHTML = '<div style="font-size:12px;color:#6b7280;padding:10px;"><div class="typing"><span></span><span></span><span></span></div> Evaluando calidad...</div>';
   const typeLabels = {anuncio:'Anuncio Meta Ads', whatsapp:'Mensaje WhatsApp', landing:'Landing Page', email:'Email', reel:'Guión de Reel'};
-  const systemPrompt = getBizContext(false) + `\nEres el Pre-Autorizador de calidad de Agencia Paco AI. Tu trabajo es evaluar contenido ANTES de que se publique.
+  const systemPrompt = getBizContext(false) + `\nEres el Pre-Autorizador de calidad de Agencia Marketing AMEZ. Tu trabajo es evaluar contenido ANTES de que se publique.
 Evalúa el siguiente ${typeLabels[type]} y responde con:
 1. **Score total: X/100** (0=pésimo, 100=perfecto)
 2. **Veredicto:** APROBAR ✅ / RECHAZAR ❌ / REVISAR ⚠️ (si score < 60 rechaza, 60-75 revisa, 76+ aprueba)
