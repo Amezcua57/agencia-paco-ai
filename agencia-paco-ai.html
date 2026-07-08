@@ -392,6 +392,17 @@
   .fp-quick-prompts { padding: 8px 12px 0; display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
   .fp-qp { background: var(--primary-light); color: var(--primary); border: none; border-radius: 12px; padding: 4px 10px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.12s; }
   .fp-qp:hover { background: var(--primary); color: white; }
+
+  /* ─── HELP PANE ─── */
+  .help-cat { margin-bottom: 12px; }
+  .help-cat-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-soft); padding: 0 12px; margin-bottom: 5px; }
+  .help-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 12px; }
+  .help-chip { background: #f3f4f6; border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--text); cursor: pointer; transition: all 0.12s; }
+  .help-chip:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+  .help-sep { height: 1px; background: var(--border); margin: 8px 12px; }
+  .help-escalate { margin: 8px 12px 0; padding: 10px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; font-size: 11px; color: #92400e; }
+  .help-escalate strong { display: block; font-size: 12px; margin-bottom: 3px; color: #c2410c; }
+  #help-messages { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   /* Config tabs */
   .cfg-tab { background: #f3f4f6; border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; color: #6b7280; transition: all 0.15s; }
   .cfg-tab:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
@@ -1080,8 +1091,9 @@
 
   <!-- Tabs -->
   <div class="fp-tabs">
-    <div class="fp-tab active" onclick="switchFPTab('chat',this)">💬 Preguntas</div>
+    <div class="fp-tab active" onclick="switchFPTab('chat',this)">💬 Agencia</div>
     <div class="fp-tab" onclick="switchFPTab('ideas',this)">💡 Ideas <span id="ideas-count-badge" style="background:#fcd34d;color:#92400e;border-radius:10px;padding:1px 6px;font-size:9px;font-weight:800;margin-left:2px;">0</span></div>
+    <div class="fp-tab" onclick="switchFPTab('help',this)">❓ Ayuda</div>
   </div>
 
   <!-- Body -->
@@ -1124,6 +1136,79 @@
       <div class="fp-ideas-footer">
         <input class="fp-idea-input" id="fp-idea-input" placeholder="Escribe una idea de cambio o mejora..." onkeydown="if(event.key==='Enter')saveIdea()">
         <button class="fp-idea-add" onclick="saveIdea()">💡 Guardar idea</button>
+      </div>
+    </div>
+
+    <!-- Help pane -->
+    <div class="fp-pane" id="fp-pane-help" style="flex-direction:column;overflow:hidden;">
+      <div id="help-messages"></div>
+      <div style="flex:1;overflow-y:auto;padding-top:8px;" id="help-shortcuts">
+        <div class="help-cat">
+          <div class="help-cat-title">🚀 Primeros pasos</div>
+          <div class="help-chips">
+            <span class="help-chip" onclick="helpAsk('¿Cómo agrego un negocio nuevo?')">➕ Agregar negocio</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo cambio de negocio?')">🔄 Cambiar negocio</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo invito a un colaborador?')">👥 Invitar usuario</span>
+          </div>
+        </div>
+        <div class="help-sep"></div>
+        <div class="help-cat">
+          <div class="help-cat-title">🧠 Cerebro Vivo</div>
+          <div class="help-chips">
+            <span class="help-chip" onclick="helpAsk('¿Qué es el Cerebro Vivo y cómo funciona?')">¿Qué es?</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo actualizo la información del Cerebro Vivo?')">Actualizar info</span>
+            <span class="help-chip" onclick="helpAsk('¿Para qué sirve el Cerebro Vivo?')">¿Para qué sirve?</span>
+          </div>
+        </div>
+        <div class="help-sep"></div>
+        <div class="help-cat">
+          <div class="help-cat-title">🎭 Agentes IA</div>
+          <div class="help-chips">
+            <span class="help-chip" onclick="helpAsk('¿Qué agentes IA hay y qué hace cada uno?')">Ver todos los agentes</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo le hablo a la Secretaria General?')">Secretaria</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo creo contenido con los agentes?')">Crear contenido</span>
+          </div>
+        </div>
+        <div class="help-sep"></div>
+        <div class="help-cat">
+          <div class="help-cat-title">📊 CRM y leads</div>
+          <div class="help-chips">
+            <span class="help-chip" onclick="helpAsk('¿Cómo agrego un nuevo lead al CRM?')">Nuevo lead</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo muevo un lead de etapa?')">Mover etapas</span>
+            <span class="help-chip" onclick="helpAsk('¿Qué significan las etiquetas hot, warm, cold?')">Etiquetas</span>
+          </div>
+        </div>
+        <div class="help-sep"></div>
+        <div class="help-cat">
+          <div class="help-cat-title">🚀 Campañas</div>
+          <div class="help-chips">
+            <span class="help-chip" onclick="helpAsk('¿Cómo creo una campaña nueva?')">Crear campaña</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo funciona el Pre-Autorizador?')">Pre-Autorizador</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo autorizo o rechazo un contenido?')">Autorizaciones</span>
+          </div>
+        </div>
+        <div class="help-sep"></div>
+        <div class="help-cat">
+          <div class="help-cat-title">⚙️ Cuenta y configuración</div>
+          <div class="help-chips">
+            <span class="help-chip" onclick="helpAsk('¿Cómo conecto la API de Claude?')">API de Claude</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo asigno negocios a un usuario?')">Asignar negocios</span>
+            <span class="help-chip" onclick="helpAsk('¿Cómo cierro sesión?')">Cerrar sesión</span>
+          </div>
+        </div>
+        <div class="help-sep"></div>
+        <div class="help-escalate">
+          <strong>¿No encontraste lo que buscas?</strong>
+          ¿Necesitas ayuda que no está en el mensajero? Consulta el manual o contacta a los directores.
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button onclick="showToast('📖 Abriendo guía de usuario...')" style="flex:1;background:#fff;border:1px solid #fed7aa;border-radius:6px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;color:#c2410c;">📖 Ver manual</button>
+            <button onclick="showToast('📞 Contactando a los directores...')" style="flex:1;background:#c2410c;border:none;border-radius:6px;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;color:white;">📞 Directores</button>
+          </div>
+        </div>
+      </div>
+      <div class="fp-input-area">
+        <textarea class="fp-input" id="help-input" rows="1" placeholder="Escribe tu pregunta sobre la app..." onkeydown="handleHelpKey(event)"></textarea>
+        <button class="fp-send" onclick="helpSend()">➤</button>
       </div>
     </div>
 
@@ -1875,6 +1960,132 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════ HELP MESSENGER ═══════════════════
+const helpKB = [
+  // Primeros pasos
+  { q: ['agregar negocio','negocio nuevo','alta negocio','crear negocio'],
+    a: '**Agregar un negocio nuevo:**\n\n1. En la barra lateral, haz clic en el nombre del negocio actual (arriba, con la flecha ▼)\n2. Se abre el menú de negocios → haz clic en **＋ Agregar negocio**\n3. Aparece el Asistente de alta: llena nombre, tipo de negocio, colores e información clave\n4. Al terminar el asistente, el negocio queda disponible para todos los agentes IA\n\n💡 Solo el administrador puede agregar negocios.' },
+  { q: ['cambiar negocio','otro negocio','cambio de cliente','seleccionar negocio'],
+    a: '**Cambiar de negocio:**\n\n1. Haz clic en el selector de negocio en la barra lateral (muestra el negocio actual con ▼)\n2. Se despliega la lista de negocios que tienes asignados\n3. Haz clic en el negocio al que quieres cambiar\n4. La app actualiza todo automáticamente: Dashboard, CRM, Cerebro Vivo y Agentes cargan el contexto del nuevo negocio' },
+  { q: ['invitar usuario','colaborador','agregar usuario','nuevo usuario','registrar'],
+    a: '**Cómo invitar a un colaborador:**\n\n1. El colaborador entra a la app y hace clic en **"Crear cuenta"** en la pantalla de login\n2. Llena su nombre, correo y contraseña\n3. Su cuenta se crea pero **sin acceso a ningún negocio** todavía\n4. El administrador va a **⚙️ Configuración → Usuarios y Roles**\n5. Busca al nuevo usuario y activa los negocios a los que tendrá acceso\n6. El colaborador puede reiniciar sesión y ya verá sus negocios asignados' },
+  // Cerebro Vivo
+  { q: ['cerebro vivo','qué es cerebro','para qué cerebro'],
+    a: '**Cerebro Vivo** es la memoria inteligente de cada negocio.\n\nGuarda toda la información clave: precios, productos, diferenciadores, competidores, tono de comunicación y más. Los agentes IA consultan el Cerebro Vivo antes de crear cualquier contenido, para que todo sea específico de ese negocio.\n\n👉 Menú lateral → **🧠 Cerebro Vivo**' },
+  { q: ['actualizar cerebro','editar cerebro','cambiar info cerebro','modificar cerebro'],
+    a: '**Actualizar el Cerebro Vivo:**\n\n1. Ve al menú → **🧠 Cerebro Vivo**\n2. Verás toda la información actual del negocio activo\n3. Edita los campos directamente (precios, productos, diferenciadores, competidores)\n4. Haz clic en **Guardar** — los agentes usarán la info nueva de inmediato\n\n💡 Actualiza el Cerebro Vivo cuando cambien precios, promotores, temporadas o estrategia.' },
+  // Agentes
+  { q: ['agentes ia','qué agentes','tipos de agentes','cuáles agentes'],
+    a: '**Agentes IA disponibles:**\n\n🤖 **Secretaria General** — coordina, responde, asigna tareas. Es el chat principal\n✍️ **Generador de Anuncios** — crea copys para Facebook, Instagram, Google\n🎬 **Guionista de Reels** — guiones paso a paso para videos cortos\n📄 **Landing Pages** — estructura y texto para páginas de aterrizaje\n📱 **WhatsApp** — secuencias de mensajes de seguimiento a leads\n🕵️ **Inteligencia Competitiva** — analiza competidores del negocio\n✅ **Pre-Autorizador** — evalúa contenido antes de publicar (score + sugerencias)\n\nTodos usan el Cerebro Vivo del negocio activo.' },
+  { q: ['secretaria','secretaria general','hablar agencia','chat principal'],
+    a: '**Secretaria General AI** es tu punto de contacto principal.\n\n1. Ve a **💬 Hablar con la Agencia** en el menú lateral\n2. Escribe en lenguaje natural: instrucciones, ideas, preguntas\n3. Puedes subir fotos, archivos, links o simplemente decirle lo que necesitas\n4. Ella coordina a los demás agentes y genera contenido específico del negocio activo\n\nEjemplos: "Crea 3 anuncios para Instagram", "¿Cómo van los leads?", "Quiero un guion de reel"' },
+  { q: ['crear contenido','contenido','copy','texto','anuncio'],
+    a: '**Crear contenido con los agentes:**\n\nMétodo rápido desde Dashboard:\n• Haz clic en los botones de **Acciones rápidas** (Crear anuncio, Crear reel, etc.)\n\nMétodo manual:\n1. Ve a **💬 Hablar con la Agencia**\n2. Escribe qué necesitas: "Necesito 5 anuncios para la promoción de verano de [negocio]"\n3. La Secretaria activa al agente adecuado y genera el contenido\n4. Puedes pedir cambios, variantes o ajustes en el mismo chat' },
+  // CRM
+  { q: ['nuevo lead','agregar lead','lead crm','capturar lead'],
+    a: '**Agregar un nuevo lead:**\n\n1. Ve a **📊 CRM** en el menú lateral\n2. Haz clic en el botón **＋ Nuevo lead** (arriba a la derecha)\n3. Llena los datos: nombre, teléfono, fuente (Facebook, Instagram, referido, etc.)\n4. El lead aparece en la columna **Nuevo** del tablero Kanban\n\n💡 También puedes pedir a la Secretaria: "Agrega un lead nuevo: Roberto Méndez, 55 1234 5678, Facebook"' },
+  { q: ['mover lead','etapa crm','kanban','pipeline'],
+    a: '**Mover un lead entre etapas:**\n\nEl CRM usa un tablero Kanban con las etapas: **Nuevo → Contactado → Interesado → Cita → Cierre**\n\n1. Haz clic en la tarjeta del lead\n2. Usa el botón de etapa o arrastra la tarjeta a otra columna\n3. Los leads calientes (🔥) tienen prioridad — el agente de WhatsApp puede enviarles una secuencia de seguimiento' },
+  { q: ['hot','warm','cold','etiquetas lead','temperatura lead'],
+    a: '**Etiquetas de temperatura de leads:**\n\n🔴 **Hot (Caliente)** — Lead listo para comprar, requiere contacto inmediato (menos de 24h)\n🟡 **Warm (Tibio)** — Lead interesado pero necesita más información o seguimiento\n🔵 **Cold (Frío)** — Lead nuevo o sin respuesta reciente, requiere nutrición\n\nEl agente de WhatsApp puede crear secuencias de mensajes personalizadas según la temperatura del lead.' },
+  // Campañas
+  { q: ['crear campaña','campaña nueva','lanzar campaña'],
+    a: '**Crear una campaña nueva:**\n\n1. Ve a **🚀 Campañas** en el menú lateral\n2. Haz clic en el botón principal del hero o en "Crear campaña completa" desde el Dashboard\n3. El asistente de campaña te guía paso a paso:\n   - Objetivo de la campaña\n   - Audiencia objetivo\n   - Canales (Facebook, Instagram, WhatsApp, Google)\n   - Presupuesto\n4. Los agentes IA generan el contenido de la campaña automáticamente\n5. El Pre-Autorizador evalúa el contenido antes de que llegue a ti' },
+  { q: ['pre-autorizador','preautorizador','calidad','score'],
+    a: '**Pre-Autorizador de Calidad:**\n\nEvalúa todo el contenido antes de que llegue a ti para aprobar. Analiza:\n• Claridad del mensaje\n• Tono correcto para el negocio\n• Llamada a la acción efectiva\n• Coherencia con el Cerebro Vivo\n\nGenera un **score del 1-100**. Si está por debajo de 80, sugiere mejoras automáticamente. Solo el contenido que pasa llega a **✅ Autorizaciones** para tu visto bueno final.' },
+  { q: ['autorizar','autorización','aprobar','rechazar contenido'],
+    a: '**Autorizar o rechazar contenido:**\n\n1. Ve a **✅ Autorizaciones** en el menú o revisa las tarjetas en el Dashboard\n2. Cada elemento muestra el tipo de contenido, el score del Pre-Autorizador y notas\n3. Haz clic en **Aprobar** ✅ para que pase a publicación\n4. Haz clic en **Rechazar** ❌ para devolver con comentarios\n\n💡 También recibirás notificaciones con el número de pendientes en el menú lateral.' },
+  // Configuración
+  { q: ['api','api key','api de claude','conectar claude','inteligencia artificial'],
+    a: '**Conectar la API de Claude:**\n\n1. Ve a **⚙️ Configuración → 🤖 Inteligencia Artificial**\n2. Pega tu API Key de Anthropic en el campo\n3. Haz clic en Guardar\n4. El estado cambia a ✅ verde\n\nCon la API conectada, todos los agentes usan Claude real en lugar de respuestas predefinidas. Obtienes respuestas mucho más inteligentes y personalizadas.\n\n📌 Consigue tu API Key en: console.anthropic.com' },
+  { q: ['asignar negocio','acceso usuario','permisos','roles'],
+    a: '**Asignar negocios a un usuario:**\n\n1. Ve a **⚙️ Configuración → 👥 Usuarios y Roles** (solo disponible para el administrador 👑)\n2. Busca el usuario en la lista\n3. Activa los checkboxes de los negocios a los que tendrá acceso\n4. El cambio es inmediato — al recargar, el usuario ya ve solo sus negocios\n\nLos usuarios normales solo ven y operan los negocios que el administrador les asigne.' },
+  { q: ['cerrar sesión','logout','salir','cambiar usuario'],
+    a: '**Cerrar sesión:**\n\nHaz clic en el botón **↩** que aparece abajo a la izquierda del menú lateral, junto a tu nombre y rol.\n\nAl cerrar sesión vuelves a la pantalla de login. Tus datos, negocios y configuración quedan guardados en Firebase — al volver a entrar todo sigue igual.' },
+  // General
+  { q: ['firebase','base de datos','guardado','nube','sync'],
+    a: '**¿Cómo se guardan los datos?**\n\nLa app usa **Firebase Firestore** para guardar en la nube:\n• Usuarios y contraseñas\n• Asignación de negocios por usuario\n• Información del Cerebro Vivo\n\nEsto significa que puedes abrir la app desde cualquier dispositivo y ver la misma información. Los cambios se sincronizan en tiempo real.' },
+  { q: ['whatsapp','numero','teléfono negocio'],
+    a: '**Configurar WhatsApp de un negocio:**\n\n1. Ve a **⚙️ Configuración → Negocios**\n2. Cada negocio tiene un campo de número de WhatsApp\n3. Escribe el número en formato internacional: +52 55 1234 5678\n4. Haz clic en **Guardar**\n5. Aparece el botón **"Probar ↗"** para verificar que funcione\n\nEl número se usa para el agente de WhatsApp y para las secuencias de seguimiento de leads.' }
+];
+
+let helpHistory = [];
+
+function getHelpAnswer(q) {
+  const ql = q.toLowerCase();
+  for (const entry of helpKB) {
+    if (entry.q.some(kw => ql.includes(kw))) return entry.a;
+  }
+  return null;
+}
+
+function addHelpMsg(text, who) {
+  const msgs = document.getElementById('help-messages');
+  const shortcuts = document.getElementById('help-shortcuts');
+  if (shortcuts) shortcuts.style.display = 'none';
+  const formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  msgs.innerHTML += `
+    <div class="fm ${who}">
+      <div class="fm-av ${who}">${who === 'ai' ? '❓' : 'PA'}</div>
+      <div><div class="fm-bubble">${formatted}</div>${who==='ai' ? `<div style="margin-top:5px;"><button onclick="resetHelp()" style="background:#f3f4f6;border:none;border-radius:10px;padding:3px 9px;font-size:10px;cursor:pointer;color:#6b7280;">← Volver a temas</button></div>` : ''}</div>
+    </div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addHelpTyping() {
+  const msgs = document.getElementById('help-messages');
+  const d = document.createElement('div');
+  d.className = 'fm ai'; d.id = 'help-typing';
+  d.innerHTML = `<div class="fm-av ai">❓</div><div><div class="fm-bubble" style="padding:10px 14px;"><div class="typing"><span></span><span></span><span></span></div></div></div>`;
+  msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+  return d;
+}
+
+function resetHelp() {
+  document.getElementById('help-messages').innerHTML = '';
+  const sc = document.getElementById('help-shortcuts');
+  if (sc) sc.style.display = '';
+}
+
+function helpAsk(q) {
+  if (!floatOpen) toggleFloat();
+  const helpTab = document.querySelector('.fp-tab:nth-child(3)');
+  if (helpTab) switchFPTab('help', helpTab);
+  setTimeout(() => {
+    addHelpMsg(q, 'user');
+    helpHistory.push({role:'user', content:q});
+    const t = addHelpTyping();
+    const localAnswer = getHelpAnswer(q);
+    if (claudeApiKey && !localAnswer) {
+      const helpSystem = `Eres el asistente de ayuda de "Agencia Marketing AMEZ", una app de gestión de agencia de marketing con IA. Responde en español de forma concisa y amigable. La app tiene: Dashboard, Cerebro Vivo (memoria del negocio), Secretaria General AI (chat principal), CRM (kanban de leads), Campañas, Agentes IA (copywriter, reels, landing pages, whatsapp, competencia, pre-autorizador), Configuración (negocios, usuarios/roles, integraciones, API). Usa Firebase para datos en la nube. El login es con email y contraseña. El admin asigna negocios a usuarios. Usa Claude API para inteligencia real.`;
+      callClaude([...helpHistory], helpSystem).then(r => {
+        t.remove();
+        helpHistory.push({role:'assistant', content:r});
+        addHelpMsg(r, 'ai');
+      });
+    } else {
+      setTimeout(() => {
+        t.remove();
+        const answer = localAnswer || 'No tengo una respuesta específica para eso. Puedes intentar reformular la pregunta, revisar el manual completo o contactar a los directores usando los botones de abajo.';
+        helpHistory.push({role:'assistant', content:answer});
+        addHelpMsg(answer, 'ai');
+      }, 600);
+    }
+  }, 200);
+}
+
+function helpSend() {
+  const input = document.getElementById('help-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  helpAsk(msg);
+}
+
+function handleHelpKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); helpSend(); }
 }
 
 // ═══════════════════ CONFIGURACIÓN TABS ═══════════════════

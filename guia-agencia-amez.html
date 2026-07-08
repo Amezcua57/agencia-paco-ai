@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía de Uso — Agencia Marketing AMEZ</title>
+<style>
+  :root { --primary: #6366f1; --primary-light: #ede9fe; --text: #1a1a2e; --soft: #6b7280; --border: #e5e7eb; --green: #10b981; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fc; color: var(--text); font-size: 15px; line-height: 1.6; }
+  a { color: var(--primary); }
+
+  /* Layout */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 280px; background: #1e1b4b; color: white; position: fixed; top: 0; bottom: 0; overflow-y: auto; flex-shrink: 0; }
+  .main { margin-left: 280px; flex: 1; }
+
+  /* Sidebar */
+  .sb-logo { padding: 24px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .sb-logo .title { font-size: 16px; font-weight: 800; }
+  .sb-logo .sub { font-size: 11px; opacity: 0.5; margin-top: 2px; }
+  .sb-nav { padding: 12px 0; }
+  .sb-section { padding: 14px 20px 5px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.3); }
+  .sb-link { display: block; padding: 8px 20px; font-size: 13px; color: rgba(255,255,255,0.65); text-decoration: none; border-left: 3px solid transparent; transition: all 0.12s; }
+  .sb-link:hover { color: white; background: rgba(255,255,255,0.07); }
+  .sb-link.active { color: white; border-left-color: var(--primary); background: rgba(99,102,241,0.2); font-weight: 600; }
+
+  /* Hero */
+  .hero { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4c1d95 100%); color: white; padding: 64px 48px 48px; }
+  .hero .tag { font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 12px; display: inline-block; margin-bottom: 16px; letter-spacing: 0.5px; }
+  .hero h1 { font-size: 36px; font-weight: 900; margin-bottom: 10px; }
+  .hero p { font-size: 16px; opacity: 0.8; max-width: 560px; }
+  .hero-badges { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+  .badge { background: rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+
+  /* Content */
+  .content { max-width: 820px; padding: 48px; margin: 0 auto; }
+  .section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  .section-number { font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .section h2 { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+  .section .section-intro { font-size: 15px; color: var(--soft); margin-bottom: 28px; }
+
+  /* Steps */
+  .steps { display: flex; flex-direction: column; gap: 16px; }
+  .step { display: flex; gap: 16px; align-items: flex-start; }
+  .step-num { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: white; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-body { flex: 1; }
+  .step-body h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .step-body p { font-size: 14px; color: var(--soft); }
+  .step-body code { background: #f3f4f6; border-radius: 4px; padding: 1px 6px; font-size: 12px; color: #374151; font-family: monospace; }
+
+  /* Cards */
+  .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .card { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 18px 20px; }
+  .card .card-icon { font-size: 24px; margin-bottom: 8px; }
+  .card h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .card p { font-size: 13px; color: var(--soft); }
+
+  /* Tips */
+  .tip { background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 16px 0; font-size: 13px; }
+  .tip strong { color: #92400e; }
+  .tip-blue { background: var(--primary-light); border-left-color: var(--primary); }
+  .tip-blue strong { color: #3730a3; }
+  .tip-green { background: #d1fae5; border-left-color: var(--green); }
+  .tip-green strong { color: #065f46; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: #f3f4f6; padding: 10px 14px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--soft); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border: none; }
+
+  /* Support ladder */
+  .support-ladder { display: flex; flex-direction: column; gap: 10px; }
+  .support-step { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: white; border-radius: 10px; border: 1px solid var(--border); }
+  .support-step .ss-num { width: 30px; height: 30px; border-radius: 50%; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .support-step .ss-text h4 { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .support-step .ss-text p { font-size: 12px; color: var(--soft); }
+
+  /* Divider */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+
+  /* Tag pill */
+  .pill { display: inline-block; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 700; }
+  .pill-admin { background: #ede9fe; color: var(--primary); }
+  .pill-user { background: #d1fae5; color: #065f46; }
+
+  /* Scroll */
+  html { scroll-behavior: smooth; }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+    .content { padding: 24px; }
+    .hero { padding: 40px 24px 32px; }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sb-logo">
+    <div class="title">🤖 Agencia AMEZ</div>
+    <div class="sub">Guía de usuario · v1.2</div>
+  </div>
+  <div class="sb-nav">
+    <div class="sb-section">Inicio</div>
+    <a class="sb-link active" href="#intro">¿Qué es esta app?</a>
+    <a class="sb-link" href="#login">Acceso y registro</a>
+
+    <div class="sb-section">Navegación</div>
+    <a class="sb-link" href="#negocios">Negocios</a>
+    <a class="sb-link" href="#dashboard">Dashboard</a>
+    <a class="sb-link" href="#cerebro">Cerebro Vivo</a>
+
+    <div class="sb-section">Agentes IA</div>
+    <a class="sb-link" href="#secretaria">Secretaria General</a>
+    <a class="sb-link" href="#agentes">Todos los agentes</a>
+
+    <div class="sb-section">Comercial</div>
+    <a class="sb-link" href="#crm">CRM</a>
+    <a class="sb-link" href="#campanas">Campañas</a>
+    <a class="sb-link" href="#autorizaciones">Autorizaciones</a>
+
+    <div class="sb-section">Administración</div>
+    <a class="sb-link" href="#config">Configuración</a>
+    <a class="sb-link" href="#usuarios">Usuarios y roles</a>
+    <a class="sb-link" href="#mensajero">Mensajero de ayuda</a>
+    <a class="sb-link" href="#soporte">Cómo pedir soporte</a>
+  </div>
+</nav>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="tag">📖 GUÍA OFICIAL DE USUARIO</div>
+    <h1>Agencia Marketing AMEZ</h1>
+    <p>Todo lo que necesitas saber para operar la plataforma de principio a fin — paso a paso, sin saltar pasos.</p>
+    <div class="hero-badges">
+      <div class="badge">🤖 Agentes IA</div>
+      <div class="badge">🧠 Cerebro Vivo</div>
+      <div class="badge">📊 CRM integrado</div>
+      <div class="badge">☁️ Firebase Sync</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ─── 1. ¿QUÉ ES? ─── -->
+    <div class="section" id="intro">
+      <div class="section-number">Sección 1</div>
+      <h2>¿Qué es Agencia Marketing AMEZ?</h2>
+      <p class="section-intro">Una plataforma de gestión de agencia de marketing impulsada por IA. Todos tus negocios, agentes, leads y campañas en un solo lugar.</p>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">🧠</div>
+          <h3>Cerebro Vivo por negocio</h3>
+          <p>Cada cliente tiene su propia memoria: precios, productos, tono, competidores. Los agentes IA la usan en todo lo que crean.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🤖</div>
+          <h3>Agentes especializados</h3>
+          <p>Copywriter, guionista de reels, landing pages, WhatsApp, inteligencia competitiva y más — todos operan con el contexto correcto.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <h3>CRM y seguimiento</h3>
+          <p>Kanban de leads, etiquetas de temperatura, historial de contacto y generación de secuencias de seguimiento automáticas.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">✅</div>
+          <h3>Flujo de autorización</h3>
+          <p>Nada sale sin tu aprobación. El Pre-Autorizador evalúa el contenido (score 1-100) antes de que llegue a ti para revisar.</p>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 2. LOGIN ─── -->
+    <div class="section" id="login">
+      <div class="section-number">Sección 2</div>
+      <h2>Acceso y registro</h2>
+      <p class="section-intro">La app usa correo y contraseña. No hay PIN. Cada persona tiene su propia cuenta.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Entra a la app</h3>
+            <p>Abre <a href="https://amezcua57.github.io/agencia-paco-ai/" target="_blank">amezcua57.github.io/agencia-paco-ai</a> en tu navegador.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>¿Primera vez? Crea una cuenta</h3>
+            <p>Haz clic en "Crear cuenta", llena tu nombre completo, correo y una contraseña de al menos 6 caracteres. Haz clic en "Registrarme".</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Ya tienes cuenta? Inicia sesión</h3>
+            <p>Escribe tu correo y contraseña → "Entrar a la Agencia". Tus datos se verifican contra Firebase en tiempo real.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3>Si eres usuario nuevo: espera la asignación</h3>
+            <p>Al registrarte sin ser administrador, entras a la app pero sin negocios asignados. El administrador (👑) debe asignarte acceso desde Configuración → Usuarios y Roles.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip tip-blue">
+        <strong>💡 Cuenta administrador:</strong> El correo <strong>amezcuaizquierdo@gmail.com</strong> es automáticamente administrador. Al registrarse con ese correo, obtiene acceso a todos los negocios y todas las funciones de gestión.
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 3. NEGOCIOS ─── -->
+    <div class="section" id="negocios">
+      <div class="section-number">Sección 3</div>
+      <h2>Negocios (clientes)</h2>
+      <p class="section-intro">Cada negocio es un cliente de la agencia. Puedes tener varios y cambiar entre ellos con un clic.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Ver el negocio activo</h3>
+            <p>El selector de negocio está en la parte superior del menú lateral. Muestra el ícono y nombre del negocio que tienes seleccionado ahora mismo.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Cambiar de negocio</h3>
+            <p>Haz clic en el selector → se despliega la lista de tus negocios asignados → haz clic en el que quieres. La app recarga el Dashboard, CRM y Cerebro Vivo del negocio nuevo.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Agregar un negocio nuevo <span class="pill pill-admin">Solo Admin</span></h3>
+            <p>En el selector desplegable → haz clic en <strong>＋ Agregar negocio</strong>. Se abre el Asistente de Alta: llena nombre, tipo de negocio, colores, ícono y datos clave del cliente.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip">
+        <strong>📌 Importante:</strong> Todo en la app (agentes, CRM, Cerebro Vivo, campañas) trabaja en el contexto del negocio que tienes activo en ese momento. Verifica siempre cuál tienes seleccionado antes de crear contenido.
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 4. DASHBOARD ─── -->
+    <div class="section" id="dashboard">
+      <div class="section-number">Sección 4</div>
+      <h2>Dashboard</h2>
+      <p class="section-intro">La pantalla de inicio. Muestra el estado del negocio activo de un vistazo y da acceso rápido a las funciones más usadas.</p>
+
+      <table>
+        <tr><th>Elemento</th><th>¿Qué muestra?</th></tr>
+        <tr><td><strong>4 tarjetas de métricas</strong></td><td>Leads hoy, citas de la semana, leads calientes y autorizaciones pendientes</td></tr>
+        <tr><td><strong>Acciones rápidas</strong></td><td>6 botones para las tareas más comunes: crear campaña, crear anuncio, crear reel, investigar competencia, crear landing, ver resultados</td></tr>
+        <tr><td><strong>Pendientes de autorización</strong></td><td>Contenido que esperan tu aprobación o rechazo</td></tr>
+        <tr><td><strong>Actividad reciente</strong></td><td>Historial de las últimas acciones de los agentes IA</td></tr>
+      </table>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 5. CEREBRO VIVO ─── -->
+    <div class="section" id="cerebro">
+      <div class="section-number">Sección 5</div>
+      <h2>Cerebro Vivo</h2>
+      <p class="section-intro">La memoria inteligente de cada negocio. Los agentes IA leen el Cerebro Vivo antes de crear cualquier contenido para que sea 100% específico del cliente.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Accede al Cerebro Vivo</h3>
+            <p>Menú lateral → <strong>🧠 Cerebro Vivo</strong>. Verás el Cerebro del negocio activo.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Lee la información actual</h3>
+            <p>El Cerebro está dividido en secciones: Descripción del negocio, Productos/Servicios, Precios, Diferenciadores, Audiencia objetivo, Competidores y Tono de comunicación.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Edita y guarda</h3>
+            <p>Haz clic en cualquier campo para editarlo. Cuando termines, haz clic en <strong>Guardar Cerebro</strong>. Los agentes IA usan la información nueva inmediatamente.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip tip-green">
+        <strong>✅ Buena práctica:</strong> Actualiza el Cerebro Vivo cada vez que el cliente cambie precios, lance un producto nuevo, cambie de temporada o ajuste su estrategia. Un Cerebro actualizado = contenido mejor.
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 6. SECRETARIA ─── -->
+    <div class="section" id="secretaria">
+      <div class="section-number">Sección 6</div>
+      <h2>Secretaria General AI</h2>
+      <p class="section-intro">Tu punto de contacto principal con la agencia. Habla en lenguaje natural — ella entiende instrucciones, ideas y preguntas, y las convierte en acción.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Accede al chat</h3>
+            <p>Menú lateral → <strong>💬 Hablar con la Agencia</strong>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Escribe tu instrucción</h3>
+            <p>En el campo de texto escribe lo que necesitas en español natural. Ejemplos:</p>
+            <ul style="margin-top:6px;padding-left:18px;font-size:13px;color:var(--soft);">
+              <li>"Crea 3 anuncios para Instagram de la promoción de verano"</li>
+              <li>"¿Cómo van los leads esta semana?"</li>
+              <li>"Quiero un guion de reel para presentar el nuevo modelo"</li>
+              <li>"Investiga qué está haciendo la competencia"</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Adjunta archivos si los tienes</h3>
+            <p>Usa los botones de adjunto: 📎 Archivo, 🖼️ Foto, 🎬 Video o 🔗 Link. La Secretaria procesa lo que compartas para crear contenido más específico.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3>Revisa y pide ajustes</h3>
+            <p>Si el resultado no es exactamente lo que buscabas, escribe en el mismo chat: "Hazlo más corto", "Cambia el tono", "Dame 5 opciones más", etc.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip tip-blue">
+        <strong>💡 Con API de Claude conectada:</strong> Las respuestas son generadas por Claude en tiempo real y usan el Cerebro Vivo del negocio. Sin API, usa respuestas predefinidas que igualmente son útiles.
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 7. AGENTES ─── -->
+    <div class="section" id="agentes">
+      <div class="section-number">Sección 7</div>
+      <h2>Todos los agentes IA</h2>
+      <p class="section-intro">Cada agente está especializado en una tarea. Los activas desde el chat de la Secretaria o desde el menú <strong>🎭 Agentes</strong>.</p>
+
+      <table>
+        <tr><th>Agente</th><th>¿Qué hace?</th><th>Cuándo usarlo</th></tr>
+        <tr>
+          <td>🤖 <strong>Secretaria General</strong></td>
+          <td>Coordina la agencia, responde preguntas, asigna tareas</td>
+          <td>Siempre — es el punto de entrada</td>
+        </tr>
+        <tr>
+          <td>📢 <strong>Generador de Anuncios</strong></td>
+          <td>Copys para Facebook, Instagram, Google Ads</td>
+          <td>Cuando necesitas texto para anuncios pagados</td>
+        </tr>
+        <tr>
+          <td>🎬 <strong>Guionista de Reels</strong></td>
+          <td>Guiones paso a paso para videos cortos (15-60s)</td>
+          <td>Antes de grabar reels o TikToks</td>
+        </tr>
+        <tr>
+          <td>📄 <strong>Landing Pages</strong></td>
+          <td>Estructura y texto completo para páginas de aterrizaje</td>
+          <td>Para campañas que necesitan página propia</td>
+        </tr>
+        <tr>
+          <td>📱 <strong>WhatsApp</strong></td>
+          <td>Secuencias de mensajes para seguimiento de leads</td>
+          <td>Nutrir leads que no han respondido</td>
+        </tr>
+        <tr>
+          <td>🕵️ <strong>Inteligencia Competitiva</strong></td>
+          <td>Análisis diario de competidores del negocio activo</td>
+          <td>Para preparar estrategia o conocer el mercado</td>
+        </tr>
+        <tr>
+          <td>✅ <strong>Pre-Autorizador</strong></td>
+          <td>Evalúa calidad del contenido antes de enviarlo a revisión</td>
+          <td>Automático — actúa antes de que llegue a Autorizaciones</td>
+        </tr>
+      </table>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 8. CRM ─── -->
+    <div class="section" id="crm">
+      <div class="section-number">Sección 8</div>
+      <h2>CRM — Gestión de leads</h2>
+      <p class="section-intro">Tablero Kanban para mover leads por las etapas del embudo de ventas.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Accede al CRM</h3>
+            <p>Menú lateral → <strong>📊 CRM</strong>. Verás el tablero del negocio activo.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Agrega un lead</h3>
+            <p>Botón <strong>＋ Nuevo lead</strong> (arriba a la derecha). Llena nombre, teléfono y fuente de origen (Facebook, Instagram, referido, llamada, etc.).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Etiqueta la temperatura</h3>
+            <p>🔴 <strong>Hot</strong> — listo para comprar. 🟡 <strong>Warm</strong> — interesado pero necesita más info. 🔵 <strong>Cold</strong> — lead nuevo o sin respuesta.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3>Mueve el lead entre etapas</h3>
+            <p>Las etapas son: <strong>Nuevo → Contactado → Interesado → Cita → Cierre</strong>. Haz clic en la tarjeta del lead para moverlo o actualizar su estado.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h3>Activa seguimiento por WhatsApp</h3>
+            <p>Para leads que no han respondido, pide a la Secretaria: "Crea una secuencia de 3 mensajes para el lead [nombre]". El agente de WhatsApp genera los mensajes personalizados.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 9. CAMPAÑAS ─── -->
+    <div class="section" id="campanas">
+      <div class="section-number">Sección 9</div>
+      <h2>Campañas</h2>
+      <p class="section-intro">Planifica y lanza campañas de marketing completas. Los agentes generan todo el contenido automáticamente.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Accede a Campañas</h3>
+            <p>Menú lateral → <strong>🚀 Campañas</strong>. O usa el botón "Crear campaña completa" en el Dashboard.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Crea una campaña nueva</h3>
+            <p>El asistente te guía: objetivo (ventas, awareness, leads), audiencia, canales (Facebook, Instagram, WhatsApp, Google) y presupuesto estimado.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Los agentes generan el contenido</h3>
+            <p>Según los canales elegidos, los agentes producen copys de anuncios, guiones, mensajes de WhatsApp y textos de landing page — todo usando el Cerebro Vivo del negocio.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3>El Pre-Autorizador evalúa</h3>
+            <p>Antes de llegar a ti, el Pre-Autorizador analiza todo el contenido y da un score. Solo lo que pasa el umbral llega a Autorizaciones para tu visto bueno.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 10. AUTORIZACIONES ─── -->
+    <div class="section" id="autorizaciones">
+      <div class="section-number">Sección 10</div>
+      <h2>Autorizaciones</h2>
+      <p class="section-intro">Nada se publica sin tu aprobación. Este es el último filtro antes de que el contenido salga al mundo.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Revisa los pendientes</h3>
+            <p>Menú lateral → <strong>✅ Autorizaciones</strong>. El número rojo en el badge indica cuántos esperan tu revisión. También los ves en el Dashboard.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Lee el contenido y el score</h3>
+            <p>Cada elemento muestra: tipo de contenido, texto generado, score del Pre-Autorizador (0-100) y notas de mejora si las hay.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Aprueba o rechaza</h3>
+            <p>✅ <strong>Aprobar</strong> — el contenido pasa a estado "listo para publicar". ❌ <strong>Rechazar</strong> — regresa al agente con notas para que corrija.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tip">
+        <strong>📌 Score del Pre-Autorizador:</strong> 90-100 = Excelente, publica sin cambios. 80-89 = Bueno, con ajustes menores. 70-79 = Regular, revisa antes de aprobar. Menos de 70 = El agente lo reescribe automáticamente.
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 11. CONFIGURACIÓN ─── -->
+    <div class="section" id="config">
+      <div class="section-number">Sección 11</div>
+      <h2>Configuración</h2>
+      <p class="section-intro">Panel de ajustes de la plataforma. Accede desde el menú lateral → <strong>⚙️ Configuración</strong>.</p>
+
+      <table>
+        <tr><th>Pestaña</th><th>¿Qué puedes hacer?</th><th>¿Quién puede?</th></tr>
+        <tr>
+          <td>🏢 <strong>Negocios</strong></td>
+          <td>Ver todos los negocios, editar números de WhatsApp por cliente</td>
+          <td><span class="pill pill-admin">Admin</span></td>
+        </tr>
+        <tr>
+          <td>👥 <strong>Usuarios y Roles</strong></td>
+          <td>Ver todos los usuarios registrados, asignar/quitar acceso a negocios por persona</td>
+          <td><span class="pill pill-admin">Admin</span></td>
+        </tr>
+        <tr>
+          <td>🔌 <strong>Integraciones</strong></td>
+          <td>Conectar Facebook Ads, Google Ads, WhatsApp Business, Instagram</td>
+          <td><span class="pill pill-admin">Admin</span></td>
+        </tr>
+        <tr>
+          <td>🤖 <strong>Inteligencia Artificial</strong></td>
+          <td>Pegar la API Key de Claude para activar los agentes con IA real</td>
+          <td><span class="pill pill-user">Todos</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 12. USUARIOS ─── -->
+    <div class="section" id="usuarios">
+      <div class="section-number">Sección 12</div>
+      <h2>Usuarios y roles</h2>
+      <p class="section-intro">La app tiene dos tipos de usuario. Los permisos se gestionan desde Configuración.</p>
+
+      <div class="cards" style="margin-bottom:24px;">
+        <div class="card">
+          <div class="card-icon">👑</div>
+          <h3>Administrador</h3>
+          <p>Ve todos los negocios, gestiona usuarios, asigna accesos, puede agregar negocios nuevos. Solo el correo <code>amezcuaizquierdo@gmail.com</code> tiene este rol automáticamente.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">👤</div>
+          <h3>Usuario</h3>
+          <p>Ve solo los negocios que el administrador le asignó. Puede usar todos los agentes, CRM y campañas de esos negocios. No puede agregar negocios ni gestionar otros usuarios.</p>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>El colaborador se registra solo</h3>
+            <p>Va a la app → "Crear cuenta" → llena nombre, correo, contraseña. La cuenta se crea en Firebase automáticamente.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>El admin asigna negocios</h3>
+            <p>⚙️ Configuración → Usuarios y Roles → encuentra al nuevo usuario → activa los checkboxes de los negocios a los que tendrá acceso.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>El colaborador ya puede trabajar</h3>
+            <p>Al cerrar y volver a abrir la app, el colaborador ya ve los negocios que le asignaron y puede operar normalmente.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 13. MENSAJERO ─── -->
+    <div class="section" id="mensajero">
+      <div class="section-number">Sección 13</div>
+      <h2>Mensajero flotante (❓ Ayuda)</h2>
+      <p class="section-intro">El botón morado 🤖 en la esquina inferior derecha de la app abre el mensajero flotante. Tiene 3 pestañas.</p>
+
+      <table>
+        <tr><th>Pestaña</th><th>¿Para qué sirve?</th></tr>
+        <tr>
+          <td>💬 <strong>Agencia</strong></td>
+          <td>Hablar con la Secretaria AI sobre operación del negocio (leads, campañas, autorizaciones)</td>
+        </tr>
+        <tr>
+          <td>💡 <strong>Ideas</strong></td>
+          <td>Guardar ideas de mejoras o cambios para que no se te olviden. Se sincronizan con la página de Ideas Pendientes</td>
+        </tr>
+        <tr>
+          <td>❓ <strong>Ayuda</strong></td>
+          <td>Preguntas sobre cómo usar la app. Tiene respuestas rápidas por categoría y campo de texto libre para cualquier duda</td>
+        </tr>
+      </table>
+
+      <div class="tip tip-blue">
+        <strong>💡 Regla de ayuda:</strong> Antes de contactar a alguien, siempre pregunta primero en la pestaña ❓ Ayuda del mensajero. Si no encuentra la respuesta, revisa este manual. Como último recurso, contacta a los directores.
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─── 14. SOPORTE ─── -->
+    <div class="section" id="soporte">
+      <div class="section-number">Sección 14</div>
+      <h2>Cómo pedir soporte</h2>
+      <p class="section-intro">Si tienes una duda o problema, sigue este orden antes de escalar:</p>
+
+      <div class="support-ladder">
+        <div class="support-step">
+          <div class="ss-num" style="background:#ede9fe;color:var(--primary);">1</div>
+          <div class="ss-text">
+            <h4>❓ Mensajero de Ayuda (dentro de la app)</h4>
+            <p>Haz clic en el botón 🤖 (esquina inferior derecha) → pestaña ❓ Ayuda → escoge una categoría o escribe tu pregunta. Respuesta inmediata.</p>
+          </div>
+        </div>
+        <div class="support-step">
+          <div class="ss-num" style="background:#fef3c7;color:#92400e;">2</div>
+          <div class="ss-text">
+            <h4>📖 Consultar este manual</h4>
+            <p>Revisa la sección correspondiente en esta guía. Busca en el menú lateral izquierdo por la función que necesitas.</p>
+          </div>
+        </div>
+        <div class="support-step">
+          <div class="ss-num" style="background:#d1fae5;color:#065f46;">3</div>
+          <div class="ss-text">
+            <h4>📞 Contactar a los directores</h4>
+            <p>Solo si las dos opciones anteriores no resolvieron el problema. Describe exactamente qué intentaste hacer, qué pasó y en qué negocio ocurrió.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:32px;padding:20px;background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:12px;color:white;text-align:center;">
+        <div style="font-size:24px;margin-bottom:8px;">🎉</div>
+        <div style="font-size:16px;font-weight:800;margin-bottom:6px;">¡Ya eres un experto en la plataforma!</div>
+        <div style="font-size:13px;opacity:0.8;">Esta guía cubre todo lo que necesitas para operar Agencia Marketing AMEZ. Si algo cambió o falta, avísale al administrador para actualizarla.</div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// Highlight active section in sidebar as you scroll
+const sections = document.querySelectorAll('.section[id]');
+const links = document.querySelectorAll('.sb-link[href^="#"]');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const active = document.querySelector(`.sb-link[href="#${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
