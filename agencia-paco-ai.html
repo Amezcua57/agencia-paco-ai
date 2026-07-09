@@ -395,16 +395,16 @@
 
   /* ─── GUIDE PAGE ─── */
   #page-guia { display:none; }
-  #page-guia.active { display:flex; flex-direction:column; overflow:hidden; }
-  .guia-container { display:flex; flex:1; overflow:hidden; }
-  .guia-toc { width:210px; flex-shrink:0; overflow-y:auto; padding:20px 0 20px; border-right:1px solid var(--border); background:#fafafa; }
-  .guia-toc-header { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-soft); padding:0 16px; margin-bottom:10px; }
+  #page-guia.active { display:flex; align-items:flex-start; }
+  .guia-container { display:flex; width:100%; align-items:flex-start; gap:0; }
+  .guia-toc { width:210px; flex-shrink:0; position:sticky; top:0; align-self:flex-start; max-height:calc(100vh - 110px); overflow-y:auto; border:1px solid var(--border); border-radius:12px; background:#fafafa; margin-right:24px; }
+  .guia-toc-header { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-soft); padding:14px 16px 6px; }
   .guia-toc-item { display:flex; align-items:center; gap:7px; padding:7px 16px; font-size:12px; color:var(--text-soft); cursor:pointer; border-left:3px solid transparent; transition:all 0.12s; }
   .guia-toc-item:hover { color:var(--primary); background:var(--primary-light); }
   .guia-toc-item.toc-active { color:var(--primary); border-left-color:var(--primary); font-weight:700; background:var(--primary-light); }
-  .guia-toc-sep { height:1px; background:var(--border); margin:8px 16px; }
+  .guia-toc-sep { height:1px; background:var(--border); margin:6px 16px; }
   .guia-toc-admin-label { font-size:9px; font-weight:800; text-transform:uppercase; color:#dc2626; padding:6px 16px 2px; letter-spacing:0.5px; }
-  .guia-content { flex:1; overflow-y:auto; padding:28px 36px 40px; }
+  .guia-content { flex:1; min-width:0; padding-bottom:40px; }
   .guia-page-header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--border); }
   .guia-page-title { font-size:22px; font-weight:800; color:var(--text); margin:0 0 5px; }
   .guia-page-sub { font-size:13px; color:var(--text-soft); }
@@ -986,15 +986,16 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
-</div>
 
-<!-- ═══════════════════ GUÍA DE USO PAGE ═══════════════════ -->
-<div class="page" id="page-guia">
-  <div class="guia-container">
-    <div class="guia-toc" id="guia-toc"></div>
-    <div class="guia-content" id="guia-content" onscroll="updateGuiaTocActive()"></div>
+      <!-- ═══════════════════ GUÍA DE USO PAGE ═══════════════════ -->
+      <div class="page" id="page-guia">
+        <div class="guia-container">
+          <div class="guia-toc" id="guia-toc"></div>
+          <div class="guia-content" id="guia-content"></div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -2323,6 +2324,14 @@ function renderGuiaPage() {
   });
   tocEl.innerHTML = tocHTML;
 
+  // Attach scroll listener to .content div
+  const contentScrollEl = document.querySelector('.content');
+  if (contentScrollEl && !contentScrollEl._guiaScrollAttached) {
+    contentScrollEl.addEventListener('scroll', updateGuiaTocActive);
+    contentScrollEl._guiaScrollAttached = true;
+  }
+  if (contentScrollEl) contentScrollEl.scrollTop = 0;
+
   // Build content
   let html = `
     <div class="guia-page-header">
@@ -2349,18 +2358,25 @@ function renderGuiaPage() {
 
 function scrollGuiaTo(id) {
   const el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+  const scrollEl = document.querySelector('.content');
+  if (el && scrollEl) {
+    const elTop = el.getBoundingClientRect().top;
+    const containerTop = scrollEl.getBoundingClientRect().top;
+    scrollEl.scrollBy({ top: elTop - containerTop - 20, behavior: 'smooth' });
+  }
 }
 
 function updateGuiaTocActive() {
   const contentEl = document.getElementById('guia-content');
   if (!contentEl) return;
   const sections = contentEl.querySelectorAll('.guia-section');
+  const scrollEl = document.querySelector('.content');
+  if (!scrollEl) return;
+  const containerRect = scrollEl.getBoundingClientRect();
   let activeId = null;
   sections.forEach(s => {
     const rect = s.getBoundingClientRect();
-    const containerRect = contentEl.getBoundingClientRect();
-    if (rect.top - containerRect.top <= 60) activeId = s.id;
+    if (rect.top - containerRect.top <= 80) activeId = s.id;
   });
   document.querySelectorAll('.guia-toc-item').forEach(item => {
     item.classList.toggle('toc-active', item.id === 'toc-' + activeId);
