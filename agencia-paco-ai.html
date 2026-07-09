@@ -1034,16 +1034,28 @@
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;">Contenido</label>
         <textarea id="know-content" class="wiz-input" rows="4" placeholder="Escribe el texto, pega el contenido, o describe lo que quieres guardar..."></textarea>
       </div>
-      <!-- Archivo o link -->
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;">Archivo o link (opcional)</label>
-        <div style="display:flex;gap:8px;">
-          <input id="know-link" class="wiz-input" type="text" placeholder="Pega un link de Google Drive, URL, o deja vacío" style="flex:1;">
-          <button style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;padding:0 14px;font-size:12px;font-weight:600;cursor:pointer;color:#374151;white-space:nowrap;" onclick="showToast('📎 Selecciona archivo...')">📎 Subir</button>
+            <!-- Archivo o link -->
+      <div style="margin-bottom:14px;" id="know-file-section">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;" id="know-file-label">Archivo o link (opcional)</label>
+        <!-- Real file input — hidden, triggered by button -->
+        <input type="file" id="know-file-input" accept=".txt,.csv,.md,.pdf,.doc,.docx" style="display:none;" onchange="handleKnowFile(this)">
+        <!-- File upload button — prominent for Documento type -->
+        <div id="know-upload-zone" style="display:none;border:2px dashed #6366f1;border-radius:10px;padding:18px;text-align:center;cursor:pointer;background:#f5f3ff;margin-bottom:8px;" onclick="document.getElementById('know-file-input').click()">
+          <div style="font-size:24px;margin-bottom:6px;">📂</div>
+          <div style="font-size:13px;font-weight:700;color:#6366f1;">Haz clic aquí para abrir tu computadora</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:3px;">TXT, PDF, Word, CSV — máx 5MB</div>
         </div>
-        <div style="font-size:10px;color:#9ca3af;margin-top:5px;">También puedes pegar el link de tu Google Drive. <span style="color:#6366f1;cursor:pointer;font-weight:600;" onclick="showGDriveHelp()">¿Cómo conecto Google Drive?</span></div>
+        <div id="know-file-info" style="display:none;background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;font-size:12px;color:#065f46;margin-bottom:8px;">
+          <strong id="know-file-name">—</strong><br>
+          <span id="know-file-msg"></span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input id="know-link" class="wiz-input" type="text" placeholder="O pega un link de Google Drive / YouTube / URL" style="flex:1;">
+          <button style="background:#6366f1;border:none;border-radius:8px;padding:0 14px;font-size:12px;font-weight:600;cursor:pointer;color:white;white-space:nowrap;" onclick="document.getElementById('know-file-input').click()">📎 Abrir archivo</button>
+        </div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:5px;">¿Tienes el archivo en Google Drive? <span style="color:#6366f1;cursor:pointer;font-weight:600;" onclick="showGDriveHelp()">¿Cómo conecto Google Drive?</span></div>
       </div>
-      <!-- Nivel de confianza -->
+<!-- Nivel de confianza -->
       <div style="margin-bottom:6px;">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;">Nivel de confianza (¿qué tan seguro está este dato?)</label>
         <div style="display:flex;gap:6px;">
@@ -2563,8 +2575,12 @@ function openAddKnowledge() {
   document.getElementById('know-title').value = '';
   document.getElementById('know-content').value = '';
   document.getElementById('know-link').value = '';
+  document.getElementById('know-file-info').style.display = 'none';
+  document.getElementById('know-upload-zone').style.display = 'none';
+  document.getElementById('know-file-input').value = '';
   document.querySelectorAll('#know-type-grid .wiz-option').forEach(o => o.classList.remove('selected'));
   document.querySelector('#know-type-grid .wiz-option').classList.add('selected');
+  selectKnowType(document.querySelector('#know-type-grid .wiz-option'), 'texto');
 }
 
 function closeAddKnowledge() {
@@ -2575,6 +2591,76 @@ function selectKnowType(el, type) {
   knowType = type;
   document.querySelectorAll('#know-type-grid .wiz-option').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
+
+  // Adapt form to type
+  const uploadZone = document.getElementById('know-upload-zone');
+  const contentEl = document.getElementById('know-content');
+  const fileLabel = document.getElementById('know-file-label');
+  const linkInput = document.getElementById('know-link');
+
+  const placeholders = {
+    texto:    'Escribe o pega el texto que quieres que el equipo y la IA conozcan...',
+    foto:     'Describe la foto o lo que muestra. Pega el link de Drive/URL abajo.',
+    video:    'Describe de qué trata el video. Pega el link de YouTube abajo.',
+    documento:'Pega aquí el contenido del documento, o ábrelo con el botón de abajo.',
+    precio:   'Ej: Depa 1 rec $2.5M, Depa 2 rec $2.8M. Patio extra $300k...',
+    objecion: 'Ej:\nObjeción: "Está muy caro"\nRespuesta: "El precio incluye..."',
+    faq:      'Ej:\nP: ¿Cuánto tarda la entrega?\nR: Entre 3 y 5 días hábiles...',
+    guion:    'Escribe el guión paso a paso:\n1. Saludo: "Hola [nombre], le llamo de..."\n2. Presentación...'
+  };
+  const urlPlaceholders = {
+    foto: 'Pega el link de la foto (Google Drive, Dropbox, URL...)',
+    video: 'Pega el link de YouTube o Vimeo...',
+    documento: 'O pega un link de Google Drive / Dropbox...'
+  };
+
+  contentEl.placeholder = placeholders[type] || placeholders.texto;
+  linkInput.placeholder = urlPlaceholders[type] || 'Pega un link de Google Drive / URL (opcional)';
+
+  // Show upload zone only for documento and foto
+  uploadZone.style.display = (type === 'documento' || type === 'foto') ? 'block' : 'none';
+  fileLabel.textContent = type === 'documento' ? 'Abrir archivo de tu computadora' :
+                          type === 'video'      ? 'Link del video' :
+                          type === 'foto'       ? 'Imagen o archivo' : 'Archivo o link (opcional)';
+}
+function handleKnowFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const infoBox = document.getElementById('know-file-info');
+  const fileName = document.getElementById('know-file-name');
+  const fileMsg  = document.getElementById('know-file-msg');
+  const contentEl = document.getElementById('know-content');
+  const titleEl   = document.getElementById('know-title');
+
+  fileName.textContent = '📄 ' + file.name;
+  infoBox.style.display = 'block';
+
+  // Auto-fill title if empty
+  if (!titleEl.value) {
+    titleEl.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+  }
+
+  // Read text-based files
+  const readable = /\.(txt|csv|md|html|json|xml)$/i.test(file.name);
+  if (readable) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      contentEl.value = e.target.result.substring(0, 8000); // max 8000 chars
+      fileMsg.textContent = '✅ Contenido leído automáticamente (' + Math.round(file.size/1024) + ' KB)';
+      showToast('✅ Archivo leído — revisa el contenido');
+    };
+    reader.readAsText(file, 'UTF-8');
+  } else {
+    // PDF, Word, etc. — can't read content directly in browser
+    fileMsg.textContent = '📎 Archivo adjunto. Pega el texto del documento en el campo "Contenido" de arriba.';
+    showToast('📎 Archivo adjunto: ' + file.name + ' — pega el contenido abajo');
+    if (!contentEl.value) {
+      contentEl.placeholder = 'Pega aquí el texto del documento: copia el contenido de tu ' + file.name.split('.').pop().toUpperCase() + ' y pégalo aquí...';
+      contentEl.focus();
+    }
+  }
+  // Reset for re-use
+  input.value = '';
 }
 
 function setConfidence(el, level) {
