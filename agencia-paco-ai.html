@@ -393,6 +393,33 @@
   .fp-qp { background: var(--primary-light); color: var(--primary); border: none; border-radius: 12px; padding: 4px 10px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.12s; }
   .fp-qp:hover { background: var(--primary); color: white; }
 
+  /* ─── GUIDE PAGE ─── */
+  #page-guia { display:none; }
+  #page-guia.active { display:flex; flex-direction:column; overflow:hidden; }
+  .guia-container { display:flex; flex:1; overflow:hidden; }
+  .guia-toc { width:210px; flex-shrink:0; overflow-y:auto; padding:20px 0 20px; border-right:1px solid var(--border); background:#fafafa; }
+  .guia-toc-header { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-soft); padding:0 16px; margin-bottom:10px; }
+  .guia-toc-item { display:flex; align-items:center; gap:7px; padding:7px 16px; font-size:12px; color:var(--text-soft); cursor:pointer; border-left:3px solid transparent; transition:all 0.12s; }
+  .guia-toc-item:hover { color:var(--primary); background:var(--primary-light); }
+  .guia-toc-item.toc-active { color:var(--primary); border-left-color:var(--primary); font-weight:700; background:var(--primary-light); }
+  .guia-toc-sep { height:1px; background:var(--border); margin:8px 16px; }
+  .guia-toc-admin-label { font-size:9px; font-weight:800; text-transform:uppercase; color:#dc2626; padding:6px 16px 2px; letter-spacing:0.5px; }
+  .guia-content { flex:1; overflow-y:auto; padding:28px 36px 40px; }
+  .guia-page-header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--border); }
+  .guia-page-title { font-size:22px; font-weight:800; color:var(--text); margin:0 0 5px; }
+  .guia-page-sub { font-size:13px; color:var(--text-soft); }
+  .guia-section { margin-bottom:36px; scroll-margin-top:16px; }
+  .guia-section-num { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--primary); margin-bottom:3px; }
+  .guia-section-title { font-size:16px; font-weight:800; color:var(--text); margin:0 0 12px; display:flex; align-items:center; gap:8px; }
+  .guia-admin-tag { font-size:9px; font-weight:700; background:#fee2e2; color:#dc2626; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.4px; }
+  .guia-step { display:flex; gap:12px; margin-bottom:10px; align-items:flex-start; }
+  .guia-step-num { width:22px; height:22px; background:var(--primary); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; flex-shrink:0; margin-top:1px; }
+  .guia-step-text { font-size:13px; color:var(--text); line-height:1.55; }
+  .guia-tip { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px 14px; font-size:12px; color:#1e40af; margin-top:12px; }
+  .guia-tip strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:3px; }
+  .guia-warn { background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px 14px; font-size:12px; color:#92400e; margin-top:12px; }
+  .guia-section-divider { height:1px; background:var(--border); margin:0 0 36px; }
+
   /* ─── HELP PANE ─── */
   .help-cat { margin-bottom: 12px; }
   .help-cat-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-soft); padding: 0 12px; margin-bottom: 5px; }
@@ -491,6 +518,7 @@
       <div class="nav-item" onclick="showPage('reports',this)"><span class="nav-icon">📈</span> Reportes</div>
       <div class="nav-item" onclick="showPage('competencia',this)"><span class="nav-icon">🕵️</span> Competencia <span class="nav-badge" style="background:#f59e0b;">HOY</span></div>
       <div class="nav-section">Sistema</div>
+      <div class="nav-item" onclick="showPage('guia',this)"><span class="nav-icon">📖</span> Guía de uso</div>
       <div class="nav-item" onclick="showPage('config',this)"><span class="nav-icon">⚙️</span> Configuración</div>
     </nav>
     <!-- User info + logout -->
@@ -962,6 +990,14 @@
   </div>
 </div>
 
+<!-- ═══════════════════ GUÍA DE USO PAGE ═══════════════════ -->
+<div class="page" id="page-guia">
+  <div class="guia-container">
+    <div class="guia-toc" id="guia-toc"></div>
+    <div class="guia-content" id="guia-content" onscroll="updateGuiaTocActive()"></div>
+  </div>
+</div>
+
 <!-- ═══════════════════ ADD KNOWLEDGE MODAL ═══════════════════ -->
 <div id="knowledge-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,10,50,0.65);z-index:600;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
   <div style="background:white;border-radius:16px;width:520px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
@@ -1412,12 +1448,13 @@ function showPage(id, el) {
     crm: 'CRM', campaigns: 'Campañas', agents: 'Agentes', auth: 'Autorizaciones',
     reports: 'Reportes', config: 'Configuración', ideas: 'Ideas Pendientes',
     calendar: 'Calendario de Seguimiento', landings: 'Landing Pages', whatsapp: 'WhatsApp',
-    competencia: 'Inteligencia Competitiva'
+    competencia: 'Inteligencia Competitiva', guia: '📖 Guía de uso'
   };
   document.getElementById('topbar-title').textContent = titles[id] || id;
   document.getElementById('biz-dropdown').classList.remove('open');
   if (id === 'config') { renderBizListCfg(); renderIntegrations(); }
   if (id === 'ideas') syncIdeasPage();
+  if (id === 'guia') renderGuiaPage();
 }
 
 // ─── BIZ SWITCHER ───
@@ -2086,6 +2123,248 @@ function helpSend() {
 
 function handleHelpKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); helpSend(); }
+}
+
+// ═══════════════════ GUÍA DE USO ═══════════════════
+const GUIA_SECTIONS = [
+  {
+    id:'g1', num:'01', icon:'🏢', title:'¿Qué es la Agencia Paco AI?', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 14px;">
+        <strong>Agencia Paco AI</strong> es una plataforma centralizada que unifica inteligencia artificial, gestión de clientes (CRM), campañas de marketing y el conocimiento interno de cada negocio en un solo lugar.
+      </p>
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 14px;">
+        Cada negocio tiene su propio <strong>Cerebro Vivo</strong> (base de conocimiento), sus <strong>Agentes IA</strong> especializados y su propio flujo de leads — todo dentro de la misma app.
+      </p>
+      <div class="guia-tip"><strong>💡 Concepto clave</strong>Una instancia de la app puede manejar múltiples negocios. El negocio activo se muestra en la barra superior y todo el contenido (IA, CRM, campañas) corresponde a ese negocio.</div>
+    `
+  },
+  {
+    id:'g2', num:'02', icon:'🔐', title:'Primer inicio de sesión', adminOnly:false,
+    content:`
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Abre la URL de la app (amezcua57.github.io/agencia-paco-ai/) en tu navegador.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">Ingresa tu <strong>correo electrónico</strong> y <strong>contraseña</strong> en la pantalla de acceso.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">La app cargará automáticamente tu negocio asignado y el Dashboard principal.</div></div>
+      <div class="guia-step"><div class="guia-step-num">4</div><div class="guia-step-text">Si tienes acceso a varios negocios, usa el <strong>selector de negocio</strong> en la barra superior para cambiar.</div></div>
+      <div class="guia-tip"><strong>🔒 Acceso</strong>Los usuarios solo ven los negocios que el administrador les asignó. Si no ves tu negocio, contacta al admin.</div>
+    `
+  },
+  {
+    id:'g3', num:'03', icon:'🗺️', title:'Navegación principal', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">La app tiene dos zonas de navegación:</p>
+      <div class="guia-step"><div class="guia-step-num">◀</div><div class="guia-step-text"><strong>Sidebar izquierdo:</strong> acceso a todas las secciones — Dashboard, CRM, Campañas, Agentes, etc. El ítem activo se resalta en azul.</div></div>
+      <div class="guia-step"><div class="guia-step-num">▲</div><div class="guia-step-text"><strong>Barra superior (topbar):</strong> nombre de la sección actual, selector de negocio activo y perfil del usuario.</div></div>
+      <div class="guia-step"><div class="guia-step-num">💬</div><div class="guia-step-text"><strong>Mensajero flotante</strong> (esquina inferior derecha): acceso rápido al chat de la agencia, ideas pendientes y ayuda.</div></div>
+      <div class="guia-tip"><strong>💡 Cambio de negocio</strong>Haz clic en el nombre del negocio en la topbar para desplegar el selector y cambiar de negocio al instante.</div>
+    `
+  },
+  {
+    id:'g4', num:'04', icon:'🧠', title:'Cerebro Vivo — Base de conocimiento', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        El <strong>Cerebro Vivo</strong> es la memoria del negocio. Toda la información que agregues aquí la usarán los Agentes IA para responder preguntas y crear contenido relevante.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Ve a <strong>Cerebro Vivo</strong> en el sidebar.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">Haz clic en <strong>＋ Agregar conocimiento</strong> para abrir el panel de captura.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">Selecciona el tipo: <em>Producto/Servicio, Política, Proceso, FAQ, Competencia</em> o <em>General</em>.</div></div>
+      <div class="guia-step"><div class="guia-step-num">4</div><div class="guia-step-text">Escribe el título y el contenido. Haz clic en <strong>Guardar</strong>.</div></div>
+      <div class="guia-step"><div class="guia-step-num">5</div><div class="guia-step-text">La ficha aparece en la lista y los agentes ya pueden usarla.</div></div>
+      <div class="guia-tip"><strong>📌 Tip</strong>Entre más específica y completa sea la información, mejores serán las respuestas de los agentes. Agrega precios, políticas, horarios y diferenciadores.</div>
+    `
+  },
+  {
+    id:'g5', num:'05', icon:'🎭', title:'Agentes IA', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        Los <strong>Agentes IA</strong> son asistentes especializados que conocen el negocio activo y usan el Cerebro Vivo para responder con información real.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">🤖</div><div class="guia-step-text"><strong>Secretaria Virtual:</strong> responde preguntas operativas, redacta comunicaciones y orienta a clientes basándose en las políticas del negocio.</div></div>
+      <div class="guia-step"><div class="guia-step-num">✍️</div><div class="guia-step-text"><strong>Creador de Contenido:</strong> genera publicaciones para redes sociales, correos y otros formatos con el tono y estilo del negocio.</div></div>
+      <div class="guia-step"><div class="guia-step-num">🕵️</div><div class="guia-step-text"><strong>Inteligencia Competitiva:</strong> analiza competidores y genera reportes diarios de posicionamiento.</div></div>
+      <div class="guia-step"><div class="guia-step-num">✅</div><div class="guia-step-text"><strong>Pre-Autorizador:</strong> revisa todo el contenido antes de publicarlo. Si detecta algo fuera de política, lo retiene para revisión humana.</div></div>
+      <div class="guia-tip"><strong>💡 Cómo usar</strong>Ve a <strong>Agentes</strong> en el sidebar, selecciona el agente y escribe tu instrucción o pregunta en el chat.</div>
+    `
+  },
+  {
+    id:'g6', num:'06', icon:'📊', title:'CRM — Gestión de leads', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        El <strong>CRM</strong> es un tablero Kanban donde sigues el avance de cada prospecto desde el primer contacto hasta el cierre o pérdida.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Ve a <strong>CRM</strong> en el sidebar.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">Haz clic en <strong>＋ Nuevo Lead</strong> para agregar un prospecto.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">Llena nombre, canal de origen, temperatura (🔥 Hot / 🌡 Warm / ❄️ Cold) y notas.</div></div>
+      <div class="guia-step"><div class="guia-step-num">4</div><div class="guia-step-text">Arrastra la tarjeta entre columnas conforme avanza: <em>Nuevo → Contactado → Propuesta → Negociación → Cerrado / Perdido</em>.</div></div>
+      <div class="guia-step"><div class="guia-step-num">5</div><div class="guia-step-text">Haz clic en cualquier tarjeta para ver el historial completo y agregar notas de seguimiento.</div></div>
+      <div class="guia-tip"><strong>🔥 Temperatura</strong>Hot = listo para cerrar. Warm = interesado pero necesita seguimiento. Cold = contacto inicial, poca urgencia.</div>
+    `
+  },
+  {
+    id:'g7', num:'07', icon:'🚀', title:'Campañas', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        Las <strong>Campañas</strong> permiten planificar y publicar contenido de marketing con un flujo de aprobación incorporado.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Ve a <strong>Campañas</strong> en el sidebar.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">Haz clic en <strong>Nueva Campaña</strong> y define el objetivo, canal y fecha.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">El Creador de Contenido puede generar el copy. Revísalo y edita si es necesario.</div></div>
+      <div class="guia-step"><div class="guia-step-num">4</div><div class="guia-step-text">Envía a <strong>Pre-Autorización</strong>. El Pre-Autorizador lo revisa automáticamente.</div></div>
+      <div class="guia-step"><div class="guia-step-num">5</div><div class="guia-step-text">Si pasa la revisión, aparece en <strong>Autorizaciones</strong> para aprobación final por un humano.</div></div>
+      <div class="guia-tip"><strong>✅ Flujo de seguridad</strong>Ningún contenido se publica sin pasar por el Pre-Autorizador IA y la aprobación humana. Esto protege la marca.</div>
+    `
+  },
+  {
+    id:'g8', num:'08', icon:'✅', title:'Autorizaciones', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        La sección de <strong>Autorizaciones</strong> muestra el contenido que ya pasó por el Pre-Autorizador IA y espera la firma de un humano antes de publicarse.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Ve a <strong>Autorizaciones</strong> en el sidebar. El número en el badge indica cuántos esperan revisión.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">Haz clic en un ítem para leer el contenido completo y el dictamen del Pre-Autorizador.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">Presiona <strong>✅ Autorizar</strong> para aprobar o <strong>🚫 Rechazar</strong> para regresar al equipo.</div></div>
+      <div class="guia-warn"><strong>⚠️ Importante</strong>Solo los usuarios con permiso de autorización pueden aprobar contenido. Los rechazos regresan el ítem al estado "en revisión" con tus comentarios.</div>
+    `
+  },
+  {
+    id:'g9', num:'09', icon:'📈', title:'Reportes', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        La sección de <strong>Reportes</strong> consolida las métricas clave del negocio: leads, conversiones, campañas y actividad de agentes.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Ve a <strong>Reportes</strong> en el sidebar.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">Selecciona el período (semana, mes, trimestre) con los filtros superiores.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">Las tarjetas muestran: leads nuevos, tasa de cierre, campañas publicadas y contenido autorizado.</div></div>
+      <div class="guia-tip"><strong>📊 En construcción</strong>Los reportes se enriquecen conforme se agregan integraciones (WhatsApp, redes, email). Actualmente muestran datos de CRM y campañas.</div>
+    `
+  },
+  {
+    id:'g10', num:'10', icon:'🕵️', title:'Inteligencia Competitiva', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        El módulo de <strong>Competencia</strong> genera análisis automáticos de los competidores del negocio activo, actualizados diariamente.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Ve a <strong>Competencia</strong> en el sidebar (icono 🕵️).</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">El agente muestra el análisis más reciente: precios, mensajes, canales y oportunidades.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">Haz clic en <strong>Actualizar ahora</strong> para generar un análisis fresco con IA.</div></div>
+      <div class="guia-tip"><strong>🎯 Cómo usarlo</strong>Usa los insights para ajustar tus propuestas de valor, precios y mensajes de ventas antes de una presentación a cliente.</div>
+    `
+  },
+  {
+    id:'g11', num:'11', icon:'⚙️', title:'Configuración del sistema', adminOnly:true,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        La sección de <strong>Configuración</strong> es el panel de control de toda la plataforma. Solo visible para administradores.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">🏢</div><div class="guia-step-text"><strong>Negocios:</strong> agregar, editar o eliminar negocios. Define nombre, color, ícono y descripción de cada uno.</div></div>
+      <div class="guia-step"><div class="guia-step-num">🔑</div><div class="guia-step-text"><strong>APIs e Integraciones:</strong> configurar la API Key de Claude (Anthropic), WhatsApp Business, Google Drive y otros servicios.</div></div>
+      <div class="guia-step"><div class="guia-step-num">📋</div><div class="guia-step-text"><strong>Reglas del sistema:</strong> activar/desactivar el Pre-Autorizador, establecer políticas de asignación de leads y otros controles globales.</div></div>
+      <div class="guia-step"><div class="guia-step-num">🔔</div><div class="guia-step-text"><strong>Notificaciones:</strong> configurar alertas por correo o WhatsApp cuando haya autorizaciones pendientes.</div></div>
+      <div class="guia-warn"><strong>🛡️ Solo admin</strong>Los cambios en Configuración afectan a todos los usuarios de la plataforma. Úsala con cuidado.</div>
+    `
+  },
+  {
+    id:'g12', num:'12', icon:'👥', title:'Usuarios y Roles', adminOnly:true,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        Desde <strong>Configuración → Usuarios</strong> puedes gestionar quién accede a qué.
+      </p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Ve a <strong>Configuración</strong> y abre la pestaña <strong>Usuarios</strong>.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">Haz clic en <strong>Invitar usuario</strong>, ingresa su correo y asígnale un rol.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">Selecciona los negocios a los que tendrá acceso.</div></div>
+      <div class="guia-step"><div class="guia-step-num">4</div><div class="guia-step-text">El usuario recibirá su acceso en el siguiente inicio de sesión.</div></div>
+      <p style="font-size:12px;color:var(--text-soft);margin:14px 0 4px;font-weight:700;">Roles disponibles:</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+        <div style="background:#f3f4f6;border-radius:8px;padding:10px 12px;"><div style="font-size:12px;font-weight:700;">👑 Admin</div><div style="font-size:11px;color:var(--text-soft);margin-top:3px;">Acceso total. Configuración, todos los negocios, usuarios.</div></div>
+        <div style="background:#f3f4f6;border-radius:8px;padding:10px 12px;"><div style="font-size:12px;font-weight:700;">👤 Usuario</div><div style="font-size:11px;color:var(--text-soft);margin-top:3px;">Solo negocios asignados. Sin acceso a config ni usuarios.</div></div>
+      </div>
+    `
+  },
+  {
+    id:'g13', num:'13', icon:'🔄', title:'Cambiar negocio y cerrar sesión', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;"><strong>Cambiar de negocio activo:</strong></p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">Haz clic en el nombre del negocio en la <strong>barra superior</strong>.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">Se despliega la lista de negocios disponibles. Selecciona el que necesitas.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text">Todo el contenido de la app (CRM, Cerebro, Agentes) cambia inmediatamente al negocio seleccionado.</div></div>
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:14px 0 8px;"><strong>Cerrar sesión:</strong></p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text">En el <strong>sidebar inferior</strong>, haz clic en el botón <strong>Salir</strong> junto a tu nombre.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text">La sesión termina y regresa a la pantalla de inicio.</div></div>
+      <div class="guia-tip"><strong>🔐 Seguridad</strong>Siempre cierra sesión si usas un dispositivo compartido.</div>
+    `
+  },
+  {
+    id:'g14', num:'14', icon:'🆘', title:'Soporte y ayuda', adminOnly:false,
+    content:`
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0 0 12px;">
+        Si tienes dudas o encuentras un problema, sigue este orden de escalación:
+      </p>
+      <div class="guia-step"><div class="guia-step-num">1</div><div class="guia-step-text"><strong>❓ Mensajero de ayuda:</strong> haz clic en el ícono flotante (esquina inferior derecha) y ve a la pestaña ❓ Ayuda. Escribe tu pregunta o elige un tema rápido.</div></div>
+      <div class="guia-step"><div class="guia-step-num">2</div><div class="guia-step-text"><strong>📖 Manual completo:</strong> en el mensajero de ayuda, presiona "Ver manual" para abrir la guía detallada en línea.</div></div>
+      <div class="guia-step"><div class="guia-step-num">3</div><div class="guia-step-text"><strong>📞 Directores:</strong> si el problema persiste, usa el botón "Directores" en el mensajero para contactar directamente al equipo de soporte.</div></div>
+      <div class="guia-tip"><strong>⚡ Acceso rápido</strong>El mensajero flotante siempre está disponible en cualquier sección de la app. No necesitas salir de lo que estás haciendo.</div>
+    `
+  }
+];
+
+function renderGuiaPage() {
+  const tocEl = document.getElementById('guia-toc');
+  const contentEl = document.getElementById('guia-content');
+  const sections = isAdmin ? GUIA_SECTIONS : GUIA_SECTIONS.filter(s => !s.adminOnly);
+
+  // Build TOC
+  let tocHTML = `<div class="guia-toc-header">Contenido</div>`;
+  sections.forEach((s, i) => {
+    if (!isAdmin && s.adminOnly) return;
+    if (i > 0 && s.adminOnly && !sections[i-1].adminOnly) {
+      tocHTML += `<div class="guia-toc-sep"></div><div class="guia-toc-admin-label">👑 Solo admin</div>`;
+    }
+    tocHTML += `<div class="guia-toc-item" id="toc-${s.id}" onclick="scrollGuiaTo('${s.id}')">${s.icon} ${s.num}. ${s.title.split('—')[0].split('—')[0].substring(0,28)}</div>`;
+  });
+  tocEl.innerHTML = tocHTML;
+
+  // Build content
+  let html = `
+    <div class="guia-page-header">
+      <div class="guia-page-title">📖 Guía de uso</div>
+      <div class="guia-page-sub">Manual operativo de la Agencia Paco AI${isAdmin ? ' — Vista completa (Admin)' : ''}</div>
+    </div>
+  `;
+  sections.forEach((s, i) => {
+    if (i > 0) html += `<div class="guia-section-divider"></div>`;
+    html += `
+      <div class="guia-section" id="${s.id}">
+        <div class="guia-section-num">Sección ${s.num}</div>
+        <div class="guia-section-title">
+          ${s.icon} ${s.title}
+          ${s.adminOnly ? '<span class="guia-admin-tag">👑 Admin</span>' : ''}
+        </div>
+        <div class="guia-section-body">${s.content}</div>
+      </div>
+    `;
+  });
+  contentEl.innerHTML = html;
+  updateGuiaTocActive();
+}
+
+function scrollGuiaTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function updateGuiaTocActive() {
+  const contentEl = document.getElementById('guia-content');
+  if (!contentEl) return;
+  const sections = contentEl.querySelectorAll('.guia-section');
+  let activeId = null;
+  sections.forEach(s => {
+    const rect = s.getBoundingClientRect();
+    const containerRect = contentEl.getBoundingClientRect();
+    if (rect.top - containerRect.top <= 60) activeId = s.id;
+  });
+  document.querySelectorAll('.guia-toc-item').forEach(item => {
+    item.classList.toggle('toc-active', item.id === 'toc-' + activeId);
+  });
 }
 
 // ═══════════════════ CONFIGURACIÓN TABS ═══════════════════
