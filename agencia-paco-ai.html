@@ -394,6 +394,8 @@
   .fp-qp:hover { background: var(--primary); color: white; }
 
   /* ─── GUIDE PAGE ─── */
+    #page-phone { display:none; flex-direction:column; }
+  #page-phone.active { display:flex; }
   #page-guia { display:none; }
   #page-guia.active { display:flex; align-items:flex-start; }
   .guia-container { display:flex; width:100%; align-items:flex-start; gap:0; }
@@ -518,7 +520,8 @@
       <div class="nav-item" onclick="showPage('reports',this)"><span class="nav-icon">📈</span> Reportes</div>
       <div class="nav-item" onclick="showPage('competencia',this)"><span class="nav-icon">🕵️</span> Competencia <span class="nav-badge" style="background:#f59e0b;">HOY</span></div>
       <div class="nav-section">Sistema</div>
-      <div class="nav-item" onclick="showPage('guia',this)"><span class="nav-icon">📖</span> Guía de uso</div>
+            <div class="nav-item" onclick="showPage('phone',this)"><span class="nav-icon">📞</span> Agente Telefónico</div>
+<div class="nav-item" onclick="showPage('guia',this)"><span class="nav-icon">📖</span> Guía de uso</div>
       <div class="nav-item" onclick="showPage('config',this)"><span class="nav-icon">⚙️</span> Configuración</div>
     </nav>
     <!-- User info + logout -->
@@ -1264,6 +1267,60 @@
   </div>
 </div>
 
+
+<!-- ══════════════ AGENTE TELEFÓNICO ══════════════ -->
+<div class="page" id="page-phone">
+  <div class="page-header">
+    <div><h2>📞 Agente Telefónico</h2><p>Contesta y realiza llamadas con voz natural usando IA — alimentado por el Cerebro Vivo</p></div>
+  </div>
+  <div id="phone-status-bar" style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:16px;">
+    <span id="phone-status-dot" style="width:10px;height:10px;border-radius:50%;background:#e5e7eb;flex-shrink:0;"></span>
+    <span id="phone-status-text" style="font-size:13px;color:#6b7280;flex:1;">Configura la URL del servidor para activar el agente</span>
+    <button onclick="checkPhoneServer()" style="padding:6px 14px;border:1.5px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">Verificar ✓</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="card" style="padding:16px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">⚙️ Configuración del Servidor</h3>
+      <label style="font-size:12px;color:#6b7280;">URL del Servidor Railway</label>
+      <input id="phone-server-url" type="url" placeholder="https://tu-app.up.railway.app" style="width:100%;margin:6px 0 10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
+      <label style="font-size:12px;color:#6b7280;">ID del Negocio</label>
+      <input id="phone-biz-id" type="text" placeholder="caracol-diamante" style="width:100%;margin:6px 0 10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
+      <label style="font-size:12px;color:#6b7280;">Nombre del Negocio</label>
+      <input id="phone-biz-name" type="text" placeholder="Caracol Diamante" style="width:100%;margin:6px 0 12px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
+      <button onclick="savePhoneConfig()" style="width:100%;padding:9px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;cursor:pointer;font-weight:600;">Guardar Configuración</button>
+    </div>
+    <div class="card" style="padding:16px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:10px;">🔗 Webhook para Twilio (Entrantes)</h3>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:8px;">Copia esta URL en el campo "A Request URL" de tu número Twilio:</p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <code id="phone-webhook-url" style="flex:1;font-size:11px;background:#f9fafb;border:1.5px solid var(--border);border-radius:8px;padding:8px;word-break:break-all;display:block;">— configura el servidor primero —</code>
+        <button onclick="copyWebhookUrl()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;flex-shrink:0;">📋</button>
+      </div>
+      <div style="margin-top:14px;">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px;">📊 Estado</h3>
+        <div id="phone-agent-stats" style="font-size:13px;color:#6b7280;">Servidor no configurado</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="padding:16px;margin-bottom:16px;">
+    <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">📤 Realizar Llamada Saliente</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+      <div>
+        <label style="font-size:12px;color:#6b7280;">Número a llamar</label>
+        <input id="phone-call-to" type="tel" placeholder="+521234567890" style="width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:12px;color:#6b7280;">Saludo inicial (opcional)</label>
+        <input id="phone-call-greeting" type="text" placeholder="Hola, llamo de parte de..." style="width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;">
+      </div>
+    </div>
+    <button onclick="makePhoneCall()" style="margin-top:12px;padding:10px 24px;border:none;border-radius:8px;background:#10b981;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📞 Llamar Ahora</button>
+  </div>
+  <div class="card" style="padding:16px;">
+    <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">📋 Registro de Llamadas</h3>
+    <div id="phone-call-log" style="font-size:13px;color:#6b7280;text-align:center;padding:24px 0;">El historial de llamadas aparecerá aquí</div>
+  </div>
+</div>
 <script>
 // ─── STATE ───
 const state = {
@@ -1472,13 +1529,14 @@ function showPage(id, el) {
     crm: 'CRM', campaigns: 'Campañas', agents: 'Agentes', auth: 'Autorizaciones',
     reports: 'Reportes', config: 'Configuración', ideas: 'Ideas Pendientes',
     calendar: 'Calendario de Seguimiento', landings: 'Landing Pages', whatsapp: 'WhatsApp',
-    competencia: 'Inteligencia Competitiva', guia: '📖 Guía de uso'
+    competencia: 'Inteligencia Competitiva', guia: '📖 Guía de uso', phone: '📞 Agente Telefónico'
   };
   document.getElementById('topbar-title').textContent = titles[id] || id;
   document.getElementById('biz-dropdown').classList.remove('open');
   if (id === 'config') { renderBizListCfg(); renderIntegrations(); }
   if (id === 'ideas') syncIdeasPage();
   if (id === 'guia') renderGuiaPage();
+  if (id === 'phone') renderPhonePage();
 }
 
 // ─── BIZ SWITCHER ───
@@ -2829,6 +2887,105 @@ function addToAuthHistory(name, score) {
   div.className = 'auth-item';
   div.innerHTML = `<div style="font-size:18px;">✅</div><div class="auth-info"><div class="auth-name">${name}</div><div class="auth-desc">${score ? 'Score: ' + score + '/100 · ' : ''}Aprobado por Paco · ahora</div></div>`;
   list.insertBefore(div, list.firstChild);
+}
+
+// ══════════════ AGENTE TELEFÓNICO ══════════════
+function renderPhonePage() {
+  const savedUrl = localStorage.getItem('phone_server_url') || '';
+  const savedBiz = localStorage.getItem('phone_biz_id') || (typeof currentBiz !== 'undefined' ? currentBiz : 'default');
+  const savedName = localStorage.getItem('phone_biz_name') || '';
+  const urlEl = document.getElementById('phone-server-url');
+  if (urlEl) {
+    urlEl.value = savedUrl;
+    document.getElementById('phone-biz-id').value = savedBiz;
+    document.getElementById('phone-biz-name').value = savedName;
+    _updateWebhookUrl(savedUrl, savedBiz);
+    if (savedUrl) checkPhoneServer();
+  }
+}
+function savePhoneConfig() {
+  const url = (document.getElementById('phone-server-url').value || '').trim().replace(/\/$/,'');
+  const biz = (document.getElementById('phone-biz-id').value || '').trim();
+  const name = (document.getElementById('phone-biz-name').value || '').trim();
+  if (!url) { alert('Ingresa la URL del servidor Railway'); return; }
+  localStorage.setItem('phone_server_url', url);
+  localStorage.setItem('phone_biz_id', biz);
+  localStorage.setItem('phone_biz_name', name);
+  _updateWebhookUrl(url, biz);
+  checkPhoneServer();
+}
+function _updateWebhookUrl(serverUrl, bizId) {
+  const el = document.getElementById('phone-webhook-url');
+  if (!el) return;
+  if (serverUrl) {
+    const n = localStorage.getItem('phone_biz_name') || '';
+    el.textContent = serverUrl + '/incoming-call?biz=' + (bizId||'default') + '&name=' + encodeURIComponent(n);
+  }
+}
+function copyWebhookUrl() {
+  const url = document.getElementById('phone-webhook-url')?.textContent || '';
+  if (!url || url.includes('configura')) return;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.querySelector('#page-phone button[onclick="copyWebhookUrl()"]');
+    if (btn) { btn.textContent = '✅'; setTimeout(() => { btn.textContent = '📋'; }, 1500); }
+  });
+}
+async function checkPhoneServer() {
+  const url = (localStorage.getItem('phone_server_url') || '').replace(/\/$/,'');
+  if (!url) return;
+  const dot = document.getElementById('phone-status-dot');
+  const txt = document.getElementById('phone-status-text');
+  if (dot) dot.style.background = '#f59e0b';
+  if (txt) txt.textContent = 'Verificando servidor...';
+  try {
+    const r = await fetch(url + '/', { signal: AbortSignal.timeout(8000) });
+    const data = await r.json();
+    if (dot) dot.style.background = '#10b981';
+    if (txt) txt.textContent = '✅ Servidor activo — Twilio: ' + (data.twilio ? '✅' : '❌') + ' | Claude: ' + (data.claude ? '✅' : '❌');
+    const stats = document.getElementById('phone-agent-stats');
+    if (stats) stats.innerHTML = '<span style="color:#10b981;font-weight:600;">● En línea</span> — listo para recibir y hacer llamadas';
+  } catch(e) {
+    if (dot) dot.style.background = '#ef4444';
+    if (txt) txt.textContent = '❌ Servidor no disponible — verifica la URL o que Railway esté corriendo';
+  }
+}
+function _addPhoneCallLog(entry) {
+  const log = document.getElementById('phone-call-log');
+  if (!log) return;
+  if (log.textContent.includes('aparecerá aquí')) log.innerHTML = '';
+  const item = document.createElement('div');
+  item.style.cssText = 'padding:8px 0;border-bottom:1px solid #f3f4f6;';
+  item.innerHTML = entry;
+  log.prepend(item);
+}
+async function makePhoneCall() {
+  const serverUrl = (localStorage.getItem('phone_server_url') || '').replace(/\/$/,'');
+  const bizId = localStorage.getItem('phone_biz_id') || 'default';
+  const bizNameV = localStorage.getItem('phone_biz_name') || 'la Agencia';
+  const to = (document.getElementById('phone-call-to')?.value || '').trim();
+  const greeting = (document.getElementById('phone-call-greeting')?.value || '').trim();
+  if (!serverUrl) { alert('Configura primero la URL del servidor'); return; }
+  if (!to) { alert('Ingresa el número a llamar (ej: +521234567890)'); return; }
+  const btn = document.querySelector('button[onclick="makePhoneCall()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Marcando...'; }
+  try {
+    const r = await fetch(serverUrl + '/make-call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, bizId, bizName: bizNameV, greeting })
+    });
+    const data = await r.json();
+    if (data.success) {
+      _addPhoneCallLog('<span style="color:#10b981;">📤 Saliente</span> → <b>' + to + '</b> — <span style="color:#6b7280;font-size:12px;">' + new Date().toLocaleTimeString() + '</span>');
+      if (btn) { btn.textContent = '✅ Llamada iniciada'; setTimeout(() => { btn.disabled = false; btn.textContent = '📞 Llamar Ahora'; }, 3000); }
+    } else {
+      alert('Error: ' + (data.error || 'Error desconocido'));
+      if (btn) { btn.disabled = false; btn.textContent = '📞 Llamar Ahora'; }
+    }
+  } catch(e) {
+    alert('No se pudo conectar: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '📞 Llamar Ahora'; }
+  }
 }
 </script>
 </body>
