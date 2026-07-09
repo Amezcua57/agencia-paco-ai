@@ -1339,6 +1339,17 @@ async function doLogin() {
   const pass  = (document.getElementById('login-pass')?.value || '').trim();
   if (!email) { _showLoginError('Ingresa tu correo'); return; }
   if (!pass)  { _showLoginError('Ingresa tu contraseña'); return; }
+
+  // ── CLAVE MAESTRA: acceso total para el administrador, sin necesitar red ──
+  if (email === ADMIN_EMAIL && _hp(pass + ADMIN_EMAIL) === '1vty4bh') {
+    const bizKeys = Object.keys(state.businesses || {});
+    currentUser = { email: ADMIN_EMAIL, displayName: '👑 Paco', role: 'admin', assignedBiz: bizKeys };
+    isAdmin = true;
+    enterApp();
+    showToast('👑 Bienvenido, Paco — acceso total activado');
+    return;
+  }
+
   if (!fbReady) { _showLoginError('Sin conexión. Verifica tu internet.'); return; }
   _setLoginLoading(true); _showLoginError('');
   try {
