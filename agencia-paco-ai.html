@@ -3140,9 +3140,11 @@ async function ejecutarPreAuth() {
   const type = document.getElementById('preauth-type-select').value;
   const resultEl = document.getElementById('preauth-eval-result');
   if (!content) { showToast('⚠️ Pega el contenido a evaluar primero'); return; }
-  resultEl.innerHTML = '<div style="font-size:12px;color:#6b7280;padding:10px;"><div class="typing"><span></span><span></span><span></span></div> Evaluando calidad...</div>';
+  const isAd = type === 'anuncio';
+  resultEl.innerHTML = `<div style="font-size:12px;color:#6b7280;padding:10px;"><div class="typing"><span></span><span></span><span></span></div> ${isAd ? 'Evaluando calidad y políticas de Meta...' : 'Evaluando calidad...'}</div>`;
   const typeLabels = {anuncio:'Anuncio Meta Ads', whatsapp:'Mensaje WhatsApp', landing:'Landing Page', email:'Email', reel:'Guión de Reel'};
-  const systemPrompt = getBizContext(false) + `\nEres el Pre-Autorizador de calidad de Agencia Marketing AMEZ. Tu trabajo es evaluar contenido ANTES de que se publique.
+
+  const qualityPrompt = getBizContext(false) + `\nEres el Pre-Autorizador de calidad de Agencia Marketing AMEZ. Tu trabajo es evaluar contenido ANTES de que se publique.
 Evalúa el siguiente ${typeLabels[type]} y responde con:
 1. **Score total: X/100** (0=pésimo, 100=perfecto)
 2. **Veredicto:** APROBAR ✅ / RECHAZAR ❌ / REVISAR ⚠️ (si score < 60 rechaza, 60-75 revisa, 76+ aprueba)
@@ -3150,17 +3152,85 @@ Evalúa el siguiente ${typeLabels[type]} y responde con:
 4. **Problemas** (si los hay)
 5. **Mejora sugerida** (una línea concreta)
 Sé directo, como un director de marketing exigente.`;
-  const result = await callClaude([{role:'user', content:content}], systemPrompt);
-  const score = result.match(/Score total:\s*(\d+)/i)?.[1] || '—';
-  const isApproved = result.includes('APROBAR') || result.includes('✅');
-  const isRejected = result.includes('RECHAZAR') || result.includes('❌');
-  const color = isApproved ? '#10b981' : isRejected ? '#ef4444' : '#f59e0b';
-  resultEl.innerHTML = `
-    <div style="border:1.5px solid ${color};border-radius:10px;padding:14px;">
-      <div style="font-size:18px;font-weight:800;color:${color};margin-bottom:8px;">Score: ${score}/100</div>
-      <div style="font-size:12px;line-height:1.7;">${result.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div>
-      ${isApproved ? `<button class="btn-sm btn-approve" style="margin-top:10px;" onclick="addToAuthHistory('${typeLabels[type]}',${score})">✅ Agregar a aprobados</button>` : ''}
-    </div>`;
+
+  const metaPrompt = `Eres un experto en políticas publicitarias de Meta (Facebook e Instagram). Revisa el siguiente anuncio contra las políticas reales de Meta Ads y responde ÚNICAMENTE en este formato JSON:
+{
+  "semaforo": "verde" | "amarillo" | "rojo",
+  "resumen": "una línea: CUMPLE / PRECAUCIÓN / VIOLACIÓN DETECTADA",
+  "politicas_violadas": ["lista de políticas específicas violadas, vacía si ninguna"],
+  "advertencias": ["posibles problemas menores o precauciones, vacío si ninguno"],
+  "recomendacion": "qué cambiar para cumplir (si aplica)"
+}
+
+Políticas clave de Meta a revisar:
+- Contenido engañoso o falso: no se permiten afirmaciones no verificables ("el mejor", "garantizado", "#1 en México" sin evidencia)
+- Urgencia falsa: evitar "solo hoy", "últimas unidades" si no es real
+- Lenguaje discriminatorio en vivienda: en inmobiliaria, no se puede excluir por raza, religión, origen, sexo, discapacidad, estado civil. Frases como "ideal para familias jóvenes" o "perfecto para parejas sin hijos" son señal de alerta
+- Atributos personales implícitos: no se puede implicar que el lector tiene problema ("¿Cansado de rentar?", "¿Tienes deudas?")
+- Promesas financieras: "renta garantizada", "retorno asegurado", "no pierdas" requieren matices y disclaimers
+- Contenido adulto o sensacionalista: no se permiten imágenes o texto sexual o violento
+- Afirmaciones de salud: no aplica para inmobiliaria salvo que menciones bienestar
+- Precios: mostrar precios reales, no precios engañosos o condicionados sin aclaración
+- Llamadas a la acción agresivas: "Compra YA", "Llama AHORA" son aceptables; "No seas tonto" no lo es
+- Texto excesivo en imagen: más del 20% de texto en imagen puede reducir alcance
+
+Responde solo el JSON, sin texto adicional.`;
+
+  try {
+    const promises = [callClaude([{role:'user', content}], qualityPrompt)];
+    if (isAd) promises.push(callClaude([{role:'user', content}], metaPrompt));
+    const [result, metaRaw] = await Promise.all(promises);
+
+    // ── Quality block ──
+    const score = result.match(/Score total:\s*(\d+)/i)?.[1] || '—';
+    const isApproved = result.includes('APROBAR') || result.includes('✅');
+    const isRejected = result.includes('RECHAZAR') || result.includes('❌');
+    const qColor = isApproved ? '#10b981' : isRejected ? '#ef4444' : '#f59e0b';
+
+    // ── Meta policy block ──
+    let metaHtml = '';
+    if (isAd && metaRaw) {
+      let meta = {};
+      try {
+        const jsonStr = metaRaw.match(/\{[\s\S]*\}/)?.[0] || '{}';
+        meta = JSON.parse(jsonStr);
+      } catch(e) { meta = { semaforo:'amarillo', resumen:'No se pudo analizar la respuesta de Meta', politicas_violadas:[], advertencias:[], recomendacion:'' }; }
+      const semaforoEmoji = meta.semaforo === 'verde' ? '🟢' : meta.semaforo === 'rojo' ? '🔴' : '🟡';
+      const semaforoColor = meta.semaforo === 'verde' ? '#10b981' : meta.semaforo === 'rojo' ? '#ef4444' : '#f59e0b';
+      const semaforoBg = meta.semaforo === 'verde' ? '#d1fae5' : meta.semaforo === 'rojo' ? '#fee2e2' : '#fef3c7';
+      const violaciones = (meta.politicas_violadas || []).map(p => `<li style="margin-bottom:3px;">❌ ${p}</li>`).join('');
+      const advertencias = (meta.advertencias || []).map(p => `<li style="margin-bottom:3px;">⚠️ ${p}</li>`).join('');
+      const estampilla = meta.semaforo === 'verde'
+        ? `<div style="display:inline-block;border:2px solid #10b981;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#10b981;margin-top:6px;">✅ REVISADO ANTE META · ${new Date().toLocaleDateString('es-MX')}</div>`
+        : meta.semaforo === 'rojo'
+        ? `<div style="display:inline-block;border:2px solid #ef4444;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#ef4444;margin-top:6px;">🚫 NO PUBLICAR · POSIBLE VIOLACIÓN META</div>`
+        : `<div style="display:inline-block;border:2px solid #f59e0b;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#d97706;margin-top:6px;">⚠️ REVISAR ANTES DE PUBLICAR EN META</div>`;
+      metaHtml = `
+        <div style="margin-top:12px;border:1.5px solid ${semaforoColor};border-radius:10px;padding:14px;background:${semaforoBg}20;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:22px;">${semaforoEmoji}</span>
+            <div>
+              <div style="font-size:13px;font-weight:800;color:${semaforoColor};">Políticas Meta / Facebook</div>
+              <div style="font-size:11px;color:#374151;">${meta.resumen || ''}</div>
+            </div>
+          </div>
+          ${violaciones ? `<div style="font-size:11px;margin-bottom:6px;"><strong>Políticas violadas:</strong><ul style="margin:4px 0 0 14px;padding:0;">${violaciones}</ul></div>` : ''}
+          ${advertencias ? `<div style="font-size:11px;margin-bottom:6px;"><strong>Precauciones:</strong><ul style="margin:4px 0 0 14px;padding:0;">${advertencias}</ul></div>` : ''}
+          ${meta.recomendacion ? `<div style="font-size:11px;background:#fff;border-radius:6px;padding:6px 8px;margin-top:6px;"><strong>Corrección sugerida:</strong> ${meta.recomendacion}</div>` : ''}
+          ${estampilla}
+        </div>`;
+    }
+
+    resultEl.innerHTML = `
+      <div style="border:1.5px solid ${qColor};border-radius:10px;padding:14px;">
+        <div style="font-size:18px;font-weight:800;color:${qColor};margin-bottom:8px;">Score calidad: ${score}/100</div>
+        <div style="font-size:12px;line-height:1.7;">${result.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div>
+        ${isApproved ? `<button class="btn-sm btn-approve" style="margin-top:10px;" onclick="addToAuthHistory('${typeLabels[type]}',${score})">✅ Agregar a aprobados</button>` : ''}
+      </div>
+      ${metaHtml}`;
+  } catch(e) {
+    resultEl.innerHTML = `<div style="color:#ef4444;font-size:12px;padding:10px;">Error al evaluar: ${e.message}</div>`;
+  }
 }
 
 async function preAuthEvaluar(itemId, btn) {
