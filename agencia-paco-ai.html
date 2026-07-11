@@ -524,6 +524,10 @@
       <div class="nav-item" onclick="showPage('phone',this)"><span class="nav-icon">📞</span> Agente Telefónico</div>
       <div class="nav-item" onclick="showPage('guia',this)"><span class="nav-icon">📖</span> Guía de uso</div>
       <div class="nav-item" onclick="showPage('config',this)"><span class="nav-icon">⚙️</span> Configuración</div>
+      <!-- Canal Claude — solo admin -->
+      <div class="nav-item" id="nav-canal-claude" onclick="showPage('canal-claude',this)" style="display:none;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.15));border-left:3px solid #6366f1;margin-top:4px;">
+        <span class="nav-icon">🛠️</span> Canal Claude <span class="nav-badge" id="canal-badge" style="background:#6366f1;display:none;">0</span>
+      </div>
     </nav>
     <!-- User info + logout -->
     <div style="margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,0.1);">
@@ -1059,6 +1063,51 @@
       </div>
       <!-- ══════════════ / AGENTE TELEFÓNICO ══════════════ -->
 
+      <!-- ══════════════ CANAL CLAUDE ══════════════ -->
+      <div class="page" id="page-canal-claude">
+        <div class="page-header">
+          <div>
+            <h2>🛠️ Canal Claude</h2>
+            <p>Escríbeme lo que quieras cambiar en la app — lo ejecuto cuando abras Cowork</p>
+          </div>
+          <button onclick="loadCanalClaude()" style="background:#ede9fe;color:#6366f1;border:none;border-radius:10px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;">🔄 Actualizar</button>
+        </div>
+
+        <!-- Input nueva solicitud -->
+        <div style="background:white;border:2px solid #6366f1;border-radius:16px;padding:20px;margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:800;color:#1a1a2e;margin-bottom:4px;">✍️ Nueva solicitud de cambio</div>
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:12px;">Describe con detalle qué quieres agregar, cambiar o arreglar en la app</div>
+          <textarea id="canal-input" placeholder="Ejemplo: Quiero que en el CRM se pueda filtrar leads por fecha. / Agrega un campo de presupuesto al perfil del cliente. / Cambia el color del botón de autorización a verde..." style="width:100%;border:1.5px solid #e5e7eb;border-radius:10px;padding:12px;font-size:13px;font-family:inherit;resize:vertical;min-height:100px;outline:none;" oninput="this.style.borderColor='#6366f1'"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+            <button onclick="enviarSolicitudClaude()" style="background:#6366f1;color:white;border:none;border-radius:10px;padding:11px 24px;font-size:13px;font-weight:700;cursor:pointer;">📨 Enviar a Claude →</button>
+          </div>
+        </div>
+
+        <!-- Lista de solicitudes -->
+        <div style="background:white;border:1.5px solid var(--border);border-radius:14px;padding:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div style="font-size:13px;font-weight:800;color:#1a1a2e;">📋 Historial de solicitudes</div>
+            <span id="canal-pendientes-count" style="font-size:11px;background:#ede9fe;color:#6366f1;padding:3px 10px;border-radius:20px;font-weight:700;">Cargando...</span>
+          </div>
+          <div id="canal-lista" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;">Cargando solicitudes...</div>
+          </div>
+        </div>
+
+        <!-- Info box -->
+        <div style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:12px;padding:16px;margin-top:16px;">
+          <div style="font-size:12px;font-weight:700;color:#6366f1;margin-bottom:6px;">💡 ¿Cómo funciona?</div>
+          <div style="font-size:12px;color:#5b21b6;line-height:1.6;">
+            1. Escribe aquí lo que quieres cambiar en la app<br>
+            2. La solicitud se guarda en Firebase con estado <strong>Pendiente</strong><br>
+            3. Cuando abres Cowork (Claude en tu computadora), yo reviso automáticamente<br>
+            4. Ejecuto el cambio, subo a GitHub y marco como <strong>✅ Hecho</strong><br>
+            5. Recargas la app y el cambio ya está activo
+          </div>
+        </div>
+      </div>
+      <!-- ══════════════ / CANAL CLAUDE ══════════════ -->
+
     </div>
   </div>
 </div>
@@ -1505,6 +1554,11 @@ function enterApp() {
   // Hide API key input from non-admin users — they should never see or touch it
   const apiKeyCard = document.getElementById('api-key-card');
   if (apiKeyCard) apiKeyCard.style.display = isAdmin ? '' : 'none';
+  // Show Canal Claude nav item only for admin
+  const canalNav = document.getElementById('nav-canal-claude');
+  if (canalNav) canalNav.style.display = isAdmin ? '' : 'none';
+  // Load pending count for badge
+  if (isAdmin && fbReady) { setTimeout(loadCanalClaude, 1500); }
 }
 
 function renderBizDropdown() {
@@ -1542,7 +1596,8 @@ function showPage(id, el) {
     crm: 'CRM', campaigns: 'Campañas', agents: 'Agentes', auth: 'Autorizaciones',
     reports: 'Reportes', config: 'Configuración', ideas: 'Ideas Pendientes',
     calendar: 'Calendario de Seguimiento', landings: 'Landing Pages', whatsapp: 'WhatsApp',
-    competencia: 'Inteligencia Competitiva', guia: '📖 Guía de uso', phone: '📞 Agente Telefónico'
+    competencia: 'Inteligencia Competitiva', guia: '📖 Guía de uso', phone: '📞 Agente Telefónico',
+    'canal-claude': '🛠️ Canal Claude'
   };
   document.getElementById('topbar-title').textContent = titles[id] || id;
   document.getElementById('biz-dropdown').classList.remove('open');
@@ -1550,6 +1605,7 @@ function showPage(id, el) {
   if (id === 'ideas') syncIdeasPage();
   if (id === 'guia') renderGuiaPage();
   if (id === 'phone') renderPhonePage();
+  if (id === 'canal-claude') loadCanalClaude();
 }
 
 // ─── BIZ SWITCHER ───
@@ -2620,6 +2676,58 @@ async function toggleUserBiz(userEmailKey, bizKey, checked) {
     await ref.update({ assignedBiz: upd });
     showToast((checked ? '✅ Acceso dado a ' : '❌ Acceso quitado de ') + state.businesses[bizKey]?.name);
   } catch(e) { showToast('Error: ' + e.message); }
+}
+
+// ─── CANAL CLAUDE ───
+async function enviarSolicitudClaude() {
+  if (!fbReady || !isAdmin) return;
+  const input = document.getElementById('canal-input');
+  const msg = (input?.value || '').trim();
+  if (!msg) { showToast('⚠️ Escribe tu solicitud primero'); return; }
+  try {
+    await db.collection('claudeRequests').add({
+      message: msg,
+      status: 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUser?.email || 'admin'
+    });
+    input.value = '';
+    showToast('📨 Solicitud enviada — Claude la atenderá en la próxima sesión');
+    loadCanalClaude();
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+async function loadCanalClaude() {
+  if (!fbReady) return;
+  const lista = document.getElementById('canal-lista');
+  const countEl = document.getElementById('canal-pendientes-count');
+  const badge = document.getElementById('canal-badge');
+  if (!lista) return;
+  lista.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;">Cargando...</div>';
+  try {
+    const snap = await db.collection('claudeRequests').orderBy('createdAt', 'desc').limit(30).get();
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const pending = items.filter(i => i.status === 'pending').length;
+    if (countEl) countEl.textContent = pending > 0 ? `${pending} pendiente${pending>1?'s':''}` : 'Todo atendido ✅';
+    if (badge) { badge.textContent = pending; badge.style.display = pending > 0 ? '' : 'none'; }
+    if (items.length === 0) {
+      lista.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;">📭 Aún no hay solicitudes. ¡Escribe la primera!</div>';
+      return;
+    }
+    const statusColors = { pending: { bg:'#fef3c7', color:'#d97706', label:'⏳ Pendiente' }, in_progress: { bg:'#e0f2fe', color:'#0284c7', label:'🔄 En proceso' }, done: { bg:'#d1fae5', color:'#059669', label:'✅ Hecho' } };
+    lista.innerHTML = items.map(item => {
+      const st = statusColors[item.status] || statusColors.pending;
+      const date = item.createdAt?.toDate ? item.createdAt.toDate().toLocaleString('es-MX', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Hace un momento';
+      return `<div style="background:#fafafa;border:1.5px solid ${item.status==='pending'?'#fde68a':item.status==='done'?'#a7f3d0':'#bae6fd'};border-radius:12px;padding:14px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;">
+          <div style="font-size:13px;color:#1a1a2e;line-height:1.5;flex:1;">${item.message}</div>
+          <span style="flex-shrink:0;font-size:10px;background:${st.bg};color:${st.color};padding:3px 10px;border-radius:20px;font-weight:800;white-space:nowrap;">${st.label}</span>
+        </div>
+        ${item.response ? `<div style="background:#f0fdf4;border-left:3px solid #10b981;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#065f46;margin-top:8px;">🤖 <strong>Claude:</strong> ${item.response}</div>` : ''}
+        <div style="font-size:10px;color:#9ca3af;margin-top:6px;">📅 ${date}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { lista.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`; }
 }
 
 async function toggleUserStatus(userEmailKey, currentStatus) {
