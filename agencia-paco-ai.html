@@ -1126,16 +1126,28 @@
 
       <!-- ZONA UNIVERSAL DE PEGADO -->
       <div id="know-paste-zone"
-        style="border:2.5px dashed #6366f1;border-radius:14px;padding:18px;text-align:center;background:linear-gradient(135deg,#f5f3ff,#ede9fe);margin-bottom:18px;cursor:pointer;transition:all 0.2s;"
-        onclick="document.getElementById('know-paste-zone-input').focus()"
-        ondragover="event.preventDefault();this.style.background='#ddd6fe';"
-        ondragleave="this.style.background='linear-gradient(135deg,#f5f3ff,#ede9fe)'"
-        ondrop="handlePasteDrop(event)">
-        <div style="font-size:26px;margin-bottom:6px;">📋</div>
-        <div style="font-size:14px;font-weight:800;color:#6366f1;">Pega aquí cualquier cosa</div>
-        <div style="font-size:11px;color:#7c3aed;margin-top:3px;">Texto · Link · URL de YouTube · Link de Drive · Imagen copiada</div>
-        <div style="font-size:10px;color:#9ca3af;margin-top:6px;">Ctrl+V cuando este recuadro esté activo · o arrastra y suelta</div>
-        <textarea id="know-paste-zone-input" onpaste="handlePasteZone(event)" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;"></textarea>
+        tabindex="0"
+        style="border:2.5px dashed #6366f1;border-radius:14px;padding:18px;text-align:center;background:linear-gradient(135deg,#f5f3ff,#ede9fe);margin-bottom:18px;cursor:pointer;transition:all 0.2s;outline:none;"
+        onclick="this.focus();showToast('📋 Listo — presiona Ctrl+V para pegar');"
+        onfocus="this.style.boxShadow='0 0 0 3px #a5b4fc';this.style.borderColor='#4f46e5';"
+        onblur="this.style.boxShadow='none';this.style.borderColor='#6366f1';"
+        ondragover="event.preventDefault();this.style.background='#ddd6fe';this.style.borderColor='#4f46e5';"
+        ondragleave="this.style.background='linear-gradient(135deg,#f5f3ff,#ede9fe)';this.style.borderColor='#6366f1';"
+        ondrop="handlePasteDrop(event)"
+        onpaste="handlePasteZone(event)">
+        <div style="font-size:28px;margin-bottom:6px;">📋</div>
+        <div style="font-size:14px;font-weight:800;color:#6366f1;">Haz clic aquí y presiona Ctrl+V</div>
+        <div style="font-size:11px;color:#7c3aed;margin-top:3px;">Texto · Link · YouTube · Google Drive · Imagen copiada</div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:6px;">O arrastra y suelta cualquier archivo aquí abajo ↓</div>
+        <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="event.stopPropagation();document.getElementById('know-file-input').click();"
+            style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;">📁 Buscar archivo</button>
+          <button onclick="event.stopPropagation();knowPasteFromClipboard();"
+            style="background:#fff;color:#6366f1;border:1.5px solid #6366f1;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;">📋 Pegar portapapeles</button>
+        </div>
+        <input type="file" id="know-file-input" style="display:none;"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,video/*"
+          onchange="handleFileInput(event)">
       </div>
       <!-- Preview de lo que se detectó -->
       <div id="know-paste-preview" style="display:none;background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#065f46;">
@@ -2702,38 +2714,110 @@ async function toggleUserBiz(userEmailKey, bizKey, checked) {
 // ─── ZONA UNIVERSAL DE PEGADO — CEREBRO VIVO ───
 function handlePasteZone(e) {
   e.preventDefault();
+  e.stopPropagation();
   const items = e.clipboardData?.items || [];
-  // 1) Check for image in clipboard
+  // 1) Imagen en portapapeles
   for (const item of items) {
     if (item.type.startsWith('image/')) {
-      const blob = item.getAsFile();
-      const reader = new FileReader();
-      reader.onload = function(ev) {
-        const base64 = ev.target.result;
-        // Store base64 for saving
-        window._knowPastedImage = base64;
-        // Show preview
-        const img = document.getElementById('know-paste-img-preview');
-        if (img) { img.src = base64; img.style.display = 'block'; }
-        showPastePreview('🖼️ Imagen detectada', 'Foto pegada desde el portapapeles — se guardará en el Cerebro Vivo');
-        selectKnowTypeByKey('foto');
-        setFieldValue('know-title', 'Foto ' + new Date().toLocaleDateString('es-MX'));
-        setFieldValue('know-content', 'Imagen pegada desde portapapeles');
-      };
-      reader.readAsDataURL(blob);
+      _procesarArchivoImagen(item.getAsFile(), 'portapapeles');
       return;
     }
   }
-  // 2) Check for text / URL
-  const text = e.clipboardData.getData('text/plain').trim();
-  if (!text) return;
-  _detectAndFillPaste(text);
+  // 2) Texto / URL
+  const text = (e.clipboardData.getData('text/plain') || '').trim();
+  if (text) { _detectAndFillPaste(text); return; }
+  showToast('⚠️ No se detectó contenido en el portapapeles');
 }
 
 function handlePasteDrop(e) {
   e.preventDefault();
-  const text = e.dataTransfer.getData('text/plain').trim();
+  e.stopPropagation();
+  const zone = document.getElementById('know-paste-zone');
+  if (zone) { zone.style.background = 'linear-gradient(135deg,#f5f3ff,#ede9fe)'; zone.style.borderColor = '#6366f1'; }
+  // Archivos soltados desde el explorador
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    _procesarArchivoDropped(e.dataTransfer.files[0]);
+    return;
+  }
+  // Texto / URL soltados
+  const text = (e.dataTransfer.getData('text/plain') || '').trim();
   if (text) _detectAndFillPaste(text);
+}
+
+function handleFileInput(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  e.target.value = ''; // reset para poder seleccionar el mismo archivo otra vez
+  _procesarArchivoDropped(file);
+}
+
+async function knowPasteFromClipboard() {
+  try {
+    // API moderna de Clipboard (requiere permiso)
+    const items = await navigator.clipboard.read?.();
+    if (items) {
+      for (const item of items) {
+        if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+          const blob = await item.getType(item.types.find(t => t.startsWith('image/')));
+          _procesarArchivoImagen(blob, 'portapapeles');
+          return;
+        }
+        if (item.types.includes('text/plain')) {
+          const blob = await item.getType('text/plain');
+          const text = await blob.text();
+          if (text.trim()) { _detectAndFillPaste(text.trim()); return; }
+        }
+      }
+    }
+  } catch(err) { /* fallback: focus zone para Ctrl+V manual */ }
+  // Fallback: enfocar la zona para que Ctrl+V funcione
+  const zone = document.getElementById('know-paste-zone');
+  if (zone) { zone.focus(); showToast('📋 Presiona Ctrl+V ahora'); }
+}
+
+function _procesarArchivoImagen(blob, fuente) {
+  if (!blob) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const base64 = ev.target.result;
+    window._knowPastedImage = base64;
+    const img = document.getElementById('know-paste-img-preview');
+    if (img) { img.src = base64; img.style.display = 'block'; }
+    showPastePreview('🖼️ Imagen detectada desde ' + fuente, `${blob.name || 'imagen'} — ${Math.round(blob.size/1024)} KB`);
+    selectKnowTypeByKey('foto');
+    setFieldValue('know-title', (blob.name || 'Foto') + ' · ' + new Date().toLocaleDateString('es-MX'));
+    setFieldValue('know-content', 'Imagen desde ' + fuente);
+  };
+  reader.readAsDataURL(blob);
+}
+
+function _procesarArchivoDropped(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const sizeKB = Math.round(file.size / 1024);
+  if (file.type.startsWith('image/') || ['jpg','jpeg','png','gif','webp','svg'].includes(ext)) {
+    _procesarArchivoImagen(file, 'archivo');
+    return;
+  }
+  if (['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv'].includes(ext)) {
+    showPastePreview('📄 Documento detectado', `${file.name} · ${sizeKB} KB`);
+    selectKnowTypeByKey('documento');
+    setFieldValue('know-title', file.name.replace(/\.[^.]+$/, ''));
+    setFieldValue('know-content', `Archivo: ${file.name} (${sizeKB} KB) — sube a Google Drive y pega el link aquí`);
+    showToast('📄 Para guardar el archivo, súbelo a Google Drive y pega el link');
+    return;
+  }
+  if (file.type.startsWith('video/') || ['mp4','mov','avi','mkv'].includes(ext)) {
+    showPastePreview('🎬 Video detectado', `${file.name} · ${sizeKB} KB`);
+    selectKnowTypeByKey('video');
+    setFieldValue('know-title', file.name.replace(/\.[^.]+$/, ''));
+    setFieldValue('know-content', `Video: ${file.name} — sube a YouTube o Drive y pega el link`);
+    showToast('🎬 Para guardar el video, súbelo a YouTube o Drive y pega el link');
+    return;
+  }
+  showPastePreview('📎 Archivo detectado', `${file.name} · ${sizeKB} KB`);
+  setFieldValue('know-title', file.name);
+  setFieldValue('know-content', `Archivo: ${file.name} (${sizeKB} KB)`);
 }
 
 function _detectAndFillPaste(text) {
