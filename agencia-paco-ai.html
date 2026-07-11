@@ -3153,28 +3153,40 @@ Evalúa el siguiente ${typeLabels[type]} y responde con:
 5. **Mejora sugerida** (una línea concreta)
 Sé directo, como un director de marketing exigente.`;
 
-  const metaPrompt = `Eres un experto en políticas publicitarias de Meta (Facebook e Instagram). Revisa el siguiente anuncio contra las políticas reales de Meta Ads y responde ÚNICAMENTE en este formato JSON:
+  const metaPrompt = `Eres un experto certificado en políticas publicitarias de Meta (Facebook e Instagram). Analiza el siguiente anuncio contra las Políticas de Publicidad de Meta y responde ÚNICAMENTE con este JSON (sin texto antes ni después):
 {
-  "semaforo": "verde" | "amarillo" | "rojo",
-  "resumen": "una línea: CUMPLE / PRECAUCIÓN / VIOLACIÓN DETECTADA",
-  "politicas_violadas": ["lista de políticas específicas violadas, vacía si ninguna"],
-  "advertencias": ["posibles problemas menores o precauciones, vacío si ninguno"],
-  "recomendacion": "qué cambiar para cumplir (si aplica)"
+  "semaforo": "verde | amarillo | rojo",
+  "resumen": "una línea clara: CUMPLE POLÍTICAS / PRECAUCIÓN — revisar antes de publicar / VIOLACIÓN — no publicar",
+  "violaciones": [
+    {
+      "politica": "nombre exacto de la política de Meta",
+      "frase_problema": "copia textual del fragmento del anuncio que viola la política",
+      "porque": "explicación clara de por qué esa frase viola esa política específica",
+      "que_cambiar": "texto alternativo concreto o instrucción exacta de qué eliminar/sustituir"
+    }
+  ],
+  "advertencias": [
+    {
+      "punto": "descripción del riesgo menor",
+      "porque": "por qué podría causar problemas o bajo alcance",
+      "sugerencia": "qué ajustar para estar más seguro"
+    }
+  ],
+  "version_corregida": "si hay violaciones, escribe aquí una versión corregida del anuncio que cumple todas las políticas"
 }
 
-Políticas clave de Meta a revisar:
-- Contenido engañoso o falso: no se permiten afirmaciones no verificables ("el mejor", "garantizado", "#1 en México" sin evidencia)
-- Urgencia falsa: evitar "solo hoy", "últimas unidades" si no es real
-- Lenguaje discriminatorio en vivienda: en inmobiliaria, no se puede excluir por raza, religión, origen, sexo, discapacidad, estado civil. Frases como "ideal para familias jóvenes" o "perfecto para parejas sin hijos" son señal de alerta
-- Atributos personales implícitos: no se puede implicar que el lector tiene problema ("¿Cansado de rentar?", "¿Tienes deudas?")
-- Promesas financieras: "renta garantizada", "retorno asegurado", "no pierdas" requieren matices y disclaimers
-- Contenido adulto o sensacionalista: no se permiten imágenes o texto sexual o violento
-- Afirmaciones de salud: no aplica para inmobiliaria salvo que menciones bienestar
-- Precios: mostrar precios reales, no precios engañosos o condicionados sin aclaración
-- Llamadas a la acción agresivas: "Compra YA", "Llama AHORA" son aceptables; "No seas tonto" no lo es
-- Texto excesivo en imagen: más del 20% de texto en imagen puede reducir alcance
+Políticas de Meta a verificar (aplica todas las que sean relevantes):
+1. Contenido engañoso: frases no verificables como "el mejor", "garantizado", "#1 en México", "100% seguro" sin respaldo documental
+2. Urgencia artificial: "solo hoy", "últimas 3 unidades", "oferta caduca mañana" cuando no hay evidencia real
+3. Vivienda — discriminación (Housing Ads Policy): no se puede excluir ni preferir compradores por raza, religión, origen nacional, sexo, discapacidad o estado familiar. Frases como "ideal para familias jóvenes", "perfecta para parejas", "exclusivo para profesionistas" activan esta política
+4. Atributos personales implícitos: frases que asumen estado económico, salud, situación legal o personal del lector ("¿Cansado de pagar renta?", "Si estás endeudado...", "Para los que perdieron su casa")
+5. Promesas financieras sin disclaimer: "renta garantizada", "retorno asegurado del X%", "inversión sin riesgo" — requieren aclaración legal
+6. Precios engañosos: precio ancla falso, condicionado sin aclaración, o "desde $X" sin especificar qué incluye
+7. Superlativos sin sustento: "la mejor vista", "el único", "incomparable" sin evidencia
+8. CTA agresivas o insultantes: "No seas tonto", "Solo los listos aprovechan esto"
+9. Contenido sensacionalista: lenguaje alarmista o que crea miedo innecesario
 
-Responde solo el JSON, sin texto adicional.`;
+Si no hay violaciones ni advertencias, los arrays deben estar vacíos []. Si el anuncio cumple todo, version_corregida debe ser "".`;
 
   try {
     const promises = [callClaude([{role:'user', content}], qualityPrompt)];
@@ -3194,29 +3206,46 @@ Responde solo el JSON, sin texto adicional.`;
       try {
         const jsonStr = metaRaw.match(/\{[\s\S]*\}/)?.[0] || '{}';
         meta = JSON.parse(jsonStr);
-      } catch(e) { meta = { semaforo:'amarillo', resumen:'No se pudo analizar la respuesta de Meta', politicas_violadas:[], advertencias:[], recomendacion:'' }; }
+      } catch(e) { meta = { semaforo:'amarillo', resumen:'No se pudo analizar la respuesta de Meta', violaciones:[], advertencias:[], version_corregida:'' }; }
       const semaforoEmoji = meta.semaforo === 'verde' ? '🟢' : meta.semaforo === 'rojo' ? '🔴' : '🟡';
       const semaforoColor = meta.semaforo === 'verde' ? '#10b981' : meta.semaforo === 'rojo' ? '#ef4444' : '#f59e0b';
       const semaforoBg = meta.semaforo === 'verde' ? '#d1fae5' : meta.semaforo === 'rojo' ? '#fee2e2' : '#fef3c7';
-      const violaciones = (meta.politicas_violadas || []).map(p => `<li style="margin-bottom:3px;">❌ ${p}</li>`).join('');
-      const advertencias = (meta.advertencias || []).map(p => `<li style="margin-bottom:3px;">⚠️ ${p}</li>`).join('');
+
+      // Render violaciones con detalle completo
+      const violacionesHtml = (meta.violaciones || []).map(v => `
+        <div style="background:#fff;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:800;color:#ef4444;margin-bottom:4px;">❌ ${v.politica || 'Violación de política'}</div>
+          ${v.frase_problema ? `<div style="font-size:11px;background:#fee2e2;border-radius:4px;padding:4px 8px;margin-bottom:4px;font-style:italic;color:#7f1d1d;">"${v.frase_problema}"</div>` : ''}
+          <div style="font-size:11px;color:#374151;margin-bottom:4px;"><strong>Por qué:</strong> ${v.porque || ''}</div>
+          <div style="font-size:11px;background:#dcfce7;border-radius:4px;padding:4px 8px;color:#14532d;"><strong>✏️ Cambiar a:</strong> ${v.que_cambiar || ''}</div>
+        </div>`).join('');
+
+      // Render advertencias con detalle
+      const advertenciasHtml = (meta.advertencias || []).map(a => `
+        <div style="background:#fff;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:800;color:#d97706;margin-bottom:4px;">⚠️ ${a.punto || 'Precaución'}</div>
+          ${a.porque ? `<div style="font-size:11px;color:#374151;margin-bottom:3px;"><strong>Por qué:</strong> ${a.porque}</div>` : ''}
+          ${a.sugerencia ? `<div style="font-size:11px;color:#92400e;"><strong>Sugerencia:</strong> ${a.sugerencia}</div>` : ''}
+        </div>`).join('');
+
       const estampilla = meta.semaforo === 'verde'
         ? `<div style="display:inline-block;border:2px solid #10b981;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#10b981;margin-top:6px;">✅ REVISADO ANTE META · ${new Date().toLocaleDateString('es-MX')}</div>`
         : meta.semaforo === 'rojo'
         ? `<div style="display:inline-block;border:2px solid #ef4444;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#ef4444;margin-top:6px;">🚫 NO PUBLICAR · POSIBLE VIOLACIÓN META</div>`
         : `<div style="display:inline-block;border:2px solid #f59e0b;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#d97706;margin-top:6px;">⚠️ REVISAR ANTES DE PUBLICAR EN META</div>`;
+
       metaHtml = `
         <div style="margin-top:12px;border:1.5px solid ${semaforoColor};border-radius:10px;padding:14px;background:${semaforoBg}20;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <span style="font-size:22px;">${semaforoEmoji}</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:28px;">${semaforoEmoji}</span>
             <div>
-              <div style="font-size:13px;font-weight:800;color:${semaforoColor};">Políticas Meta / Facebook</div>
+              <div style="font-size:13px;font-weight:800;color:${semaforoColor};">Revisión Políticas Meta / Facebook</div>
               <div style="font-size:11px;color:#374151;">${meta.resumen || ''}</div>
             </div>
           </div>
-          ${violaciones ? `<div style="font-size:11px;margin-bottom:6px;"><strong>Políticas violadas:</strong><ul style="margin:4px 0 0 14px;padding:0;">${violaciones}</ul></div>` : ''}
-          ${advertencias ? `<div style="font-size:11px;margin-bottom:6px;"><strong>Precauciones:</strong><ul style="margin:4px 0 0 14px;padding:0;">${advertencias}</ul></div>` : ''}
-          ${meta.recomendacion ? `<div style="font-size:11px;background:#fff;border-radius:6px;padding:6px 8px;margin-top:6px;"><strong>Corrección sugerida:</strong> ${meta.recomendacion}</div>` : ''}
+          ${violacionesHtml ? `<div style="margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;">VIOLACIONES DETECTADAS:</div>${violacionesHtml}</div>` : ''}
+          ${advertenciasHtml ? `<div style="margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;">PRECAUCIONES:</div>${advertenciasHtml}</div>` : ''}
+          ${meta.version_corregida ? `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;margin-top:4px;"><div style="font-size:11px;font-weight:800;color:#15803d;margin-bottom:4px;">✅ Versión corregida lista para publicar:</div><div style="font-size:11px;color:#374151;line-height:1.6;">${meta.version_corregida}</div></div>` : ''}
           ${estampilla}
         </div>`;
     }
