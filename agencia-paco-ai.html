@@ -1123,6 +1123,27 @@
       <button onclick="closeAddKnowledge()" style="background:rgba(255,255,255,0.15);border:none;color:white;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:15px;">✕</button>
     </div>
     <div style="overflow-y:auto;padding:22px;">
+
+      <!-- ZONA UNIVERSAL DE PEGADO -->
+      <div id="know-paste-zone"
+        style="border:2.5px dashed #6366f1;border-radius:14px;padding:18px;text-align:center;background:linear-gradient(135deg,#f5f3ff,#ede9fe);margin-bottom:18px;cursor:pointer;transition:all 0.2s;"
+        onclick="document.getElementById('know-paste-zone-input').focus()"
+        ondragover="event.preventDefault();this.style.background='#ddd6fe';"
+        ondragleave="this.style.background='linear-gradient(135deg,#f5f3ff,#ede9fe)'"
+        ondrop="handlePasteDrop(event)">
+        <div style="font-size:26px;margin-bottom:6px;">📋</div>
+        <div style="font-size:14px;font-weight:800;color:#6366f1;">Pega aquí cualquier cosa</div>
+        <div style="font-size:11px;color:#7c3aed;margin-top:3px;">Texto · Link · URL de YouTube · Link de Drive · Imagen copiada</div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:6px;">Ctrl+V cuando este recuadro esté activo · o arrastra y suelta</div>
+        <textarea id="know-paste-zone-input" onpaste="handlePasteZone(event)" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;"></textarea>
+      </div>
+      <!-- Preview de lo que se detectó -->
+      <div id="know-paste-preview" style="display:none;background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#065f46;">
+        <div style="font-weight:700;margin-bottom:4px;" id="know-paste-detected">✅ Detectado:</div>
+        <div id="know-paste-summary" style="color:#047857;"></div>
+        <div style="margin-top:6px;"><img id="know-paste-img-preview" src="" style="display:none;max-height:80px;border-radius:6px;"></div>
+      </div>
+
       <!-- Tipo -->
       <div style="margin-bottom:16px;">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px;">¿Qué tipo de contenido es?</label>
@@ -2676,6 +2697,144 @@ async function toggleUserBiz(userEmailKey, bizKey, checked) {
     await ref.update({ assignedBiz: upd });
     showToast((checked ? '✅ Acceso dado a ' : '❌ Acceso quitado de ') + state.businesses[bizKey]?.name);
   } catch(e) { showToast('Error: ' + e.message); }
+}
+
+// ─── ZONA UNIVERSAL DE PEGADO — CEREBRO VIVO ───
+function handlePasteZone(e) {
+  e.preventDefault();
+  const items = e.clipboardData?.items || [];
+  // 1) Check for image in clipboard
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const blob = item.getAsFile();
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const base64 = ev.target.result;
+        // Store base64 for saving
+        window._knowPastedImage = base64;
+        // Show preview
+        const img = document.getElementById('know-paste-img-preview');
+        if (img) { img.src = base64; img.style.display = 'block'; }
+        showPastePreview('🖼️ Imagen detectada', 'Foto pegada desde el portapapeles — se guardará en el Cerebro Vivo');
+        selectKnowTypeByKey('foto');
+        setFieldValue('know-title', 'Foto ' + new Date().toLocaleDateString('es-MX'));
+        setFieldValue('know-content', 'Imagen pegada desde portapapeles');
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+  }
+  // 2) Check for text / URL
+  const text = e.clipboardData.getData('text/plain').trim();
+  if (!text) return;
+  _detectAndFillPaste(text);
+}
+
+function handlePasteDrop(e) {
+  e.preventDefault();
+  const text = e.dataTransfer.getData('text/plain').trim();
+  if (text) _detectAndFillPaste(text);
+}
+
+function _detectAndFillPaste(text) {
+  const isUrl = /^https?:\/\//i.test(text);
+  // YouTube
+  if (/youtube\.com|youtu\.be/i.test(text)) {
+    showPastePreview('🎬 Video de YouTube detectado', text.substring(0, 80));
+    selectKnowTypeByKey('video');
+    setFieldValue('know-title', 'Video YouTube');
+    setFieldValue('know-link', text);
+    setFieldValue('know-content', text);
+    return;
+  }
+  // Google Drive
+  if (/drive\.google\.com|docs\.google\.com|sheets\.google|slides\.google/i.test(text)) {
+    const isDriveImg = /drive\.google\.com.*file/i.test(text);
+    const type = isDriveImg ? 'foto' : 'documento';
+    showPastePreview((type==='foto'?'🖼️':'📄') + ' Google Drive detectado', text.substring(0,80));
+    selectKnowTypeByKey(type);
+    setFieldValue('know-link', text);
+    setFieldValue('know-title', type==='foto' ? 'Foto desde Drive' : 'Documento desde Drive');
+    setFieldValue('know-content', text);
+    return;
+  }
+  // Instagram / Facebook / TikTok
+  if (/instagram\.com|facebook\.com|tiktok\.com/i.test(text)) {
+    showPastePreview('📱 Link de red social detectado', text.substring(0,80));
+    selectKnowTypeByKey('foto');
+    setFieldValue('know-link', text);
+    setFieldValue('know-title', 'Post de ' + (text.includes('instagram') ? 'Instagram' : text.includes('tiktok') ? 'TikTok' : 'Facebook'));
+    setFieldValue('know-content', text);
+    return;
+  }
+  // Image URL
+  if (isUrl && /\.(jpg|jpeg|png|gif|webp|svg)/i.test(text)) {
+    const img = document.getElementById('know-paste-img-preview');
+    if (img) { img.src = text; img.style.display = 'block'; }
+    showPastePreview('🖼️ Link de imagen detectado', text.substring(0,80));
+    selectKnowTypeByKey('foto');
+    setFieldValue('know-link', text);
+    setFieldValue('know-title', 'Foto');
+    setFieldValue('know-content', text);
+    return;
+  }
+  // Generic URL
+  if (isUrl) {
+    showPastePreview('🔗 Link detectado', text.substring(0,80));
+    selectKnowTypeByKey('documento');
+    setFieldValue('know-link', text);
+    setFieldValue('know-title', 'Link: ' + text.replace(/^https?:\/\//,'').split('/')[0]);
+    setFieldValue('know-content', text);
+    return;
+  }
+  // Price detection
+  if (/\$[\d,\.]+|[\d,\.]+\s*(MXN|USD|pesos)/i.test(text) || /precio|costo|tarifa/i.test(text)) {
+    showPastePreview('💰 Precio o tarifa detectado', text.substring(0,120));
+    selectKnowTypeByKey('precio');
+    const firstLine = text.split('\n')[0];
+    setFieldValue('know-title', firstLine.substring(0,60) || 'Lista de precios');
+    setFieldValue('know-content', text);
+    return;
+  }
+  // FAQ detection
+  if (/^\?|¿|\bpor qué\b|\bcómo\b|\bcuándo\b|\bcuánto\b/i.test(text) || text.includes('?')) {
+    showPastePreview('❓ Pregunta / FAQ detectado', text.substring(0,120));
+    selectKnowTypeByKey('faq');
+    setFieldValue('know-title', text.split('\n')[0].substring(0,60));
+    setFieldValue('know-content', text);
+    return;
+  }
+  // Long text → Texto
+  showPastePreview('✍️ Texto detectado', `${text.length} caracteres · ${text.split('\n').length} líneas`);
+  selectKnowTypeByKey('texto');
+  const firstLine = text.split('\n').find(l => l.trim()) || '';
+  setFieldValue('know-title', firstLine.substring(0,60));
+  setFieldValue('know-content', text);
+}
+
+function showPastePreview(detected, summary) {
+  const prev = document.getElementById('know-paste-preview');
+  const det = document.getElementById('know-paste-detected');
+  const sum = document.getElementById('know-paste-summary');
+  const zone = document.getElementById('know-paste-zone');
+  if (prev) prev.style.display = 'block';
+  if (det) det.textContent = '✅ ' + detected;
+  if (sum) sum.textContent = summary;
+  if (zone) zone.style.borderColor = '#10b981';
+}
+
+function selectKnowTypeByKey(key) {
+  const map = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
+  document.querySelectorAll('#know-type-grid .wiz-option').forEach(el => {
+    const label = el.textContent.trim();
+    const matches = Object.entries(map).find(([k,e]) => k===key && label.includes(e.replace('️','')));
+    if (matches) { el.click(); }
+  });
+}
+
+function setFieldValue(id, val) {
+  const el = document.getElementById(id);
+  if (el && val) { el.value = val; el.dispatchEvent(new Event('input')); }
 }
 
 // ─── CANAL CLAUDE ───
