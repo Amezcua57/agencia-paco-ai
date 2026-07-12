@@ -294,6 +294,7 @@
   .typing span:nth-child(2) { animation-delay: 0.15s; }
   .typing span:nth-child(3) { animation-delay: 0.3s; }
   @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   /* Toast */
   .toast {
@@ -1951,47 +1952,113 @@ function fbSave(collection, data) {
     .catch(e => console.warn('fbSave error:', e));
 }
 
+let _cerebroListener = null;
 function listenCerebro(bizId) {
-  if (!fbReady) return;
-  db.collection('cerebro').where('biz','==',bizId)
+  if (!fbReady || !bizId) {
+    // Retry when Firebase is ready
+    setTimeout(() => listenCerebro(bizId), 800);
+    return;
+  }
+  // Cancel previous listener if switching business
+  if (_cerebroListener) { try { _cerebroListener(); } catch(e){} }
+  // Show skeleton while loading
+  const list = document.getElementById('cerebro-items-list');
+  if (list) {
+    list.innerHTML = Array(4).fill(0).map(() => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:8px;background:white;animation:pulse 1.4s ease-in-out infinite;">
+        <div style="width:36px;height:36px;background:#e5e7eb;border-radius:8px;flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <div style="height:12px;background:#e5e7eb;border-radius:4px;margin-bottom:6px;width:60%;"></div>
+          <div style="height:9px;background:#f3f4f6;border-radius:4px;width:40%;"></div>
+        </div>
+        <div style="width:60px;height:26px;background:#e5e7eb;border-radius:6px;"></div>
+      </div>`).join('');
+  }
+  _cerebroListener = db.collection('cerebro').where('biz','==',bizId)
     .orderBy('ts','desc').limit(100)
     .onSnapshot(snap => {
       const list = document.getElementById('cerebro-items-list');
       if (!list) return;
-      // Full re-render so ALL entries always have Ver button
-      list.innerHTML = '';
       const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
-      snap.docs.forEach(doc => {
+      // Update count badge
+      const countEl = document.getElementById('cerebro-count');
+      if (countEl) {
+        countEl.innerHTML = snap.size > 0
+          ? `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas cargadas</span>`
+          : '<span style="color:#9ca3af;">Sin entradas aún</span>';
+      }
+      if (snap.size === 0) {
+        list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#9ca3af;">
+          <div style="font-size:40px;margin-bottom:10px;">🧠</div>
+          <div style="font-size:13px;font-weight:600;color:#374151;">El Cerebro Vivo está vacío</div>
+          <div style="font-size:11px;margin-top:4px;">Agrega conocimiento con el botón <strong>+ Agregar</strong></div>
+        </div>`;
+        return;
+      }
+      // Build search bar + list
+      const searchId = 'cerebro-search-' + Date.now();
+      list.innerHTML = `
+        <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
+          <input id="${searchId}" type="text" placeholder="🔍 Buscar en ${snap.size} entradas..."
+            style="flex:1;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;"
+            onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#e5e7eb'"
+            oninput="filtrarCerebro(this.value,'cerebro-entries-list')">
+          <span style="font-size:10px;background:#ede9fe;color:#6366f1;padding:4px 10px;border-radius:20px;font-weight:700;white-space:nowrap;">☁️ ${snap.size} docs</span>
+        </div>
+        <div id="cerebro-entries-list"></div>`;
+      const entriesList = document.getElementById('cerebro-entries-list');
+      snap.docs.forEach((doc, i) => {
         const d = doc.data();
-        const confLabel = (d.confidence||3) >= 5 ? '⭐⭐⭐⭐⭐ Oficial' : (d.confidence||3) >= 3 ? '⭐⭐⭐ Confiable' : '⭐ Tentativo';
+        const confLabel = (d.confidence||3) >= 5 ? '⭐⭐⭐⭐⭐' : (d.confidence||3) >= 3 ? '⭐⭐⭐' : '⭐';
         const chars = (d.content||'').length;
-        const sizeLabel = chars > 1000 ? Math.round(chars/1000) + ' KB' : chars > 0 ? chars + ' car' : '';
+        const sizeLabel = chars > 1024 ? (chars/1024).toFixed(1) + ' KB' : chars > 0 ? chars + ' car' : '';
         const hasLink = !!(d.link);
+        const typeColor = {texto:'#dbeafe',foto:'#fce7f3',video:'#fee2e2',documento:'#fef3c7',precio:'#d1fae5',objecion:'#f3e8ff',faq:'#e0e7ff',guion:'#ffedd5'};
         const row = document.createElement('div');
         row.id = 'fb-' + doc.id;
-        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:8px;background:white;cursor:pointer;transition:border-color 0.15s;';
-        row.onmouseenter = () => row.style.borderColor = '#6366f1';
-        row.onmouseleave = () => row.style.borderColor = '#e5e7eb';
-        row.innerHTML = '<div style="width:36px;height:36px;background:var(--primary-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">' + (typeEmoji[d.type]||'📁') + '</div>'
-          + '<div style="flex:1;min-width:0;">'
-          + '<div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (d.title||'Sin título') + '</div>'
-          + '<div style="font-size:10px;color:#9ca3af;margin-top:2px;">'
-          + (d.type||'texto').toUpperCase() + ' · ' + confLabel + ' · ' + (d.bizName||d.biz||'')
-          + (sizeLabel ? ' · <span style="color:#6366f1;font-weight:600;">📦 ' + sizeLabel + '</span>' : '')
-          + (hasLink ? ' · <span style="color:#3b82f6;">🔗 Link</span>' : '')
-          + ' · ☁️ Firebase</div>'
-          + '</div>'
-          + '<div style="display:flex;gap:6px;flex-shrink:0;">'
-          + '<button onclick="event.stopPropagation();verEntradaById(\'' + doc.id + '\')" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">👁️ Ver</button>'
-          + '<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:8px;font-weight:700;align-self:center;">✓ Activo</span>'
-          + '</div>';
+        row.dataset.search = ((d.title||'') + ' ' + (d.type||'') + ' ' + (d.content||'').substring(0,200)).toLowerCase();
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:7px;background:white;cursor:pointer;transition:all 0.15s;opacity:0;transform:translateY(6px);';
+        row.onmouseenter = () => { row.style.borderColor='#6366f1'; row.style.background='#fafafe'; };
+        row.onmouseleave = () => { row.style.borderColor='#e5e7eb'; row.style.background='white'; };
         row.onclick = () => verEntradaById(doc.id);
-        list.appendChild(row);
+        row.innerHTML =
+          `<div style="width:36px;height:36px;background:${typeColor[d.type]||'#f3f4f6'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;">${typeEmoji[d.type]||'📁'}</div>`
+          + `<div style="flex:1;min-width:0;">`
+          + `<div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>`
+          + `<div style="font-size:10px;color:#9ca3af;margin-top:3px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">`
+          + `<span style="background:#f3f4f6;padding:1px 6px;border-radius:4px;">${(d.type||'texto').toUpperCase()}</span>`
+          + `<span>${confLabel}</span>`
+          + (sizeLabel ? `<span style="color:#6366f1;font-weight:700;background:#ede9fe;padding:1px 6px;border-radius:4px;">📦 ${sizeLabel}</span>` : '')
+          + (hasLink ? `<span style="color:#3b82f6;background:#dbeafe;padding:1px 6px;border-radius:4px;">🔗 Link</span>` : '')
+          + `</div></div>`
+          + `<div style="display:flex;gap:5px;flex-shrink:0;">`
+          + `<button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:800;cursor:pointer;transition:background 0.1s;" onmouseenter="this.style.background='#4f46e5'" onmouseleave="this.style.background='#6366f1'">👁️ Ver</button>`
+          + `<span style="font-size:9px;background:#d1fae5;color:#065f46;padding:3px 7px;border-radius:6px;font-weight:700;align-self:center;">✓</span>`
+          + `</div>`;
+        entriesList.appendChild(row);
+        // Stagger fade-in animation
+        setTimeout(() => {
+          row.style.opacity = '1';
+          row.style.transform = 'translateY(0)';
+          row.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+        }, Math.min(i * 30, 600));
       });
-      // Update count
-      const countEl = document.getElementById('cerebro-count');
-      if (countEl) countEl.textContent = snap.size + ' entradas';
-    }, e => console.warn('onSnapshot error:', e));
+    }, e => {
+      console.warn('onSnapshot error:', e);
+      const list = document.getElementById('cerebro-items-list');
+      if (list) list.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px;">⚠️ Error al cargar: ${e.message}</div>`;
+    });
+}
+
+function filtrarCerebro(query, listId) {
+  const items = document.querySelectorAll('#' + listId + ' > div[data-search]');
+  const q = query.toLowerCase().trim();
+  let visible = 0;
+  items.forEach(el => {
+    const match = !q || el.dataset.search.includes(q);
+    el.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
 }
 
 async function verEntradaById(docId) {
