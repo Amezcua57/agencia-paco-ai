@@ -759,7 +759,13 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">Conocimiento activo</span><span id="cerebro-count" style="font-size:11px;color:#6b7280;">Cargando desde Firebase...</span></div>
+          <div class="card-header">
+            <span class="card-title">Conocimiento activo</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="cerebro-count" style="font-size:11px;color:#6b7280;">—</span>
+              <button onclick="listenCerebro(state.currentBiz)" style="background:#ede9fe;color:#6366f1;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;">🔄 Recargar</button>
+            </div>
+          </div>
           <div class="card-body" id="cerebro-items-list">
             <div style="text-align:center;padding:24px;color:#9ca3af;font-size:12px;">
               <div style="font-size:28px;margin-bottom:8px;">🧠</div>
@@ -1956,18 +1962,23 @@ function fbSave(collection, data) {
 }
 
 let _cerebroListener = null;
+let _cerebroRetries = 0;
 function listenCerebro(bizId) {
-  if (!fbReady || !bizId) {
-    // Retry when Firebase is ready
-    setTimeout(() => listenCerebro(bizId), 800);
+  if (!fbReady) {
+    _cerebroRetries++;
+    if (_cerebroRetries < 20) setTimeout(() => listenCerebro(bizId), 800);
     return;
   }
+  _cerebroRetries = 0;
+  if (!bizId) bizId = state.currentBiz;
+  if (!bizId) { console.warn('listenCerebro: no bizId'); return; }
   // Cancel previous listener if switching business
   if (_cerebroListener) { try { _cerebroListener(); } catch(e){} }
   // Show skeleton while loading
   const list = document.getElementById('cerebro-items-list');
+  const countEl = document.getElementById('cerebro-count');
   if (list) {
-    list.innerHTML = Array(4).fill(0).map(() => `
+    list.innerHTML = Array(5).fill(0).map(() => `
       <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:8px;background:white;animation:pulse 1.4s ease-in-out infinite;">
         <div style="width:36px;height:36px;background:#e5e7eb;border-radius:8px;flex-shrink:0;"></div>
         <div style="flex:1;">
@@ -1977,6 +1988,7 @@ function listenCerebro(bizId) {
         <div style="width:60px;height:26px;background:#e5e7eb;border-radius:6px;"></div>
       </div>`).join('');
   }
+  if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">⏳ Buscando en Firebase...</span>';
   _cerebroListener = db.collection('cerebro').where('biz','==',bizId)
     .orderBy('ts','desc').limit(100)
     .onSnapshot(snap => {
@@ -1991,66 +2003,94 @@ function listenCerebro(bizId) {
           : '<span style="color:#9ca3af;">Sin entradas aún</span>';
       }
       if (snap.size === 0) {
-        list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#9ca3af;">
-          <div style="font-size:40px;margin-bottom:10px;">🧠</div>
-          <div style="font-size:13px;font-weight:600;color:#374151;">El Cerebro Vivo está vacío</div>
-          <div style="font-size:11px;margin-top:4px;">Agrega conocimiento con el botón <strong>+ Agregar</strong></div>
-        </div>`;
+        // Try loading ALL cerebro docs (in case biz key mismatch)
+        db.collection('cerebro').orderBy('ts','desc').limit(100).get().then(allSnap => {
+          if (allSnap.size > 0) {
+            if (countEl) countEl.innerHTML = `<span style="color:#f59e0b;font-weight:700;">⚠️ ${allSnap.size} docs (clave biz diferente)</span>`;
+            list.innerHTML = `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:11px;color:#92400e;">
+              ⚠️ Se encontraron <strong>${allSnap.size} entradas</strong> pero con un ID de negocio diferente al actual (<code>${bizId}</code>).
+              <button onclick="listenCerebroAll()" style="background:#f59e0b;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:10px;margin-left:6px;font-weight:700;">Ver todas</button>
+            </div>`;
+          } else {
+            if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">Sin entradas aún</span>';
+            list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#9ca3af;">
+              <div style="font-size:40px;margin-bottom:10px;">🧠</div>
+              <div style="font-size:13px;font-weight:600;color:#374151;">El Cerebro Vivo está vacío</div>
+              <div style="font-size:11px;margin-top:4px;">Agrega conocimiento con el botón <strong>+ Agregar</strong></div>
+            </div>`;
+          }
+        });
         return;
       }
-      // Build search bar + list
-      const searchId = 'cerebro-search-' + Date.now();
-      list.innerHTML = `
-        <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
-          <input id="${searchId}" type="text" placeholder="🔍 Buscar en ${snap.size} entradas..."
-            style="flex:1;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;"
-            onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#e5e7eb'"
-            oninput="filtrarCerebro(this.value,'cerebro-entries-list')">
-          <span style="font-size:10px;background:#ede9fe;color:#6366f1;padding:4px 10px;border-radius:20px;font-weight:700;white-space:nowrap;">☁️ ${snap.size} docs</span>
-        </div>
-        <div id="cerebro-entries-list"></div>`;
-      const entriesList = document.getElementById('cerebro-entries-list');
-      snap.docs.forEach((doc, i) => {
-        const d = doc.data();
-        const confLabel = (d.confidence||3) >= 5 ? '⭐⭐⭐⭐⭐' : (d.confidence||3) >= 3 ? '⭐⭐⭐' : '⭐';
-        const chars = (d.content||'').length;
-        const sizeLabel = chars > 1024 ? (chars/1024).toFixed(1) + ' KB' : chars > 0 ? chars + ' car' : '';
-        const hasLink = !!(d.link);
-        const typeColor = {texto:'#dbeafe',foto:'#fce7f3',video:'#fee2e2',documento:'#fef3c7',precio:'#d1fae5',objecion:'#f3e8ff',faq:'#e0e7ff',guion:'#ffedd5'};
-        const row = document.createElement('div');
-        row.id = 'fb-' + doc.id;
-        row.dataset.search = ((d.title||'') + ' ' + (d.type||'') + ' ' + (d.content||'').substring(0,200)).toLowerCase();
-        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:7px;background:white;cursor:pointer;transition:all 0.15s;opacity:0;transform:translateY(6px);';
-        row.onmouseenter = () => { row.style.borderColor='#6366f1'; row.style.background='#fafafe'; };
-        row.onmouseleave = () => { row.style.borderColor='#e5e7eb'; row.style.background='white'; };
-        row.onclick = () => verEntradaById(doc.id);
-        row.innerHTML =
-          `<div style="width:36px;height:36px;background:${typeColor[d.type]||'#f3f4f6'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;">${typeEmoji[d.type]||'📁'}</div>`
-          + `<div style="flex:1;min-width:0;">`
-          + `<div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>`
-          + `<div style="font-size:10px;color:#9ca3af;margin-top:3px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">`
-          + `<span style="background:#f3f4f6;padding:1px 6px;border-radius:4px;">${(d.type||'texto').toUpperCase()}</span>`
-          + `<span>${confLabel}</span>`
-          + (sizeLabel ? `<span style="color:#6366f1;font-weight:700;background:#ede9fe;padding:1px 6px;border-radius:4px;">📦 ${sizeLabel}</span>` : '')
-          + (hasLink ? `<span style="color:#3b82f6;background:#dbeafe;padding:1px 6px;border-radius:4px;">🔗 Link</span>` : '')
-          + `</div></div>`
-          + `<div style="display:flex;gap:5px;flex-shrink:0;">`
-          + `<button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:800;cursor:pointer;transition:background 0.1s;" onmouseenter="this.style.background='#4f46e5'" onmouseleave="this.style.background='#6366f1'">👁️ Ver</button>`
-          + `<span style="font-size:9px;background:#d1fae5;color:#065f46;padding:3px 7px;border-radius:6px;font-weight:700;align-self:center;">✓</span>`
-          + `</div>`;
-        entriesList.appendChild(row);
-        // Stagger fade-in animation
-        setTimeout(() => {
-          row.style.opacity = '1';
-          row.style.transform = 'translateY(0)';
-          row.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-        }, Math.min(i * 30, 600));
-      });
+      // Render entries using shared helper
+      _renderCerebroList(snap, list);
     }, e => {
       console.warn('onSnapshot error:', e);
       const list = document.getElementById('cerebro-items-list');
       if (list) list.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px;">⚠️ Error al cargar: ${e.message}</div>`;
     });
+}
+
+function listenCerebroAll() {
+  // Show ALL cerebro entries regardless of biz — for admin debugging
+  if (!fbReady) return;
+  if (_cerebroListener) { try { _cerebroListener(); } catch(e){} }
+  const list = document.getElementById('cerebro-items-list');
+  const countEl = document.getElementById('cerebro-count');
+  if (!list) return;
+  _cerebroListener = db.collection('cerebro').orderBy('ts','desc').limit(100)
+    .onSnapshot(snap => {
+      if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas (todas)</span>`;
+      if (snap.size === 0) { list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;">Sin entradas en Firebase</div>'; return; }
+      _renderCerebroList(snap, list);
+    });
+}
+
+function _renderCerebroList(snap, list) {
+  const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
+  const typeColor = {texto:'#dbeafe',foto:'#fce7f3',video:'#fee2e2',documento:'#fef3c7',precio:'#d1fae5',objecion:'#f3e8ff',faq:'#e0e7ff',guion:'#ffedd5'};
+  const searchId = 'cerebro-search-' + Date.now();
+  list.innerHTML = `
+    <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
+      <input id="${searchId}" type="text" placeholder="🔍 Buscar en ${snap.size} entradas..."
+        style="flex:1;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;"
+        onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#e5e7eb'"
+        oninput="filtrarCerebro(this.value,'cerebro-entries-list')">
+      <span style="font-size:10px;background:#ede9fe;color:#6366f1;padding:4px 10px;border-radius:20px;font-weight:700;white-space:nowrap;">☁️ ${snap.size} docs</span>
+    </div>
+    <div id="cerebro-entries-list"></div>`;
+  const entriesList = document.getElementById('cerebro-entries-list');
+  snap.docs.forEach((doc, i) => {
+    const d = doc.data();
+    const confLabel = (d.confidence||3) >= 5 ? '⭐⭐⭐⭐⭐' : (d.confidence||3) >= 3 ? '⭐⭐⭐' : '⭐';
+    const chars = (d.content||'').length;
+    const sizeLabel = chars > 1024 ? (chars/1024).toFixed(1) + ' KB' : chars > 0 ? chars + ' car' : '';
+    const hasLink = !!(d.link);
+    const row = document.createElement('div');
+    row.id = 'fb-' + doc.id;
+    row.dataset.search = ((d.title||'') + ' ' + (d.type||'') + ' ' + (d.content||'').substring(0,200)).toLowerCase();
+    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:7px;background:white;cursor:pointer;transition:all 0.15s;opacity:0;transform:translateY(6px);';
+    row.onmouseenter = () => { row.style.borderColor='#6366f1'; row.style.background='#fafafe'; };
+    row.onmouseleave = () => { row.style.borderColor='#e5e7eb'; row.style.background='white'; };
+    row.onclick = () => verEntradaById(doc.id);
+    row.innerHTML =
+      `<div style="width:36px;height:36px;background:${typeColor[d.type]||'#f3f4f6'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;">${typeEmoji[d.type]||'📁'}</div>`
+      + `<div style="flex:1;min-width:0;">`
+      + `<div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>`
+      + `<div style="font-size:10px;color:#9ca3af;margin-top:3px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">`
+      + `<span style="background:#f3f4f6;padding:1px 6px;border-radius:4px;">${(d.type||'texto').toUpperCase()}</span>`
+      + `<span>${confLabel}</span>`
+      + (sizeLabel ? `<span style="color:#6366f1;font-weight:700;background:#ede9fe;padding:1px 6px;border-radius:4px;">📦 ${sizeLabel}</span>` : '')
+      + (hasLink ? `<span style="color:#3b82f6;background:#dbeafe;padding:1px 6px;border-radius:4px;">🔗 Link</span>` : '')
+      + `<span style="background:#f0fdf4;color:#059669;padding:1px 6px;border-radius:4px;font-size:9px;">${d.biz||'?'}</span>`
+      + `</div></div>`
+      + `<div style="display:flex;gap:5px;flex-shrink:0;">`
+      + `<button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:800;cursor:pointer;" onmouseenter="this.style.background='#4f46e5'" onmouseleave="this.style.background='#6366f1'">👁️ Ver</button>`
+      + `<span style="font-size:9px;background:#d1fae5;color:#065f46;padding:3px 7px;border-radius:6px;font-weight:700;align-self:center;">✓</span>`
+      + `</div>`;
+    entriesList.appendChild(row);
+    setTimeout(() => { row.style.opacity='1'; row.style.transform='translateY(0)'; row.style.transition='opacity 0.25s ease, transform 0.25s ease'; }, Math.min(i*30, 600));
+  });
 }
 
 function filtrarCerebro(query, listId) {
