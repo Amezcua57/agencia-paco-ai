@@ -713,20 +713,39 @@
 
       <!-- ── AGENTS ── -->
       <div class="page" id="page-agents">
-        <div class="page-header"><div><h2>Agentes de IA</h2><p>24 agentes especializados — todos configurables</p></div></div>
-        <div class="agents-grid">
-          <div class="agent-card"><div class="agent-emoji">🤖</div><div class="agent-name">Secretaria General AI</div><div class="agent-role">Centro de comando</div><div class="agent-status"><div class="status-dot status-active"></div>Activa</div><div class="agent-level">Nivel 3</div></div>
-          <div class="agent-card"><div class="agent-emoji">📊</div><div class="agent-name">Director de Mercadotecnia</div><div class="agent-role">Estrategia de campañas</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 2</div></div>
-          <div class="agent-card"><div class="agent-emoji">🎨</div><div class="agent-name">Director Creativo</div><div class="agent-role">Supervisión creativa</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 2</div></div>
-          <div class="agent-card"><div class="agent-emoji">✍️</div><div class="agent-name">Copywriter</div><div class="agent-role">Textos y guiones</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 2</div></div>
-          <div class="agent-card"><div class="agent-emoji">📢</div><div class="agent-name">Generador de Anuncios</div><div class="agent-role">5 versiones por campaña</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 2</div></div>
-          <div class="agent-card"><div class="agent-emoji">🎬</div><div class="agent-name">Generador de Reels</div><div class="agent-role">Guiones y estructura</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 2</div></div>
-          <div class="agent-card"><div class="agent-emoji">🔍</div><div class="agent-name">Agente Competitivo</div><div class="agent-role">Inteligencia competitiva</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 3</div></div>
-          <div class="agent-card"><div class="agent-emoji">📄</div><div class="agent-name">Agente Landing Pages</div><div class="agent-role">Constructor de páginas</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 2</div></div>
-          <div class="agent-card"><div class="agent-emoji">💬</div><div class="agent-name">Agente Chatbot Web</div><div class="agent-role">Captura y calificación</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 3</div></div>
-          <div class="agent-card"><div class="agent-emoji">📱</div><div class="agent-name">Agente WhatsApp</div><div class="agent-role">Seguimiento automatizado</div><div class="agent-status"><div class="status-dot status-paused"></div>Fase 2</div><div class="agent-level">Nivel 2</div></div>
-          <div class="agent-card"><div class="agent-emoji">✅</div><div class="agent-name">Pre-Autorizador</div><div class="agent-role">Evalúa antes de publicar</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 3</div></div>
-          <div class="agent-card"><div class="agent-emoji">🎙️</div><div class="agent-name">Avatar Vocero</div><div class="agent-role">Guiones para HeyGen</div><div class="agent-status"><div class="status-dot status-active"></div>Activo</div><div class="agent-level">Nivel 2</div></div>
+        <div class="page-header">
+          <div><h2>Agentes de IA</h2><p>12 agentes especializados — haz clic en cualquiera para hablar con él</p></div>
+        </div>
+        <div style="background:#ede9fe;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#4f46e5;display:flex;gap:10px;align-items:center;">
+          <span style="font-size:18px;">💡</span>
+          <span><strong>¿Cómo funciona?</strong> Haz clic en cualquier agente para abrirlo y hablar directamente con él. O usa la <strong>Secretaria General</strong> (también en el sidebar) — ella coordina a todos los demás automáticamente.</span>
+        </div>
+        <div class="agents-grid" id="agents-grid-container">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+
+      <!-- ── MODAL AGENTE ── -->
+      <div id="agent-chat-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1200;align-items:center;justify-content:center;padding:16px;">
+        <div style="background:#fff;border-radius:16px;width:100%;max-width:640px;height:80vh;display:flex;flex-direction:column;box-shadow:0 25px 80px rgba(0,0,0,0.35);">
+          <!-- Header -->
+          <div id="agent-modal-header" style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;border-radius:16px 16px 0 0;">
+            <div id="agent-modal-emoji" style="font-size:28px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#f5f3ff;"></div>
+            <div style="flex:1;">
+              <div id="agent-modal-name" style="font-size:15px;font-weight:800;"></div>
+              <div id="agent-modal-role" style="font-size:11px;color:#9ca3af;margin-top:1px;"></div>
+            </div>
+            <button onclick="document.getElementById('agent-chat-modal').style.display='none'" style="background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;">✕</button>
+          </div>
+          <!-- Messages -->
+          <div id="agent-modal-messages" style="flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:10px;"></div>
+          <!-- Input -->
+          <div style="padding:12px 18px;border-top:1px solid #e5e7eb;display:flex;gap:8px;">
+            <textarea id="agent-modal-input" placeholder="Escribe tu mensaje..." rows="2"
+              style="flex:1;border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 12px;font-size:13px;resize:none;outline:none;font-family:inherit;"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAgentMessage();}"></textarea>
+            <button onclick="sendAgentMessage()" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:18px;cursor:pointer;align-self:flex-end;">➤</button>
+          </div>
         </div>
       </div>
 
@@ -1790,6 +1809,7 @@ function showPage(id, el) {
   document.getElementById('topbar-title').textContent = titles[id] || id;
   document.getElementById('biz-dropdown').classList.remove('open');
   if (id === 'config') { renderBizListCfg(); renderIntegrations(); }
+  if (id === 'agents') renderAgentsGrid();
   if (id === 'ideas') syncIdeasPage();
   if (id === 'guia') renderGuiaPage();
   if (id === 'phone') renderPhonePage();
@@ -3145,6 +3165,133 @@ function updateGuiaTocActive() {
   document.querySelectorAll('.guia-toc-item').forEach(item => {
     item.classList.toggle('toc-active', item.id === 'toc-' + activeId);
   });
+}
+
+// ═══════════════════ AGENTES IA — CHAT POR AGENTE ═══════════════════
+const AGENT_DEFS = [
+  { id:'secretaria', emoji:'🤖', name:'Secretaria General AI', role:'Centro de comando', level:'Nivel 3', active:true, color:'#6366f1',
+    greeting:'¡Hola! Soy la Secretaria General. ¿Qué necesitas hoy? Puedo coordinar tareas, responder preguntas del negocio, redactar contenido o lo que necesites.',
+    system: biz => `Eres la Secretaria General AI de la agencia para el negocio ${biz}. Eres el centro de comando. Coordinas todos los agentes especializados y puedes ayudar con cualquier tarea de marketing. Respondes en español mexicano, tono profesional y cercano.`
+  },
+  { id:'director_mkt', emoji:'📊', name:'Director de Mercadotecnia', role:'Estrategia de campañas', level:'Nivel 2', active:true, color:'#f59e0b',
+    greeting:'Hola, soy el Director de Mercadotecnia. ¿En qué campaña o estrategia estás trabajando? Te ayudo a definir objetivos, audiencia, mensajes clave y canales.',
+    system: biz => `Eres el Director de Mercadotecnia para ${biz}. Diseñas estrategias de campaña con objetivos, audiencias, KPIs y canales. Tus respuestas siempre tienen estructura clara. Español mexicano, tono estratégico.`
+  },
+  { id:'director_creativo', emoji:'🎨', name:'Director Creativo', role:'Supervisión creativa', level:'Nivel 2', active:true, color:'#ec4899',
+    greeting:'¡Hola! Soy el Director Creativo. ¿Qué pieza, campaña o concepto creativo quieres desarrollar? Puedo ayudarte con concepto, tono visual, narrativa e identidad de marca.',
+    system: biz => `Eres el Director Creativo para ${biz}. Desarrollas conceptos creativos, narrativas de marca y dirección visual para campañas. Das feedback creativo y propones ideas originales. Español mexicano, tono inspirador.`
+  },
+  { id:'copywriter', emoji:'✍️', name:'Copywriter', role:'Textos y guiones', level:'Nivel 2', active:true, color:'#8b5cf6',
+    greeting:'¡Listo para escribir! Soy tu Copywriter. ¿Qué necesitas? Anuncios, posts de Instagram/Facebook, emails, guiones de video, textos para landing page — dime qué y lo tienes.',
+    system: biz => `Eres el Copywriter experto para ${biz}. Escribes textos persuasivos: anuncios, posts, emails, guiones y landing pages. Tono premium, aspiracional y cercano. Siempre entregas el copy listo para usar, en español mexicano.`
+  },
+  { id:'anuncios', emoji:'📢', name:'Generador de Anuncios', role:'5 versiones por campaña', level:'Nivel 2', active:true, color:'#ef4444',
+    greeting:'Hola, soy el Generador de Anuncios. Dame el producto/servicio a anunciar, el objetivo (tráfico, leads, ventas) y la plataforma (Facebook, Instagram, Google) — te entrego 5 versiones listas.',
+    system: biz => `Eres el Generador de Anuncios para ${biz}. Cuando te pidan un anuncio, SIEMPRE genera exactamente 5 versiones variando gancho, CTA y ángulo persuasivo. Formato: Versión 1... Versión 2... etc. Incluye Titular, Cuerpo y CTA. Listo para Meta Ads.`
+  },
+  { id:'reels', emoji:'🎬', name:'Generador de Reels', role:'Guiones y estructura', level:'Nivel 2', active:true, color:'#db2777',
+    greeting:'¡Acción! Soy el Generador de Reels. ¿Qué quieres comunicar? (producto, oferta, historia, tip) Te entrego el guión completo con gancho, desarrollo, CTA e indicaciones de escena.',
+    system: biz => `Eres el Generador de Reels para ${biz}. Crea guiones de reels de 30-60 segundos. Estructura: 1) GANCHO (3 seg), 2) DESARROLLO, 3) CTA. Incluye indicaciones de escena y texto en pantalla. Tono dinámico y aspiracional.`
+  },
+  { id:'competitivo', emoji:'🔍', name:'Agente Competitivo', role:'Inteligencia competitiva', level:'Nivel 3', active:true, color:'#0ea5e9',
+    greeting:'Soy el Agente Competitivo. Analizo el mercado y a tus competidores. ¿De qué competidor quieres información? ¿O prefieres un análisis general del sector?',
+    system: biz => `Eres el Agente Competitivo para ${biz}. Analizas competidores y oportunidades de mercado. Incluye siempre: posicionamiento del competidor, mensajes clave, fortalezas/debilidades, oportunidades para ${biz}.`
+  },
+  { id:'landing', emoji:'📄', name:'Agente Landing Pages', role:'Constructor de páginas', level:'Nivel 2', active:true, color:'#10b981',
+    greeting:'Hola, soy el constructor de Landing Pages. ¿Qué producto o promoción quieres convertir en una página? Dime el objetivo y te entrego la estructura completa con todos los textos.',
+    system: biz => `Eres el constructor de Landing Pages para ${biz}. Crea estructuras de alta conversión con: Hero (headline+subheadline+CTA), Beneficios (3-5), Prueba social, Urgencia/Escasez, CTA final. Todos los textos listos.`
+  },
+  { id:'chatbot', emoji:'💬', name:'Agente Chatbot Web', role:'Captura y calificación', level:'Nivel 3', active:true, color:'#06b6d4',
+    greeting:'Hola, soy el Agente Chatbot Web. Diseño flujos de conversación para capturar y calificar leads en tu sitio. ¿Para qué negocio o producto quieres el chatbot?',
+    system: biz => `Eres el diseñador de chatbots para ${biz}. Creas flujos de conversación para captura y calificación de leads. Diseña preguntas clave, respuestas automáticas y puntos de derivación a ventas.`
+  },
+  { id:'whatsapp_agent', emoji:'📱', name:'Agente WhatsApp', role:'Seguimiento automatizado', level:'Nivel 2', active:false, color:'#25D366',
+    greeting:'Hola, soy el Agente WhatsApp. Diseño secuencias de mensajes para seguimiento de leads. ¿Qué tipo de secuencia necesitas? (nuevos leads, reactivación, post-venta)',
+    system: biz => `Eres el Agente WhatsApp para ${biz}. Diseñas secuencias de mensajes de seguimiento. Proporciona mensajes numerados con timing sugerido (Día 1, Día 3, Día 7). Tono amigable, personal y no invasivo.`
+  },
+  { id:'preauth', emoji:'✅', name:'Pre-Autorizador', role:'Evalúa antes de publicar', level:'Nivel 3', active:true, color:'#f59e0b',
+    greeting:'Soy el Pre-Autorizador de calidad. Pégame cualquier contenido (anuncio, post, email, landing) y te doy una evaluación con puntuación y mejoras antes de publicarlo.',
+    system: biz => `Eres el Pre-Autorizador de calidad para ${biz}. Evalúa contenido de marketing. Tu respuesta siempre incluye: 1) PUNTUACIÓN (/100), 2) FORTALEZAS, 3) MEJORAS, 4) VEREDICTO (Aprobar/Aprobar con cambios/Rechazar), 5) VERSIÓN MEJORADA si score < 80.`
+  },
+  { id:'vocero', emoji:'🎙️', name:'Avatar Vocero', role:'Guiones para HeyGen', level:'Nivel 2', active:true, color:'#a855f7',
+    greeting:'Hola, soy el Avatar Vocero. Escribo guiones para videos con avatar IA (HeyGen). ¿Qué mensaje quieres comunicar? Dime el tema y duración aproximada (30s, 1min, 2min).',
+    system: biz => `Eres el escritor de guiones para avatar IA de ${biz}. Escribes textos conversacionales para HeyGen con pausas naturales (...), sin signos complicados, máximo 150 palabras/minuto. Indica siempre la duración estimada.`
+  }
+];
+
+let _activeAgent   = null;
+let _agentHistory  = [];
+
+function renderAgentsGrid() {
+  const grid = document.getElementById('agents-grid-container');
+  if (!grid) return;
+  grid.innerHTML = AGENT_DEFS.map(a => `
+    <div class="agent-card" onclick="openAgentChat('${a.id}')" style="cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;" onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(99,102,241,0.15)'" onmouseleave="this.style.transform='';this.style.boxShadow=''">
+      <div class="agent-emoji">${a.emoji}</div>
+      <div class="agent-name">${a.name}</div>
+      <div class="agent-role">${a.role}</div>
+      <div class="agent-status"><div class="status-dot ${a.active?'status-active':'status-paused'}"></div>${a.active?'Activo':'Fase 2'}</div>
+      <div class="agent-level">${a.level}</div>
+      <div style="margin-top:8px;font-size:10px;color:#6366f1;font-weight:700;">💬 Hablar →</div>
+    </div>`).join('');
+}
+
+function openAgentChat(agentId) {
+  const agent = AGENT_DEFS.find(a => a.id === agentId);
+  if (!agent) return;
+  _activeAgent  = agent;
+  _agentHistory = [];
+  // Set header
+  document.getElementById('agent-modal-emoji').textContent = agent.emoji;
+  document.getElementById('agent-modal-name').textContent  = agent.name;
+  document.getElementById('agent-modal-role').textContent  = agent.role + ' · ' + agent.level;
+  // Clear messages
+  const msgs = document.getElementById('agent-modal-messages');
+  msgs.innerHTML = '';
+  // Show greeting
+  _addAgentMsg(agent.greeting, 'agent', agent.emoji);
+  // Show modal
+  document.getElementById('agent-chat-modal').style.display = 'flex';
+  document.getElementById('agent-modal-input').focus();
+  document.getElementById('agent-modal-input').value = '';
+  _agentHistory.push({ role:'assistant', content: agent.greeting });
+}
+
+function _addAgentMsg(text, sender, emoji) {
+  const msgs = document.getElementById('agent-modal-messages');
+  const isAgent = sender === 'agent';
+  const div = document.createElement('div');
+  div.style.cssText = `display:flex;gap:8px;align-items:flex-start;${isAgent?'':'flex-direction:row-reverse'}`;
+  div.innerHTML = `
+    ${isAgent ? `<div style="font-size:20px;flex-shrink:0;">${emoji||'🤖'}</div>` : ''}
+    <div style="background:${isAgent?'#f5f3ff':'#6366f1'};color:${isAgent?'#1f2937':'#fff'};border-radius:${isAgent?'4px 12px 12px 12px':'12px 4px 12px 12px'};padding:10px 14px;font-size:12px;line-height:1.65;max-width:85%;white-space:pre-wrap;">${text}</div>
+    ${!isAgent ? '<div style="font-size:20px;flex-shrink:0;">👤</div>' : ''}`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+async function sendAgentMessage() {
+  if (!_activeAgent) return;
+  const input = document.getElementById('agent-modal-input');
+  const text  = (input.value || '').trim();
+  if (!text) return;
+  input.value = '';
+  _addAgentMsg(text, 'user');
+  _agentHistory.push({ role:'user', content: text });
+  // Typing
+  const typing = _addAgentMsg('...', 'agent', _activeAgent.emoji);
+  const bizName = state.businesses?.[state.currentBiz]?.name || 'el negocio';
+  const systemPrompt = _activeAgent.system(bizName) + '\n\n' + getBizContext(false);
+  try {
+    const reply = await callClaude([..._agentHistory], systemPrompt);
+    typing.remove();
+    _addAgentMsg(reply, 'agent', _activeAgent.emoji);
+    _agentHistory.push({ role:'assistant', content: reply });
+  } catch(e) {
+    typing.remove();
+    _addAgentMsg('⚠️ Error al conectar con Claude. Verifica la API Key en Configuración → IA y agentes.', 'agent', '⚠️');
+  }
 }
 
 // ═══════════════════ CONFIGURACIÓN TABS ═══════════════════
