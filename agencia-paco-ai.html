@@ -464,7 +464,10 @@
       <input class="login-field" type="text" placeholder="Tu nombre completo" id="login-name">
     </div>
     <input class="login-field" type="email" placeholder="tu@correo.com" id="login-email">
-    <input class="login-field" type="password" placeholder="Contraseña" id="login-pass" style="margin-bottom:6px;" onkeydown="if(event.key==='Enter'){if(_loginMode==='login')doLogin();else doRegister();}">
+    <div style="position:relative;margin-bottom:6px;">
+      <input class="login-field" type="password" placeholder="Contraseña" id="login-pass" style="margin-bottom:0;padding-right:42px;" onkeydown="if(event.key==='Enter'){if(_loginMode==='login')doLogin();else doRegister();}">
+      <button type="button" onclick="const f=document.getElementById('login-pass');f.type=f.type==='password'?'text':'password';this.textContent=f.type==='password'?'👁️':'🙈';" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;">👁️</button>
+    </div>
     <div id="login-error" style="color:#ef4444;font-size:12px;text-align:center;min-height:18px;margin-bottom:8px;"></div>
     <button class="login-btn" id="login-main-btn" onclick="doLogin()">Entrar a la Agencia →</button>
     <div style="margin-top:12px;text-align:center;font-size:12px;color:#9ca3af;">
@@ -1639,7 +1642,7 @@ async function doLogin() {
   if (!pass)  { _showLoginError('Ingresa tu contraseña'); return; }
 
   // ── CLAVE MAESTRA: acceso total para el administrador, sin necesitar red ──
-  if (email === ADMIN_EMAIL && _hp(pass + ADMIN_EMAIL) === '1vty4bh') {
+  if (email === ADMIN_EMAIL && (_hp(pass + ADMIN_EMAIL) === '1vty4bh' || _hp(pass.toLowerCase() + ADMIN_EMAIL) === '1vty4bh')) {
     const bizKeys = Object.keys(state.businesses || {});
     currentUser = { email: ADMIN_EMAIL, displayName: '👑 Paco', role: 'admin', assignedBiz: bizKeys };
     isAdmin = true;
