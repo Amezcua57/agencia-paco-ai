@@ -1824,6 +1824,34 @@ function _doBizSwitch(key, icon, name, color) {
   showToast('Cambiando a ' + name + ' — Cerebro Vivo actualizado');
   // Sync Firestore for new biz
   setTimeout(() => listenCerebro(key), 400);
+  // Load WhatsApp creds for this biz
+  setTimeout(() => loadWACreds(key), 200);
+}
+
+async function loadWACreds(bizKey) {
+  if (!fbReady || !bizKey) return;
+  try {
+    const snap = await db.collection('businesses').doc(bizKey).get();
+    const d = snap.exists ? snap.data() : {};
+    window._waToken   = d.waToken   || '';
+    window._waPhoneId = d.waPhoneId || '';
+    window._waNumber  = d.waNumber  || '';
+    const numEl = document.getElementById('wa-biz-number');
+    if (numEl) numEl.value = window._waNumber || '';
+    // Update wa status bar
+    const statusText = document.getElementById('wa-status-text');
+    const statusDot  = document.getElementById('wa-status-dot');
+    const statusBadge = document.querySelector('#wa-status-bar span:last-child');
+    if (window._waToken && window._waPhoneId) {
+      if (statusDot)   statusDot.style.background = '#10b981';
+      if (statusText)  statusText.textContent = '✅ WhatsApp Business API conectada — mensajes se envían automáticamente';
+      if (statusBadge) { statusBadge.textContent = '✓ API activa'; statusBadge.style.background='#d1fae5'; statusBadge.style.color='#065f46'; }
+    } else {
+      if (statusDot)   statusDot.style.background = '#f59e0b';
+      if (statusText)  statusText.textContent = '📱 Modo Directo — los mensajes abren WhatsApp en tu teléfono. Conecta la API para envío automático.';
+      if (statusBadge) { statusBadge.textContent = 'Sin API'; statusBadge.style.background='#fef3c7'; statusBadge.style.color='#d97706'; }
+    }
+  } catch(e) { console.warn('loadWACreds:', e); }
 }
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.biz-switcher')) document.getElementById('biz-dropdown').classList.remove('open');
@@ -1953,22 +1981,10 @@ try {
   if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
   db = firebase.firestore();
   fbReady = true;
-  // Load saved integration credentials
+  // Load saved integration credentials (other integrations from global config)
   db.collection('config').doc('global').get().then(snap => {
     if (!snap.exists) return;
-    const data = snap.data();
-    const ints = data.integrations || {};
-    // WhatsApp
-    if (ints.whatsapp?.wa_token) {
-      window._waToken   = ints.whatsapp.wa_token;
-      window._waPhoneId = ints.whatsapp.wa_phone_id;
-      window._waNumber  = ints.whatsapp.wa_number;
-      const intObj = integrations.find(i => i.id === 'whatsapp');
-      if (intObj) intObj.connected = true;
-      const numEl = document.getElementById('wa-biz-number');
-      if (numEl && ints.whatsapp.wa_number) numEl.value = ints.whatsapp.wa_number;
-    }
-    // Other integrations
+    const ints = (snap.data().integrations) || {};
     ['wix','metaads','heygen','n8n','supermetrics'].forEach(id => {
       if (ints[id] && Object.values(ints[id]).some(v => v)) {
         const intObj = integrations.find(i => i.id === id);
@@ -3616,15 +3632,8 @@ function saveWAApiConfig() {
 
 // Cargar número guardado al entrar a WhatsApp
 function initWAPage() {
-  const saved = localStorage.getItem('wa_number_' + (currentBizId||''));
-  if (saved) document.getElementById('wa-biz-number').value = saved;
-  const token = localStorage.getItem('wa_api_token');
-  if (token) {
-    document.getElementById('wa-token').value = token;
-    document.getElementById('wa-phone-id').value = localStorage.getItem('wa_phone_id')||'';
-    document.getElementById('wa-status-text').textContent = '🚀 Modo API activo — envío automático habilitado';
-    document.getElementById('wa-status-dot').style.background = '#6366f1';
-  }
+  // Load credentials from Firebase for the current business
+  loadWACreds(state.currentBiz || currentBizId);
 }
 
 // ─── CANAL CLAUDE ───
@@ -3732,8 +3741,8 @@ function renderIntegrations() {
 function conectarIntegracion(id, nombre) {
   const configs = {
     whatsapp: {
-      title: '💬 Conectar WhatsApp Business',
-      subtitle: 'Usa la API oficial de Meta (gratuita hasta 1,000 conversaciones/mes)',
+      title: '💬 WhatsApp Business — ' + (state?.businesses?.[state?.currentBiz]?.name || 'Negocio activo'),
+      subtitle: 'Cada negocio tiene su propio número. API oficial de Meta (gratis hasta 1,000 conv/mes)',
       fields: [
         { id:'wa_token',    label:'Token de acceso permanente',  type:'password', placeholder:'EAAxxxxx... (Meta Business → API → Token)' },
         { id:'wa_phone_id', label:'Phone Number ID',             type:'text',     placeholder:'107xxx... (Meta Business → WhatsApp → Config)' },
@@ -3832,14 +3841,26 @@ function conectarIntegracion(id, nombre) {
 
   // Load existing values from Firebase
   if (fbReady) {
-    db.collection('config').doc('global').get().then(snap => {
-      const saved = snap.exists ? (snap.data().integrations || {}) : {};
-      const vals = saved[id] || {};
-      cfg.fields.forEach(f => {
-        const el = document.getElementById('int-field-' + f.id);
-        if (el && vals[f.id]) el.value = vals[f.id];
-      });
-    }).catch(() => {});
+    if (id === 'whatsapp' && state.currentBiz) {
+      // WhatsApp: load per-business
+      db.collection('businesses').doc(state.currentBiz).get().then(snap => {
+        const d = snap.exists ? snap.data() : {};
+        const map = { wa_token: d.waToken, wa_phone_id: d.waPhoneId, wa_number: d.waNumber };
+        cfg.fields.forEach(f => {
+          const el = document.getElementById('int-field-' + f.id);
+          if (el && map[f.id]) el.value = map[f.id];
+        });
+      }).catch(() => {});
+    } else {
+      db.collection('config').doc('global').get().then(snap => {
+        const saved = snap.exists ? (snap.data().integrations || {}) : {};
+        const vals = saved[id] || {};
+        cfg.fields.forEach(f => {
+          const el = document.getElementById('int-field-' + f.id);
+          if (el && vals[f.id]) el.value = vals[f.id];
+        });
+      }).catch(() => {});
+    }
   }
 }
 
@@ -3889,23 +3910,32 @@ async function guardarIntegracion(id, nombre) {
   try {
     const saveMsg = document.getElementById('int-save-msg');
     if (saveMsg) saveMsg.innerHTML = '<span style="color:#9ca3af;">💾 Guardando...</span>';
-    await db.collection('config').doc('global').set(
-      { integrations: { [id]: data } },
-      { merge: true }
-    );
-    // Update local integrations array
-    const intObj = integrations.find(i => i.id === id);
-    if (intObj) intObj.connected = true;
-    // Update wa* globals if WhatsApp
+    // WhatsApp: save per-business in businesses/{bizId}
     if (id === 'whatsapp') {
+      const bizId = state.currentBiz;
+      if (!bizId) throw new Error('Selecciona un negocio primero');
+      await db.collection('businesses').doc(bizId).set(
+        { waToken: data.wa_token, waPhoneId: data.wa_phone_id, waNumber: data.wa_number },
+        { merge: true }
+      );
       window._waToken   = data.wa_token;
       window._waPhoneId = data.wa_phone_id;
       window._waNumber  = data.wa_number;
       const numEl = document.getElementById('wa-biz-number');
       if (numEl) numEl.value = data.wa_number;
+      await loadWACreds(bizId); // refresh status bar
+    } else {
+      // Other integrations: save to global config
+      await db.collection('config').doc('global').set(
+        { integrations: { [id]: data } },
+        { merge: true }
+      );
     }
+    // Update local integrations array
+    const intObj = integrations.find(i => i.id === id);
+    if (intObj) intObj.connected = true;
     document.getElementById('cerebro-ver-modal').style.display = 'none';
-    showToast('✅ ' + nombre + ' conectado correctamente');
+    showToast('✅ ' + nombre + ' conectado para ' + (state?.businesses?.[state?.currentBiz]?.name || 'este negocio'));
     // Re-render integrations panel if open
     if (document.getElementById('cfg-integraciones')?.classList.contains('active')) {
       renderIntegrations();
