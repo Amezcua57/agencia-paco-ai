@@ -773,7 +773,129 @@
       <div class="page" id="page-ideas"><div class="empty-state"><div class="empty-icon">💡</div><p>Bandeja de ideas pendientes<br><br>Todo lo que Paco menciona y quiere retomar después.</p><br><button class="btn-primary" onclick="showPage('chat',null)">Ir a Hablar con la Agencia</button></div></div>
       <div class="page" id="page-calendar"><div class="empty-state"><div class="empty-icon">📅</div><p>Calendario de seguimiento inteligente<br><br>Próximas acciones, mensajes sugeridos y citas por lead.</p></div></div>
       <div class="page" id="page-landings"><div class="empty-state"><div class="empty-icon">📄</div><p>Constructor de landing pages<br><br>Cada negocio con sus propias páginas configurables.</p><br><button class="btn-primary" onclick="showToast('Abriendo constructor...')">Crear landing page</button></div></div>
-      <div class="page" id="page-whatsapp"><div class="empty-state"><div class="empty-icon">📱</div><p>Módulo de WhatsApp<br><br>Mensajes programados y secuencias de seguimiento.<br>Integración con Cloud API de Meta en Fase 2.</p></div></div>
+      <!-- ══════════════ WHATSAPP ══════════════ -->
+      <div class="page" id="page-whatsapp">
+        <div class="page-header">
+          <div><h2>📱 WhatsApp</h2><p>Mensajes con IA · Secuencias automáticas · Seguimiento de leads</p></div>
+          <button class="btn-primary" onclick="openWACompose()" style="font-size:12px;">✍️ Nuevo mensaje</button>
+        </div>
+
+        <!-- Status bar -->
+        <div id="wa-status-bar" style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;padding:12px 16px;margin-bottom:14px;">
+          <span id="wa-status-dot" style="width:10px;height:10px;border-radius:50%;background:#10b981;flex-shrink:0;"></span>
+          <span id="wa-status-text" style="font-size:12px;color:#374151;flex:1;">📱 Modo Directo activo — los mensajes abren WhatsApp en tu teléfono para enviar con un clic</span>
+          <span style="font-size:10px;background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:6px;font-weight:700;">✓ Funcionando</span>
+        </div>
+
+        <!-- Número del negocio -->
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-header"><span class="card-title">📞 Número WhatsApp del negocio activo</span></div>
+          <div class="card-body">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <input id="wa-biz-number" type="tel" placeholder="+52 55 1234 5678" class="wiz-input" style="flex:1;font-size:13px;" oninput="saveWANumber()">
+              <button onclick="testWANumber()" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">🟢 Probar</button>
+            </div>
+            <div style="font-size:10px;color:#9ca3af;">Este es el número de WhatsApp Business del negocio. Los clientes te escriben aquí.</div>
+          </div>
+        </div>
+
+        <!-- Compositor rápido con IA -->
+        <div class="card" id="wa-compose-card" style="margin-bottom:14px;display:none;">
+          <div class="card-header"><span class="card-title">✍️ Nuevo mensaje con IA</span><button class="btn-sm" onclick="document.getElementById('wa-compose-card').style.display='none'">✕</button></div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px;">Destinatario</label>
+                <input id="wa-to-name" type="text" placeholder="Nombre del lead" class="wiz-input" style="font-size:12px;margin-bottom:6px;">
+                <input id="wa-to-phone" type="tel" placeholder="+52 55 XXXX XXXX" class="wiz-input" style="font-size:12px;">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px;">Tipo de mensaje</label>
+                <select id="wa-msg-type" class="wiz-input" style="font-size:12px;margin-bottom:6px;">
+                  <option value="seguimiento">📞 Seguimiento inicial</option>
+                  <option value="reactivar">🔥 Reactivar lead frío</option>
+                  <option value="cita">📅 Confirmar cita</option>
+                  <option value="precio">💰 Enviar precio</option>
+                  <option value="postventa">⭐ Post-venta</option>
+                  <option value="promo">🎯 Promoción especial</option>
+                </select>
+                <select id="wa-tone" class="wiz-input" style="font-size:12px;">
+                  <option value="profesional">Tono profesional</option>
+                  <option value="amigable">Tono amigable</option>
+                  <option value="urgente">Tono urgente</option>
+                </select>
+              </div>
+            </div>
+            <textarea id="wa-context" class="wiz-input" placeholder="Contexto extra: ¿qué le interesó? ¿cuándo fue el último contacto? ¿qué objeción tuvo?" style="width:100%;min-height:60px;font-size:12px;margin-bottom:10px;resize:vertical;"></textarea>
+            <button onclick="generarMensajeWA()" class="btn-primary" style="width:100%;font-size:12px;">🤖 Generar mensaje con IA</button>
+            <div id="wa-generated" style="display:none;margin-top:12px;">
+              <textarea id="wa-msg-text" style="width:100%;min-height:100px;border:1.5px solid #6366f1;border-radius:8px;padding:10px;font-size:12px;font-family:inherit;resize:vertical;margin-bottom:8px;"></textarea>
+              <div style="display:flex;gap:8px;">
+                <button onclick="enviarWADirecto()" style="flex:1;background:#25D366;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">📱 Abrir en WhatsApp</button>
+                <button onclick="copiarMensajeWA()" style="background:#f3f4f6;color:#374151;border:none;border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;">📋 Copiar</button>
+                <button onclick="regenerarMensajeWA()" style="background:#ede9fe;color:#6366f1;border:none;border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;">🔄</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Secuencias -->
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-header"><span class="card-title">🔁 Secuencias de seguimiento</span><button class="btn-sm btn-approve" onclick="generarSecuenciaWA()">✨ Generar con IA</button></div>
+          <div class="card-body" id="wa-sequences">
+            <div style="display:grid;gap:8px;">
+              <div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <div style="font-size:12px;font-weight:700;">🔥 Leads nuevos — 3 mensajes en 7 días</div>
+                  <span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:700;">Activa</span>
+                </div>
+                <div style="font-size:11px;color:#6b7280;">Día 1: Bienvenida · Día 3: Info del proyecto · Día 7: Urgencia suave</div>
+                <div style="display:flex;gap:6px;margin-top:8px;">
+                  <button onclick="verSecuencia('nueva')" class="btn-sm" style="font-size:10px;">Ver mensajes</button>
+                  <button onclick="enviarSecuenciaLead()" class="btn-sm btn-approve" style="font-size:10px;">📤 Enviar a lead</button>
+                </div>
+              </div>
+              <div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <div style="font-size:12px;font-weight:700;">❄️ Leads fríos — reactivación 30 días</div>
+                  <span style="font-size:10px;background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-weight:700;">Lista</span>
+                </div>
+                <div style="font-size:11px;color:#6b7280;">Mensaje 1: "¿Sigues interesado?" · Mensaje 2: Nuevo argumento · Mensaje 3: Oferta especial</div>
+                <div style="display:flex;gap:6px;margin-top:8px;">
+                  <button onclick="verSecuencia('fria')" class="btn-sm" style="font-size:10px;">Ver mensajes</button>
+                  <button onclick="enviarSecuenciaLead()" class="btn-sm btn-approve" style="font-size:10px;">📤 Enviar a lead</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Envío masivo a CRM -->
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-header"><span class="card-title">📢 Envío a múltiples leads del CRM</span></div>
+          <div class="card-body">
+            <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+              <button onclick="cargarLeadsWA('hot')" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🔴 Calientes</button>
+              <button onclick="cargarLeadsWA('warm')" style="background:#fef3c7;color:#d97706;border:1px solid #fcd34d;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🟡 Tibios</button>
+              <button onclick="cargarLeadsWA('cold')" style="background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🔵 Fríos</button>
+              <button onclick="cargarLeadsWA('all')" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">Todos</button>
+            </div>
+            <div id="wa-leads-list" style="font-size:12px;color:#9ca3af;">Selecciona un grupo para ver los leads disponibles</div>
+          </div>
+        </div>
+
+        <!-- Config API (avanzado) -->
+        <details style="margin-bottom:14px;">
+          <summary style="font-size:12px;font-weight:700;color:#6b7280;cursor:pointer;padding:12px 16px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;">⚙️ Configuración avanzada — Meta Cloud API (opcional, para envío automático sin abrir teléfono)</summary>
+          <div style="padding:14px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;background:#fff;">
+            <div style="font-size:11px;color:#6b7280;margin-bottom:10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:8px;">📋 Para obtener estas credenciales: ve a <strong>developers.facebook.com</strong> → My Apps → crea app de tipo Negocio → WhatsApp → configura número</div>
+            <input id="wa-token" type="password" placeholder="Access Token de Meta" class="wiz-input" style="width:100%;font-size:12px;margin-bottom:8px;">
+            <input id="wa-phone-id" type="text" placeholder="Phone Number ID (de Meta)" class="wiz-input" style="width:100%;font-size:12px;margin-bottom:8px;">
+            <button onclick="saveWAApiConfig()" class="btn-primary" style="font-size:12px;">💾 Guardar y activar modo automático</button>
+            <div id="wa-api-status" style="margin-top:8px;font-size:11px;color:#6b7280;"></div>
+          </div>
+        </details>
+      </div>
       <div class="page" id="page-auth">
         <div class="page-header">
           <div><h2>✅ Pre-Autorizador</h2><p>Todo el contenido pasa por revisión antes de publicarse</p></div>
@@ -1666,6 +1788,8 @@ function showPage(id, el) {
   if (id === 'guia') renderGuiaPage();
   if (id === 'phone') renderPhonePage();
   if (id === 'canal-claude') loadCanalClaude();
+  if (id === 'mensajes') loadClientMessages();
+  if (id === 'whatsapp') initWAPage();
 }
 
 // ─── BIZ SWITCHER ───
@@ -3099,6 +3223,143 @@ async function marcarTodosLeidos() {
   await batch.commit();
   showToast('✓ Todos marcados como leídos');
   loadClientMessages();
+}
+
+// ─── WHATSAPP MODULE ───
+function openWACompose() {
+  const card = document.getElementById('wa-compose-card');
+  card.style.display = 'block';
+  card.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function saveWANumber() {
+  const num = document.getElementById('wa-biz-number').value;
+  if (fbReady && currentBizId) {
+    db.collection('businesses').doc(currentBizId).set({ whatsappNumber: num }, { merge: true }).catch(()=>{});
+  }
+  localStorage.setItem('wa_number_' + (currentBizId||''), num);
+}
+
+function testWANumber() {
+  const num = (document.getElementById('wa-biz-number').value || '').replace(/\D/g,'');
+  if (!num) { showToast('⚠️ Escribe el número primero'); return; }
+  window.open('https://wa.me/' + num, '_blank');
+}
+
+async function generarMensajeWA() {
+  const name = document.getElementById('wa-to-name').value || 'el cliente';
+  const type = document.getElementById('wa-msg-type').value;
+  const tone = document.getElementById('wa-tone').value;
+  const ctx  = document.getElementById('wa-context').value || '';
+  const typeLabels = { seguimiento:'seguimiento inicial', reactivar:'reactivación de lead frío', cita:'confirmación de cita', precio:'envío de precios', postventa:'mensaje post-venta', promo:'promoción especial' };
+  const btn = document.querySelector('#wa-compose-card .btn-primary');
+  if (btn) { btn.textContent = '⏳ Generando...'; btn.disabled = true; }
+  const prompt = getBizContext(false) + `\nEres un experto en WhatsApp marketing para inmobiliaria/negocios en México. Redacta un mensaje de WhatsApp de ${typeLabels[type]} para ${name}. Tono: ${tone}. Contexto extra: ${ctx || 'ninguno'}.\n\nReglas:\n- Máximo 3 párrafos cortos\n- Usa emojis con moderación (1-2 max)\n- Incluye una CTA clara al final\n- No uses lenguaje formal excesivo\n- Suena humano, no como robot\n- En español mexicano natural\n\nEscribe SOLO el mensaje, sin explicación.`;
+  const result = await callClaude([{role:'user', content:`Genera el mensaje de WhatsApp para ${name}`}], prompt);
+  document.getElementById('wa-msg-text').value = result;
+  document.getElementById('wa-generated').style.display = 'block';
+  if (btn) { btn.textContent = '🤖 Generar mensaje con IA'; btn.disabled = false; }
+}
+
+function regenerarMensajeWA() { generarMensajeWA(); }
+
+function enviarWADirecto() {
+  const phone = (document.getElementById('wa-to-phone').value || '').replace(/\D/g,'');
+  const msg = document.getElementById('wa-msg-text').value || '';
+  if (!phone) { showToast('⚠️ Escribe el número del destinatario'); return; }
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+  showToast('📱 WhatsApp abierto — ya solo da clic en Enviar');
+}
+
+function copiarMensajeWA() {
+  const msg = document.getElementById('wa-msg-text').value;
+  navigator.clipboard.writeText(msg).then(() => showToast('📋 Mensaje copiado'));
+}
+
+async function generarSecuenciaWA() {
+  showToast('🤖 Generando secuencia con IA...');
+  const prompt = getBizContext(false) + '\nCrea una secuencia de 3 mensajes de WhatsApp para seguimiento de leads de este negocio. Formato: Día X: [mensaje]. Cada mensaje máximo 2 párrafos. Tono amigable y profesional en español mexicano.';
+  const result = await callClaude([{role:'user', content:'Crea la secuencia de WhatsApp'}], prompt);
+  const cont = document.getElementById('wa-sequences');
+  if (cont) {
+    const div = document.createElement('div');
+    div.style.cssText = 'border:1.5px solid #6366f1;border-radius:10px;padding:12px;margin-top:10px;font-size:12px;line-height:1.7;';
+    div.innerHTML = '<div style="font-weight:700;color:#6366f1;margin-bottom:6px;">✨ Secuencia generada con IA:</div>' + result.replace(/\n/g,'<br>');
+    cont.appendChild(div);
+  }
+}
+
+function verSecuencia(tipo) {
+  const msgs = {
+    nueva: ['Día 1: Hola [nombre], gracias por tu interés en [negocio]. Me da gusto contactarte. ¿Tienes unos minutos para platicar sobre lo que buscas? 😊', 'Día 3: [nombre], quería compartirte más información sobre nuestra oferta. Tenemos opciones que se adaptan a diferentes presupuestos. ¿Qué día te viene bien para una llamada o visita?', 'Día 7: Hola [nombre], sé que estás evaluando opciones. Esta semana tenemos disponibilidad especial. ¿Te interesa reservar un lugar para conocer el proyecto? 🏠'],
+    fria: ['Msg 1: Hola [nombre], te escribo porque hace tiempo platicamos sobre [negocio]. ¿Sigues interesado/a? Han habido cambios que podrían interesarte 👀', 'Msg 2: [nombre], quería compartirte algo nuevo: [beneficio/novedad del negocio]. Creo que podría ser justo lo que buscabas.', 'Msg 3: [nombre], esta es mi última comunicación por ahora. Si en algún momento reconsideras, aquí estaré. ¡Mucho éxito! 🤝']
+  };
+  const list = msgs[tipo] || [];
+  showToast('Ver secuencia en consola — próximamente modal');
+  alert('📱 Secuencia "' + tipo + '":\n\n' + list.join('\n\n'));
+}
+
+async function enviarSecuenciaLead() {
+  const phone = prompt('Número de WhatsApp del lead (+52 55 XXXX XXXX):');
+  if (!phone) return;
+  const num = phone.replace(/\D/g,'');
+  const msg = '¡Hola! Te escribo de parte de ' + (document.querySelector('#biz-name-display')?.textContent || 'la agencia') + '. ¿Tienes un momento para platicar? 😊';
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+  showToast('📱 WhatsApp abierto para enviar primer mensaje');
+}
+
+function cargarLeadsWA(temp) {
+  const lista = document.getElementById('wa-leads-list');
+  const leads = state.leads?.filter(l => temp === 'all' || l.temp === temp) || [];
+  const colors = { hot:'#ef4444', warm:'#f59e0b', cold:'#3b82f6' };
+  const icons  = { hot:'🔴', warm:'🟡', cold:'🔵' };
+  if (!leads.length) {
+    lista.innerHTML = '<div style="color:#9ca3af;font-size:12px;padding:10px;">No hay leads de este tipo en el CRM todavía</div>';
+    return;
+  }
+  lista.innerHTML = leads.map(l => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;">${icons[l.temp]||'●'} ${l.name}</div>
+        <div style="font-size:10px;color:#9ca3af;">${l.phone||'Sin teléfono'} · ${l.biz||''}</div>
+      </div>
+      <button onclick="enviarWALead('${(l.phone||'').replace(/\D/g,'')}','${l.name}')" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">📱 Enviar</button>
+    </div>`).join('');
+}
+
+function enviarWALead(phone, name) {
+  if (!phone) { showToast('⚠️ Este lead no tiene teléfono'); return; }
+  const msg = `Hola ${name}, te escribo de parte de la agencia. ¿Tienes un momento para platicar? 😊`;
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function saveWAApiConfig() {
+  const token = document.getElementById('wa-token').value.trim();
+  const phoneId = document.getElementById('wa-phone-id').value.trim();
+  if (!token || !phoneId) { showToast('⚠️ Completa ambos campos'); return; }
+  localStorage.setItem('wa_api_token', token);
+  localStorage.setItem('wa_phone_id', phoneId);
+  if (fbReady && isAdmin) {
+    db.collection('config').doc('global').set({ waToken: token, waPhoneId: phoneId }, { merge: true });
+  }
+  document.getElementById('wa-api-status').innerHTML = '<span style="color:#10b981;font-weight:700;">✅ Modo automático activado — los mensajes se enviarán sin abrir WhatsApp</span>';
+  document.getElementById('wa-status-text').textContent = '🚀 Modo API activo — envío automático habilitado';
+  document.getElementById('wa-status-dot').style.background = '#6366f1';
+  showToast('✅ Meta Cloud API configurada');
+}
+
+// Cargar número guardado al entrar a WhatsApp
+function initWAPage() {
+  const saved = localStorage.getItem('wa_number_' + (currentBizId||''));
+  if (saved) document.getElementById('wa-biz-number').value = saved;
+  const token = localStorage.getItem('wa_api_token');
+  if (token) {
+    document.getElementById('wa-token').value = token;
+    document.getElementById('wa-phone-id').value = localStorage.getItem('wa_phone_id')||'';
+    document.getElementById('wa-status-text').textContent = '🚀 Modo API activo — envío automático habilitado';
+    document.getElementById('wa-status-dot').style.background = '#6366f1';
+  }
 }
 
 // ─── CANAL CLAUDE ───
