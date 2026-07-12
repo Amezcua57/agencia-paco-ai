@@ -524,6 +524,10 @@
       <div class="nav-item" onclick="showPage('phone',this)"><span class="nav-icon">📞</span> Agente Telefónico</div>
       <div class="nav-item" onclick="showPage('guia',this)"><span class="nav-icon">📖</span> Guía de uso</div>
       <div class="nav-item" onclick="showPage('config',this)"><span class="nav-icon">⚙️</span> Configuración</div>
+      <!-- Mensajes de clientes — solo admin -->
+      <div class="nav-item" id="nav-mensajes" onclick="showPage('mensajes',this)" style="display:none;">
+        <span class="nav-icon">📬</span> Mensajes <span class="nav-badge" id="mensajes-badge" style="background:#ef4444;display:none;">0</span>
+      </div>
       <!-- Canal Claude — solo admin -->
       <div class="nav-item" id="nav-canal-claude" onclick="showPage('canal-claude',this)" style="display:none;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.15));border-left:3px solid #6366f1;margin-top:4px;">
         <span class="nav-icon">🛠️</span> Canal Claude <span class="nav-badge" id="canal-badge" style="background:#6366f1;display:none;">0</span>
@@ -1063,6 +1067,23 @@
       </div>
       <!-- ══════════════ / AGENTE TELEFÓNICO ══════════════ -->
 
+      <!-- ══════════════ MENSAJES DE CLIENTES ══════════════ -->
+      <div class="page" id="page-mensajes">
+        <div class="page-header">
+          <div><h2>📬 Mensajes de Clientes</h2><p>Lo que tus clientes preguntan en "Hablar con la Agencia"</p></div>
+          <button class="btn-primary" onclick="loadClientMessages()" style="font-size:12px;">🔄 Actualizar</button>
+        </div>
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-header">
+            <span class="card-title">💬 Conversaciones recientes</span>
+            <button class="btn-sm" onclick="marcarTodosLeidos()" style="font-size:11px;">✓ Marcar todos como leídos</button>
+          </div>
+          <div class="card-body" id="mensajes-lista">
+            <div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;">Cargando mensajes...</div>
+          </div>
+        </div>
+      </div>
+
       <!-- ══════════════ CANAL CLAUDE ══════════════ -->
       <div class="page" id="page-canal-claude">
         <div class="page-header">
@@ -1590,8 +1611,14 @@ function enterApp() {
   // Show Canal Claude nav item only for admin
   const canalNav = document.getElementById('nav-canal-claude');
   if (canalNav) canalNav.style.display = isAdmin ? '' : 'none';
+  // Show Mensajes nav item only for admin
+  const mensajesNav = document.getElementById('nav-mensajes');
+  if (mensajesNav) mensajesNav.style.display = isAdmin ? '' : 'none';
   // Load pending count for badge
-  if (isAdmin && fbReady) { setTimeout(loadCanalClaude, 1500); }
+  if (isAdmin && fbReady) {
+    setTimeout(loadCanalClaude, 1500);
+    setTimeout(loadClientMessagesCount, 2000);
+  }
 }
 
 function renderBizDropdown() {
@@ -1821,11 +1848,72 @@ function listenCerebro(bizId) {
           const row = document.createElement('div');
           row.id = 'fb-' + ch.doc.id;
           row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:8px;background:white;';
-          row.innerHTML = '<div style="width:34px;height:34px;background:var(--primary-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">' + (typeEmoji[d.type]||'📁') + '</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (d.title||'Sin título') + '</div><div style="font-size:10px;color:#9ca3af;margin-top:2px;">' + (d.type||'texto').toUpperCase() + ' · ' + confLabel + ' · ' + (d.bizName||d.biz) + ' · Sincronizado ☁️</div></div><span style="font-size:10px;background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:8px;font-weight:700;">Activo</span>';
+          const docId = ch.doc.id;
+          const safeTitle = (d.title||'Sin título').replace(/'/g,"&#39;");
+          const safeContent = (d.content||'').replace(/'/g,"&#39;").replace(/\n/g,'\\n');
+          const safeLink = (d.link||'').replace(/'/g,"&#39;");
+          row.innerHTML = '<div style="width:34px;height:34px;background:var(--primary-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">' + (typeEmoji[d.type]||'📁') + '</div>'
+            + '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (d.title||'Sin título') + '</div>'
+            + '<div style="font-size:10px;color:#9ca3af;margin-top:2px;">' + (d.type||'texto').toUpperCase() + ' · ' + confLabel + ' · ' + (d.bizName||d.biz) + ' · ☁️</div></div>'
+            + '<div style="display:flex;gap:6px;flex-shrink:0;">'
+            + '<button onclick="verEntradaCerebro(\'' + docId + '\',\'' + safeTitle + '\',\'' + safeContent + '\',\'' + safeLink + '\',\'' + (d.type||'texto') + '\')" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">👁️ Ver</button>'
+            + '<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:8px;font-weight:700;align-self:center;">Activo</span>'
+            + '</div>';
           list.appendChild(row);
         }
       });
     }, e => console.warn('onSnapshot error:', e));
+}
+
+// ─── VER ENTRADA CEREBRO VIVO ───
+function verEntradaCerebro(docId, title, content, link, type) {
+  const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
+  const realContent = content.replace(/\\n/g, '\n');
+  let bodyHtml = '';
+  // Contenido de texto
+  if (realContent) {
+    bodyHtml += `<div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:6px;">📝 CONTENIDO</div>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;font-size:12px;line-height:1.7;white-space:pre-wrap;max-height:300px;overflow-y:auto;">${realContent}</div>
+    </div>`;
+  }
+  // Link / URL
+  if (link) {
+    const isImg = /\.(jpg|jpeg|png|gif|webp)/i.test(link);
+    const isYT = /youtube\.com|youtu\.be/i.test(link);
+    bodyHtml += `<div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:6px;">🔗 LINK / ARCHIVO</div>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;font-size:12px;">
+        <a href="${link}" target="_blank" style="color:#6366f1;word-break:break-all;">${link}</a>
+        ${isImg ? `<div style="margin-top:8px;"><img src="${link}" style="max-width:100%;max-height:200px;border-radius:6px;object-fit:cover;"></div>` : ''}
+        ${isYT ? `<div style="margin-top:8px;"><iframe width="100%" height="160" src="https://www.youtube.com/embed/${link.match(/(?:v=|youtu\.be\/)([^&?]+)/)?.[1]||''}" frameborder="0" allowfullscreen style="border-radius:6px;"></iframe></div>` : ''}
+      </div>
+    </div>`;
+  }
+  if (!realContent && !link) {
+    bodyHtml = '<div style="color:#9ca3af;font-size:12px;text-align:center;padding:20px;">Sin contenido detallado guardado</div>';
+  }
+  // Modal
+  let modal = document.getElementById('cerebro-ver-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cerebro-ver-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    modal.onclick = function(e) { if (e.target === modal) modal.style.display='none'; };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;">
+        <div>
+          <div style="font-size:16px;font-weight:800;">${typeEmoji[type]||'📁'} ${title}</div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:2px;">${(type||'texto').toUpperCase()} · Cerebro Vivo</div>
+        </div>
+        <button onclick="document.getElementById('cerebro-ver-modal').style.display='none'" style="background:#f3f4f6;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;">✕</button>
+      </div>
+      <div style="padding:16px 20px;">${bodyHtml}</div>
+    </div>`;
+  modal.style.display = 'flex';
 }
 
 // ─── USER AUTH SYSTEM ───
@@ -2050,6 +2138,18 @@ function fpSend() {
   if (!msg) return;
   addFPMsg(msg, 'user');
   input.value = '';
+  // Guardar en Firebase si es cliente (no admin)
+  if (!isAdmin && fbReady && currentUser) {
+    db.collection('clientMessages').add({
+      userId: currentUser.email || currentUser.emailKey || 'desconocido',
+      userName: currentUser.name || currentUser.email || 'Cliente',
+      businessId: currentBizId || '',
+      businessName: document.getElementById('biz-name-display')?.textContent || '',
+      message: msg,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      read: false
+    }).catch(() => {});
+  }
   const typing = addFPTyping();
   if (claudeApiKey) {
     callClaude([{role:'user', content:msg}], getBizContext(true)).then(response => {
@@ -2919,6 +3019,86 @@ function selectKnowTypeByKey(key) {
 function setFieldValue(id, val) {
   const el = document.getElementById(id);
   if (el && val) { el.value = val; el.dispatchEvent(new Event('input')); }
+}
+
+// ─── MENSAJES DE CLIENTES ───
+async function loadClientMessagesCount() {
+  if (!fbReady || !isAdmin) return;
+  try {
+    const snap = await db.collection('clientMessages').where('read','==',false).get();
+    const badge = document.getElementById('mensajes-badge');
+    if (badge) { badge.textContent = snap.size; badge.style.display = snap.size > 0 ? '' : 'none'; }
+  } catch(e) {}
+}
+async function loadClientMessages() {
+  if (!fbReady || !isAdmin) return;
+  const lista = document.getElementById('mensajes-lista');
+  if (!lista) return;
+  lista.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Cargando...</div>';
+  try {
+    const snap = await db.collection('clientMessages').orderBy('createdAt','desc').limit(200).get();
+    if (snap.empty) {
+      lista.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;">📭 Sin mensajes todavía — cuando un cliente escriba en "Hablar con la Agencia" aparecerá aquí</div>';
+      return;
+    }
+    // Agrupar por cliente
+    const byUser = {};
+    let unread = 0;
+    snap.forEach(doc => {
+      const d = doc.data();
+      const key = d.userId || 'desconocido';
+      if (!byUser[key]) byUser[key] = { name: d.userName || key, business: d.businessName || '', msgs: [] };
+      byUser[key].msgs.push({ id: doc.id, ...d });
+      if (!d.read) unread++;
+    });
+    // Badge
+    const badge = document.getElementById('mensajes-badge');
+    if (badge) { badge.textContent = unread; badge.style.display = unread > 0 ? '' : 'none'; }
+    // Render
+    lista.innerHTML = Object.entries(byUser).map(([key, u]) => {
+      const msgs = u.msgs.map(m => {
+        const ts = m.createdAt?.toDate ? m.createdAt.toDate().toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'}) : 'ahora';
+        const unreadDot = !m.read ? '<span style="display:inline-block;width:8px;height:8px;background:#ef4444;border-radius:50%;margin-right:5px;"></span>' : '';
+        return `<div style="padding:8px 10px;border-left:3px solid ${!m.read?'#6366f1':'#e5e7eb'};margin-bottom:6px;background:${!m.read?'#f5f3ff':'#f9fafb'};border-radius:0 6px 6px 0;">
+          <div style="font-size:10px;color:#9ca3af;margin-bottom:2px;">${unreadDot}${ts}</div>
+          <div style="font-size:12px;color:#111827;">${m.message}</div>
+        </div>`;
+      }).join('');
+      const unreadCount = u.msgs.filter(m => !m.read).length;
+      return `<div class="auth-item" style="flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+          <div>
+            <div style="font-size:13px;font-weight:700;">👤 ${u.name}</div>
+            <div style="font-size:11px;color:#6b7280;">${u.business} · ${u.msgs.length} mensaje${u.msgs.length!==1?'s':''} ${unreadCount>0?`· <span style="color:#6366f1;font-weight:700;">${unreadCount} sin leer</span>`:''}</div>
+          </div>
+          <button class="btn-sm" onclick="marcarLeidosDeCliente('${key}')" style="font-size:10px;">✓ Leído</button>
+        </div>
+        <div style="width:100%;">${msgs}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    lista.innerHTML = `<div style="color:#ef4444;font-size:12px;padding:10px;">Error: ${e.message}</div>`;
+  }
+}
+
+async function marcarLeidosDeCliente(userId) {
+  if (!fbReady || !isAdmin) return;
+  const snap = await db.collection('clientMessages').where('userId','==',userId).where('read','==',false).get();
+  const batch = db.batch();
+  snap.forEach(doc => batch.update(doc.ref, { read: true }));
+  await batch.commit();
+  showToast('✓ Marcados como leídos');
+  loadClientMessages();
+}
+
+async function marcarTodosLeidos() {
+  if (!fbReady || !isAdmin) return;
+  const snap = await db.collection('clientMessages').where('read','==',false).get();
+  const batch = db.batch();
+  snap.forEach(doc => batch.update(doc.ref, { read: true }));
+  await batch.commit();
+  showToast('✓ Todos marcados como leídos');
+  loadClientMessages();
 }
 
 // ─── CANAL CLAUDE ───
