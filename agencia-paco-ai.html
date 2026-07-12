@@ -1989,39 +1989,24 @@ function listenCerebro(bizId) {
       </div>`).join('');
   }
   if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">⏳ Buscando en Firebase...</span>';
-  _cerebroListener = db.collection('cerebro').where('biz','==',bizId)
-    .orderBy('ts','desc').limit(100)
-    .onSnapshot(snap => {
+  // Admin sees ALL docs; regular users see only their biz
+  const query = isAdmin
+    ? db.collection('cerebro').orderBy('ts','desc').limit(200)
+    : db.collection('cerebro').where('biz','==',bizId).orderBy('ts','desc').limit(100);
+  _cerebroListener = query.onSnapshot(snap => {
       const list = document.getElementById('cerebro-items-list');
       if (!list) return;
-      const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
-      // Update count badge
       const countEl = document.getElementById('cerebro-count');
-      if (countEl) {
-        countEl.innerHTML = snap.size > 0
-          ? `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas cargadas</span>`
-          : '<span style="color:#9ca3af;">Sin entradas aún</span>';
-      }
       if (snap.size === 0) {
-        // Try loading ALL cerebro docs (in case biz key mismatch)
-        db.collection('cerebro').orderBy('ts','desc').limit(100).get().then(allSnap => {
-          if (allSnap.size > 0) {
-            if (countEl) countEl.innerHTML = `<span style="color:#f59e0b;font-weight:700;">⚠️ ${allSnap.size} docs (clave biz diferente)</span>`;
-            list.innerHTML = `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:11px;color:#92400e;">
-              ⚠️ Se encontraron <strong>${allSnap.size} entradas</strong> pero con un ID de negocio diferente al actual (<code>${bizId}</code>).
-              <button onclick="listenCerebroAll()" style="background:#f59e0b;color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:10px;margin-left:6px;font-weight:700;">Ver todas</button>
-            </div>`;
-          } else {
-            if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">Sin entradas aún</span>';
-            list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#9ca3af;">
-              <div style="font-size:40px;margin-bottom:10px;">🧠</div>
-              <div style="font-size:13px;font-weight:600;color:#374151;">El Cerebro Vivo está vacío</div>
-              <div style="font-size:11px;margin-top:4px;">Agrega conocimiento con el botón <strong>+ Agregar</strong></div>
-            </div>`;
-          }
-        });
+        if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">Sin entradas aún</span>';
+        list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#9ca3af;">
+          <div style="font-size:40px;margin-bottom:10px;">🧠</div>
+          <div style="font-size:13px;font-weight:600;color:#374151;">El Cerebro Vivo está vacío</div>
+          <div style="font-size:11px;margin-top:4px;">Agrega conocimiento con el botón <strong>+ Agregar</strong></div>
+        </div>`;
         return;
       }
+      if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas</span>`;
       // Render entries using shared helper
       _renderCerebroList(snap, list);
     }, e => {
@@ -2086,11 +2071,25 @@ function _renderCerebroList(snap, list) {
       + `</div></div>`
       + `<div style="display:flex;gap:5px;flex-shrink:0;">`
       + `<button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:800;cursor:pointer;" onmouseenter="this.style.background='#4f46e5'" onmouseleave="this.style.background='#6366f1'">👁️ Ver</button>`
-      + `<span style="font-size:9px;background:#d1fae5;color:#065f46;padding:3px 7px;border-radius:6px;font-weight:700;align-self:center;">✓</span>`
+      + `<button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'entrada').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;" title="Eliminar esta entrada">🗑️</button>`
       + `</div>`;
     entriesList.appendChild(row);
     setTimeout(() => { row.style.opacity='1'; row.style.transform='translateY(0)'; row.style.transition='opacity 0.25s ease, transform 0.25s ease'; }, Math.min(i*30, 600));
   });
+}
+
+async function eliminarEntradaCerebro(docId, titulo, btn) {
+  if (!confirm(`¿Eliminar "${titulo}" del Cerebro Vivo?\n\nEsta acción no se puede deshacer.`)) return;
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    await db.collection('cerebro').doc(docId).delete();
+    const row = document.getElementById('fb-' + docId);
+    if (row) { row.style.transition='all 0.3s'; row.style.opacity='0'; row.style.transform='translateX(20px)'; setTimeout(()=>row.remove(),300); }
+    showToast('🗑️ Entrada eliminada del Cerebro Vivo');
+  } catch(e) {
+    showToast('⚠️ Error al eliminar: ' + e.message);
+    if (btn) { btn.textContent = '🗑️'; btn.disabled = false; }
+  }
 }
 
 function filtrarCerebro(query, listId) {
