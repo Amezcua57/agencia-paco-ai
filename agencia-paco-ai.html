@@ -2117,6 +2117,89 @@ function _renderCerebroList(snap, list) {
   });
 }
 
+async function editarEntradaCerebro(docId) {
+  const modal = _getCerebroModal();
+  modal.innerHTML = '<div style="background:#fff;border-radius:16px;width:100%;max-width:600px;padding:30px;text-align:center;"><div class="typing"><span></span><span></span><span></span></div></div>';
+  modal.style.display = 'flex';
+  try {
+    const snap = await db.collection('cerebro').doc(docId).get();
+    if (!snap.exists) { modal.style.display='none'; return; }
+    const d = snap.data();
+    const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.35);">
+        <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;z-index:1;">
+          <div>
+            <div style="font-size:17px;font-weight:800;">✏️ Editar: ${typeEmoji[d.type]||'📁'} ${d.title||'Sin título'}</div>
+            <div style="font-size:10px;color:#9ca3af;">Los cambios se guardan en Firebase</div>
+          </div>
+          <button onclick="document.getElementById('cerebro-ver-modal').style.display='none'" style="background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:grid;gap:14px;">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px;">TÍTULO</label>
+            <input id="edit-title" value="${(d.title||'').replace(/"/g,'&quot;')}"
+              style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px;">🔗 LINK / URL DE FOTOS (Google Drive, imagen directa, YouTube...)</label>
+            <input id="edit-link" value="${(d.link||'').replace(/"/g,'&quot;')}" placeholder="https://drive.google.com/drive/folders/... o URL de imagen"
+              style="width:100%;border:1.5px solid #6366f1;border-radius:8px;padding:9px 12px;font-size:12px;outline:none;box-sizing:border-box;background:#f5f3ff;">
+            <div style="font-size:10px;color:#9ca3af;margin-top:4px;">💡 Para BANCO DE FOTOS: pega el link de tu carpeta de Google Drive con las fotos</div>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px;">📝 CONTENIDO / DESCRIPCIÓN</label>
+            <textarea id="edit-content" style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:12px;min-height:100px;resize:vertical;outline:none;box-sizing:border-box;font-family:inherit;">${(d.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+          </div>
+          <div id="edit-link-preview" style="display:none;"></div>
+          <div id="edit-save-msg" style="font-size:11px;min-height:16px;"></div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="guardarEdicionCerebro('${docId}')" style="flex:1;background:#6366f1;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar cambios</button>
+            <button onclick="verEntradaById('${docId}')" style="background:#f3f4f6;color:#374151;border:none;border-radius:10px;padding:11px 16px;font-size:13px;cursor:pointer;">← Volver</button>
+          </div>
+        </div>
+      </div>`;
+    // Live preview of link
+    const linkInput = document.getElementById('edit-link');
+    const preview   = document.getElementById('edit-link-preview');
+    linkInput.addEventListener('input', () => {
+      const val = linkInput.value.trim();
+      if (!val) { preview.style.display='none'; return; }
+      const isDrive = /drive\.google\.com/i.test(val);
+      const isImg   = /\.(jpg|jpeg|png|gif|webp)/i.test(val);
+      const isYT    = /youtube\.com|youtu\.be/i.test(val);
+      preview.style.display = 'block';
+      if (isDrive) {
+        preview.innerHTML = `<div style="background:#e8f5e9;border-radius:8px;padding:10px 14px;font-size:12px;color:#2e7d32;font-weight:700;">📁 Link de Google Drive detectado — se mostrará botón verde de "Abrir en Drive"</div>`;
+      } else if (isImg) {
+        preview.innerHTML = `<div style="background:#fce7f3;border-radius:8px;padding:8px;"><div style="font-size:11px;font-weight:700;color:#9d174d;margin-bottom:6px;">Vista previa:</div><img src="${val}" style="max-width:100%;max-height:150px;border-radius:6px;" onerror="this.parentElement.innerHTML='<span style=color:#ef4444;font-size:11px;>No se pudo cargar la imagen</span>'"></div>`;
+      } else if (isYT) {
+        preview.innerHTML = `<div style="background:#fee2e2;border-radius:8px;padding:10px 14px;font-size:12px;color:#991b1b;font-weight:700;">🎬 Video de YouTube detectado — se mostrará embebido</div>`;
+      } else {
+        preview.innerHTML = `<div style="background:#eff6ff;border-radius:8px;padding:10px 14px;font-size:12px;color:#1d4ed8;font-weight:700;">🔗 Link genérico — se mostrará botón de "Abrir enlace"</div>`;
+      }
+    });
+  } catch(e) {
+    modal.innerHTML = `<div style="background:#fff;border-radius:16px;padding:20px;"><div style="color:#ef4444;">Error: ${e.message}</div></div>`;
+  }
+}
+
+async function guardarEdicionCerebro(docId) {
+  const title   = document.getElementById('edit-title')?.value?.trim() || '';
+  const link    = document.getElementById('edit-link')?.value?.trim()  || '';
+  const content = document.getElementById('edit-content')?.value       || '';
+  const msg     = document.getElementById('edit-save-msg');
+  if (!title) { if (msg) msg.innerHTML = '<span style="color:#ef4444;">⚠️ El título no puede estar vacío</span>'; return; }
+  if (msg) msg.innerHTML = '<span style="color:#9ca3af;">💾 Guardando...</span>';
+  try {
+    await db.collection('cerebro').doc(docId).update({ title, link, content });
+    showToast('✅ Entrada actualizada');
+    verEntradaById(docId); // re-open viewer with updated data
+  } catch(e) {
+    if (msg) msg.innerHTML = `<span style="color:#ef4444;">Error: ${e.message}</span>`;
+  }
+}
+
 async function eliminarEntradaCerebro(docId, titulo, btn) {
   if (!confirm(`¿Eliminar "${titulo}" del Cerebro Vivo?\n\nEsta acción no se puede deshacer.`)) return;
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
@@ -2267,6 +2350,7 @@ async function verEntradaById(docId) {
             <div style="font-size:10px;color:#9ca3af;margin-top:2px;">${(d.type||'texto').toUpperCase()} · ${confLabel}</div>
           </div>
           <div style="display:flex;gap:8px;">
+            <button onclick="editarEntradaCerebro('${docId}')" style="background:#ede9fe;color:#6366f1;border:1px solid #c4b5fd;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;">✏️ Editar</button>
             <button onclick="eliminarEntradaCerebro('${docId}','${(d.title||'').replace(/'/g,'')}',null);document.getElementById('cerebro-ver-modal').style.display='none';" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;">🗑️ Eliminar</button>
             <button onclick="document.getElementById('cerebro-ver-modal').style.display='none'" style="background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;">✕</button>
           </div>
