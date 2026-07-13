@@ -295,6 +295,9 @@
   .typing span:nth-child(3) { animation-delay: 0.3s; }
   @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+  #dash-sec-msgs::-webkit-scrollbar { width: 4px; }
+  #dash-sec-msgs::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
   /* Toast */
   .toast {
@@ -565,21 +568,56 @@
 
       <!-- ── DASHBOARD ── -->
       <div class="page active" id="page-dashboard">
-        <div class="stats-grid">
-          <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">Leads hoy</div><div class="stat-num">8</div><div class="stat-sub">↑ 3 vs ayer</div></div>
-          <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-label">Citas esta semana</div><div class="stat-num">3</div><div class="stat-sub">↑ 1 confirmada hoy</div></div>
-          <div class="stat-card"><div class="stat-icon">🔥</div><div class="stat-label">Leads calientes</div><div class="stat-num">5</div><div class="stat-sub">Requieren seguimiento</div></div>
-          <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label">Autorizaciones</div><div class="stat-num" style="color:var(--red)">2</div><div class="stat-sub" style="color:var(--red)">Pendientes de Paco</div></div>
+
+        <!-- ══ SECRETARIA GENERAL AI ══ -->
+        <div style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4c1d95 100%);border-radius:16px;margin-bottom:18px;overflow:hidden;box-shadow:0 8px 32px rgba(99,102,241,0.25);">
+          <!-- Header -->
+          <div style="padding:16px 20px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,0.1);">
+            <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🤖</div>
+            <div style="flex:1;">
+              <div style="color:#fff;font-size:16px;font-weight:800;letter-spacing:-0.3px;">Secretaria General AI</div>
+              <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px;">Centro de comando · Coordina todos los agentes</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="width:8px;height:8px;background:#10b981;border-radius:50%;animation:pulse-dot 2s infinite;"></div>
+              <span style="color:#10b981;font-size:11px;font-weight:700;">En línea</span>
+            </div>
+          </div>
+          <!-- Chat messages -->
+          <div id="dash-sec-msgs" style="height:220px;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;"></div>
+          <!-- Quick chips -->
+          <div style="padding:0 20px 10px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;">
+            <button onclick="dashQuickMsg('Quiero crear un anuncio nuevo')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📢 Crear anuncio</button>
+            <button onclick="dashQuickMsg('Quiero crear un reel o guion de video')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🎬 Crear reel</button>
+            <button onclick="dashQuickMsg('¿Cómo van los leads y campañas hoy?')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📊 ¿Cómo vamos?</button>
+            <button onclick="dashQuickMsg('Investiga a la competencia en redes sociales')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🔍 Competencia</button>
+            <button onclick="dashQuickMsg('Necesito ideas para una campaña nueva')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">💡 Campaña nueva</button>
+            <button onclick="dashQuickMsg('Redacta un mensaje de WhatsApp para leads fríos')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">💬 Mensaje WhatsApp</button>
+          </div>
+          <!-- Input -->
+          <div style="padding:10px 16px 16px;display:flex;gap:8px;">
+            <textarea id="dash-sec-input" rows="1" placeholder="Dime qué necesitas hoy…"
+              style="flex:1;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;resize:none;outline:none;font-family:inherit;line-height:1.4;"
+              onfocus="this.style.borderColor='rgba(255,255,255,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDashMsg();}"></textarea>
+            <button onclick="sendDashMsg()" style="background:#fff;color:#6366f1;border:none;border-radius:10px;width:44px;align-self:flex-end;height:44px;font-size:20px;cursor:pointer;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;">➤</button>
+          </div>
         </div>
 
-        <div style="margin-bottom:12px;font-size:12px;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.4px;">Acciones rápidas</div>
-        <div class="quick-actions">
-          <div class="qa-btn" onclick="showPage('campaigns',document.querySelector('.nav-item:nth-child(8))'));openCampaignWizard()"><div class="qa-icon">🚀</div><div class="qa-label">Crear campaña completa</div></div>
-          <div class="qa-btn" onclick="showPage('chat',null);sendQuickMsg('Quiero crear un anuncio nuevo')"><div class="qa-icon">📢</div><div class="qa-label">Crear anuncio</div></div>
-          <div class="qa-btn" onclick="showPage('chat',null);sendQuickMsg('Quiero crear un reel nuevo')"><div class="qa-icon">🎬</div><div class="qa-label">Crear reel / guion</div></div>
-          <div class="qa-btn" onclick="showPage('chat',null);sendQuickMsg('Investigar la competencia')"><div class="qa-icon">🔍</div><div class="qa-label">Investigar competencia</div></div>
-          <div class="qa-btn" onclick="showPage('chat',null);sendQuickMsg('Crear landing page nueva')"><div class="qa-icon">📄</div><div class="qa-label">Crear landing page</div></div>
-          <div class="qa-btn" onclick="showPage('chat',null);sendQuickMsg('¿Cómo van las campañas?')"><div class="qa-icon">📈</div><div class="qa-label">Ver resultados</div></div>
+        <!-- Compact stats -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+          <div style="background:white;border-radius:10px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px;">👥</span><div><div style="font-size:10px;color:#9ca3af;font-weight:600;">LEADS HOY</div><div style="font-size:20px;font-weight:800;color:var(--text);">8</div></div>
+          </div>
+          <div style="background:white;border-radius:10px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px;">📅</span><div><div style="font-size:10px;color:#9ca3af;font-weight:600;">CITAS SEMANA</div><div style="font-size:20px;font-weight:800;color:var(--text);">3</div></div>
+          </div>
+          <div style="background:white;border-radius:10px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px;">🔥</span><div><div style="font-size:10px;color:#9ca3af;font-weight:600;">LEADS CALIENTES</div><div style="font-size:20px;font-weight:800;color:var(--text);">5</div></div>
+          </div>
+          <div style="background:white;border-radius:10px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px;">✅</span><div><div style="font-size:10px;color:#9ca3af;font-weight:600;">AUTORIZACIONES</div><div style="font-size:20px;font-weight:800;color:var(--red);">2</div></div>
+          </div>
         </div>
 
         <div class="dash-grid">
@@ -781,9 +819,16 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Conocimiento activo</span>
-            <div style="display:flex;align-items:center;gap:8px;">
+            <div style="display:flex;align-items:center;gap:6px;">
               <span id="cerebro-count" style="font-size:11px;color:#6b7280;">—</span>
-              <button onclick="listenCerebro(state.currentBiz)" style="background:#ede9fe;color:#6366f1;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;">🔄 Recargar</button>
+              <button id="btn-cerebro-all" onclick="toggleCerebroAll(this)"
+                style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;">
+                📋 Ver TODO
+              </button>
+              <button onclick="listenCerebro(state.currentBiz);document.getElementById('btn-cerebro-all').style.background='#ede9fe';document.getElementById('btn-cerebro-all').style.color='#6366f1';"
+                style="background:#ede9fe;color:#6366f1;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;">
+                🔄 Solo este negocio
+              </button>
             </div>
           </div>
           <div class="card-body" id="cerebro-items-list">
@@ -1750,7 +1795,8 @@ function enterApp() {
   const fst = acc[0];
   if (fst && state.businesses[fst]) { const b = state.businesses[fst]; _doBizSwitch(fst, b.icon, b.name, b.color); }
   else if (!isAdmin && acc.length === 0) showToast('⚠️ Aún sin negocios asignados. El admin te dará acceso.');
-  setTimeout(() => listenCerebro(state.currentBiz), 1000);
+  setTimeout(() => listenCerebroAll(), 1000);
+  setTimeout(() => initDashSecretaria(), 600);
   // Load global API key from Firebase (works for all users, not just admin)
   loadGlobalApiKey();
   // Hide API key input from non-admin users — they should never see or touch it
@@ -1809,12 +1855,14 @@ function showPage(id, el) {
   };
   document.getElementById('topbar-title').textContent = titles[id] || id;
   document.getElementById('biz-dropdown').classList.remove('open');
+  if (id === 'dashboard') initDashSecretaria();
   if (id === 'config') { renderBizListCfg(); renderIntegrations(); }
+  if (id === 'cerebro') { if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz); }
   if (id === 'agents') renderAgentsGrid();
   if (id === 'ideas') syncIdeasPage();
   if (id === 'guia') renderGuiaPage();
   if (id === 'phone') renderPhonePage();
-  if (id === 'canal-claude') loadCanalClaude();
+  if (id === 'canal-claude') { if (!isAdmin) { showToast('⛔ Acceso restringido — solo administrador'); showPage('dashboard', null); return; } loadCanalClaude(); }
   if (id === 'mensajes') loadClientMessages();
   if (id === 'whatsapp') initWAPage();
 }
@@ -2002,8 +2050,9 @@ let fbReady = false;
 try {
   if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
   db = firebase.firestore();
-  fbStorage = firebase.storage();
-  fbReady = true;
+  fbReady = true; // Firestore ready — do NOT block on Storage
+  // Firebase Storage is optional; if not enabled in the project it throws but Firestore still works
+  try { fbStorage = firebase.storage(); } catch(se) { console.warn('Storage no disponible:', se.message); }
   // Load saved integration credentials (other integrations from global config)
   db.collection('config').doc('global').get().then(snap => {
     if (!snap.exists) return;
@@ -2078,18 +2127,34 @@ function listenCerebro(bizId) {
     });
 }
 
+let _cerebroShowAll = true; // Default: show everything
+
+function toggleCerebroAll(btn) {
+  _cerebroShowAll = !_cerebroShowAll;
+  if (_cerebroShowAll) {
+    btn.style.background = '#6366f1'; btn.style.color = '#fff';
+    listenCerebroAll();
+  } else {
+    btn.style.background = '#ede9fe'; btn.style.color = '#6366f1';
+    listenCerebro(state.currentBiz);
+  }
+}
+
 function listenCerebroAll() {
-  // Show ALL cerebro entries regardless of biz — for admin debugging
+  // Show ALL cerebro entries regardless of biz
   if (!fbReady) return;
   if (_cerebroListener) { try { _cerebroListener(); } catch(e){} }
   const list = document.getElementById('cerebro-items-list');
   const countEl = document.getElementById('cerebro-count');
   if (!list) return;
-  _cerebroListener = db.collection('cerebro').orderBy('ts','desc').limit(100)
+  if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">⏳ Cargando todo...</span>';
+  _cerebroListener = db.collection('cerebro').orderBy('ts','desc').limit(500)
     .onSnapshot(snap => {
       if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas (todas)</span>`;
-      if (snap.size === 0) { list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;">Sin entradas en Firebase</div>'; return; }
+      if (snap.size === 0) { list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:12px;"><div style="font-size:28px;margin-bottom:8px;">🧠</div>Cerebro vacío — agrega tu primera entrada</div>'; return; }
       _renderCerebroList(snap, list);
+    }, e => {
+      if (list) list.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px;">⚠️ Error: ${e.message}</div>`;
     });
 }
 
@@ -2566,6 +2631,70 @@ function addTyping() {
 }
 function handleChatKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+// ═══════════════════ SECRETARIA EN DASHBOARD ═══════════════════
+let _dashHistory = [];
+let _dashInit = false;
+
+function initDashSecretaria() {
+  const msgs = document.getElementById('dash-sec-msgs');
+  if (!msgs || _dashInit) return;
+  _dashInit = true;
+  _dashHistory = [];
+  const biz = state.businesses?.[state.currentBiz]?.name || 'el negocio';
+  const userName = currentUser?.displayName?.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ ]/g, '') || 'jefe';
+  const greeting = `¡Hola${userName ? ', ' + userName.split(' ')[0] : ''}! 👋 Soy tu Secretaria General. Estoy aquí para coordinar toda la agencia de ${biz}.\n\nPuedes decirme cualquier cosa — crear un anuncio, revisar leads, escribir un guión, investigar la competencia — y yo asigno al agente correcto o lo resuelvo directamente.\n\n¿Por dónde empezamos hoy?`;
+  _addDashMsg(greeting, 'ai');
+  _dashHistory.push({ role: 'assistant', content: greeting });
+}
+
+function _addDashMsg(text, sender) {
+  const msgs = document.getElementById('dash-sec-msgs');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.style.cssText = `display:flex;gap:8px;align-items:flex-start;${sender === 'ai' ? '' : 'flex-direction:row-reverse'}`;
+  const formatted = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  div.innerHTML = sender === 'ai'
+    ? `<div style="font-size:22px;flex-shrink:0;line-height:1;">🤖</div><div style="background:rgba(255,255,255,0.12);color:#e0e7ff;border-radius:4px 14px 14px 14px;padding:10px 14px;font-size:12px;line-height:1.65;max-width:88%;">${formatted}</div>`
+    : `<div style="background:#6366f1;color:#fff;border-radius:14px 4px 14px 14px;padding:10px 14px;font-size:12px;line-height:1.65;max-width:88%;">${formatted}</div><div style="font-size:22px;flex-shrink:0;line-height:1;">👤</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+async function sendDashMsg() {
+  const input = document.getElementById('dash-sec-input');
+  const text = (input?.value || '').trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  _addDashMsg(text, 'user');
+  _dashHistory.push({ role: 'user', content: text });
+
+  if (!claudeApiKey) await loadGlobalApiKey();
+  if (!claudeApiKey) {
+    _addDashMsg('⚠️ Para activar la inteligencia real, configura tu API Key en <strong>Configuración → IA y Agentes</strong>.', 'ai');
+    return;
+  }
+
+  const typing = _addDashMsg('⏳ Pensando…', 'ai');
+  const biz = state.businesses?.[state.currentBiz]?.name || 'el negocio';
+  const sys = `Eres la Secretaria General AI de la agencia de marketing AMEZ para el negocio "${biz}". Eres el centro de comando: coordinas todos los agentes especializados (Copywriter, Director de Mercadotecnia, Director Creativo, Generador de Anuncios, etc). Cuando el usuario necesita algo, resuelves directamente o mencionas qué agente específico lo ejecutaría. Respondes en español mexicano, tono profesional y cálido, respuestas concisas y accionables.\n\n${getBizContext(false)}`;
+  try {
+    const reply = await callClaude([..._dashHistory], sys);
+    typing.remove();
+    _addDashMsg(reply, 'ai');
+    _dashHistory.push({ role: 'assistant', content: reply });
+  } catch(e) {
+    typing.remove();
+    _addDashMsg('⚠️ Error de conexión: ' + e.message, 'ai');
+  }
+}
+
+function dashQuickMsg(msg) {
+  const input = document.getElementById('dash-sec-input');
+  if (input) { input.value = msg; sendDashMsg(); }
 }
 
 // ─── CAMPAIGN WIZARD (simplified) ───
@@ -3260,6 +3389,16 @@ function openAgentChat(agentId) {
   document.getElementById('agent-modal-input').focus();
   document.getElementById('agent-modal-input').value = '';
   _agentHistory.push({ role:'assistant', content: agent.greeting });
+  // Warn proactively if no API key (check after small delay to allow async load to finish)
+  setTimeout(() => {
+    if (!claudeApiKey) {
+      const msgs = document.getElementById('agent-modal-messages');
+      const warn = document.createElement('div');
+      warn.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:11px;color:#92400e;margin:4px 0;text-align:center;';
+      warn.innerHTML = `⚠️ <strong>Sin API Key.</strong> Los agentes no pueden responder hasta que configures la clave Claude en <a href="#" onclick="document.getElementById('agent-chat-modal').style.display='none';showPage('configuracion');showCfg('ia',null);return false;" style="color:#92400e;font-weight:700;">Configuración → IA y Agentes</a>.`;
+      msgs.appendChild(warn);
+    }
+  }, 800);
 }
 
 function _addAgentMsg(text, sender, emoji) {
@@ -3284,7 +3423,23 @@ async function sendAgentMessage() {
   input.value = '';
   _addAgentMsg(text, 'user');
   _agentHistory.push({ role:'user', content: text });
-  // Typing
+
+  // Race-condition guard: if key isn't cached yet, reload from Firebase before giving up
+  if (!claudeApiKey) await loadGlobalApiKey();
+
+  if (!claudeApiKey) {
+    _addAgentMsg(
+      `⚠️ <strong>API Key de Claude no configurada.</strong><br><br>` +
+      `El admin debe ir a <em>Configuración → IA y Agentes</em> y pegar su clave <code>sk-ant-...</code> una sola vez. Todos los usuarios la heredan automáticamente.<br><br>` +
+      `<button onclick="document.getElementById('agent-chat-modal').style.display='none';showPage('configuracion');showCfg('ia',null);" ` +
+      `style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer;font-weight:700;margin-top:4px;">` +
+      `⚙️ Ir a Configurar ahora</button>`,
+      'agent', '⚠️'
+    );
+    return;
+  }
+
+  // Typing indicator
   const typing = _addAgentMsg('...', 'agent', _activeAgent.emoji);
   const bizName = state.businesses?.[state.currentBiz]?.name || 'el negocio';
   const systemPrompt = _activeAgent.system(bizName) + '\n\n' + getBizContext(false);
@@ -3295,7 +3450,7 @@ async function sendAgentMessage() {
     _agentHistory.push({ role:'assistant', content: reply });
   } catch(e) {
     typing.remove();
-    _addAgentMsg('⚠️ Error al conectar con Claude. Verifica la API Key en Configuración → IA y agentes.', 'agent', '⚠️');
+    _addAgentMsg('⚠️ Error de red al conectar con Claude: ' + e.message, 'agent', '⚠️');
   }
 }
 
@@ -3893,7 +4048,7 @@ async function enviarSolicitudClaude() {
 }
 
 async function loadCanalClaude() {
-  if (!fbReady) return;
+  if (!fbReady || !isAdmin) return;
   const lista = document.getElementById('canal-lista');
   const countEl = document.getElementById('canal-pendientes-count');
   const badge = document.getElementById('canal-badge');
@@ -4357,6 +4512,8 @@ async function saveKnowledge() {
   };
   fbSave('cerebro', doc);
   showToast('🧠 Guardado en Cerebro Vivo de ' + biz.name + ' ☁️');
+  // Refresh listener so new entry appears immediately in the list
+  setTimeout(() => { if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz); }, 500);
 }
 
 function showGDriveHelp() {
