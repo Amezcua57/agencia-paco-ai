@@ -451,6 +451,7 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
 <body>
 
@@ -1996,10 +1997,12 @@ const _fbCfg = {
   appId: "1:84089325665:web:d68df807b8841e46cd4220"
 };
 let db = null;
+let fbStorage = null;
 let fbReady = false;
 try {
   if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
   db = firebase.firestore();
+  fbStorage = firebase.storage();
   fbReady = true;
   // Load saved integration credentials (other integrations from global config)
   db.collection('config').doc('global').get().then(snap => {
@@ -2262,7 +2265,9 @@ async function verEntradaById(docId) {
     const content = d.content || '';
 
     // Detect link type
-    const isDirectImg = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(link);
+    const isDirectImg = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(link)
+                     || /firebasestorage\.googleapis\.com/i.test(link)
+                     || link.startsWith('data:image/');
     const isYT = /youtube\.com|youtu\.be/i.test(link);
     const isDrive = /drive\.google\.com/i.test(link);
     const isDriveFolder = /drive\.google\.com\/drive\/folders/i.test(link);
@@ -3487,13 +3492,14 @@ async function knowPasteFromClipboard() {
 
 function _procesarArchivoImagen(blob, fuente) {
   if (!blob) return;
+  window._knowPendingFile = blob; // Store raw file for upload
   const reader = new FileReader();
   reader.onload = function(ev) {
     const base64 = ev.target.result;
     window._knowPastedImage = base64;
     const img = document.getElementById('know-paste-img-preview');
     if (img) { img.src = base64; img.style.display = 'block'; }
-    showPastePreview('🖼️ Imagen detectada desde ' + fuente, `${blob.name || 'imagen'} — ${Math.round(blob.size/1024)} KB`);
+    showPastePreview('🖼️ Imagen lista para guardar', `${blob.name || 'imagen'} — ${Math.round(blob.size/1024)} KB · Se subirá a Firebase al guardar`);
     selectKnowTypeByKey('foto');
     setFieldValue('know-title', (blob.name || 'Foto') + ' · ' + new Date().toLocaleDateString('es-MX'));
     setFieldValue('know-content', 'Imagen desde ' + fuente);
@@ -4194,6 +4200,8 @@ function openAddKnowledge() {
   document.getElementById('know-file-info').style.display = 'none';
   document.getElementById('know-upload-zone').style.display = 'none';
   document.getElementById('know-file-input').value = '';
+  window._knowPendingFile = null;
+  window._knowPastedImage = null;
   document.querySelectorAll('#know-type-grid .wiz-option').forEach(o => o.classList.remove('selected'));
   document.querySelector('#know-type-grid .wiz-option').classList.add('selected');
   selectKnowType(document.querySelector('#know-type-grid .wiz-option'), 'texto');
@@ -4296,15 +4304,59 @@ function setConfidence(el, level) {
   el.style.fontWeight = '700';
 }
 
-function saveKnowledge() {
-  const title = document.getElementById('know-title').value.trim();
+async function saveKnowledge() {
+  const title   = document.getElementById('know-title').value.trim();
   const content = document.getElementById('know-content').value.trim();
-  if (!title && !content) { showToast('⚠️ Agrega un título o contenido'); return; }
+  const linkVal = (document.getElementById('know-link')?.value || '').trim();
+  if (!title && !content && !linkVal && !window._knowPendingFile) {
+    showToast('⚠️ Agrega un título, contenido o imagen'); return;
+  }
   const biz = state.businesses[state.currentBiz];
+  const saveBtn = document.querySelector('[onclick="saveKnowledge()"]');
+  if (saveBtn) { saveBtn.textContent = '⏳ Guardando...'; saveBtn.disabled = true; }
+
+  let finalLink = linkVal;
+
+  // Upload image to Firebase Storage if there's a pending file
+  if (window._knowPendingFile && fbStorage) {
+    try {
+      const file = window._knowPendingFile;
+      const ext  = file.name.split('.').pop() || 'jpg';
+      const path = `cerebro/${state.currentBiz}/${Date.now()}_${file.name.replace(/\s+/g,'_')}`;
+      const ref  = fbStorage.ref(path);
+      showToast('📤 Subiendo imagen a Firebase...');
+      const snap = await ref.put(file);
+      finalLink  = await snap.ref.getDownloadURL();
+      showToast('✅ Imagen subida correctamente');
+    } catch(e) {
+      console.warn('Storage upload error:', e);
+      // Fallback: save as base64 if < 500KB
+      if (window._knowPastedImage && window._knowPendingFile.size < 500000) {
+        finalLink = window._knowPastedImage;
+        showToast('💾 Imagen guardada en base64 (sin Storage)');
+      } else {
+        showToast('⚠️ No se pudo subir la imagen: ' + e.message);
+      }
+    }
+  }
+
+  window._knowPendingFile = null;
+  window._knowPastedImage = null;
+
   closeAddKnowledge();
-  // Save to Firestore for team sync
-  fbSave('cerebro', { title: title || content.substring(0,60), content, type: knowType, confidence: knowConfidence, biz: state.currentBiz, bizName: biz.name });
-  showToast('🧠 Guardado en Cerebro Vivo de ' + biz.name + (fbReady ? ' ☁️' : ''));
+  if (saveBtn) { saveBtn.textContent = 'Guardar en Cerebro Vivo →'; saveBtn.disabled = false; }
+
+  const doc = {
+    title:      title || (content.substring(0,60)) || 'Foto',
+    content,
+    link:       finalLink,
+    type:       knowType,
+    confidence: knowConfidence,
+    biz:        state.currentBiz,
+    bizName:    biz.name
+  };
+  fbSave('cerebro', doc);
+  showToast('🧠 Guardado en Cerebro Vivo de ' + biz.name + ' ☁️');
 }
 
 function showGDriveHelp() {
