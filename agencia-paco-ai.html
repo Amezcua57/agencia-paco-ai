@@ -2854,10 +2854,24 @@ function toggleMic(inputId, btnId) {
   _micActiveBtnId = btnId;
   if (btn) { btn.classList.add('recording'); btn.innerHTML = '<i class="ti ti-player-stop-filled"></i>'; btn.title = 'Detener grabación'; }
   showToast('🎤 Escuchando... habla ahora. Presiona el botón rojo para detener.');
+  let _micFinalText = '';
   _micRecognition.onresult = (e) => {
-    let t = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
-    if (input) { input.value = t; input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+    // Only process NEW results from e.resultIndex onward
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        _micFinalText += e.results[i][0].transcript;
+      }
+    }
+    // Show interim (current word being heard) on top of confirmed text
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (!e.results[i].isFinal) interim += e.results[i][0].transcript;
+    }
+    if (input) {
+      input.value = _micFinalText + interim;
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    }
   };
   _micRecognition.onend = () => {
     _micActive = false;
