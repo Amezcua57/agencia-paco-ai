@@ -1725,7 +1725,7 @@ async function doLogin() {
   if (!pass)  { _showLoginError('Ingresa tu contraseña'); return; }
 
   // ── CLAVE MAESTRA: acceso total para el administrador, sin necesitar red ──
-  if (email === ADMIN_EMAIL && (_hp(pass + ADMIN_EMAIL) === '1vty4bh' || _hp(pass.toLowerCase() + ADMIN_EMAIL) === '1vty4bh')) {
+  if (email === ADMIN_EMAIL && (_hp(pass + ADMIN_EMAIL) === '14zdduq' || _hp(pass.toLowerCase() + ADMIN_EMAIL) === '16nmwsi')) {
     const bizKeys = Object.keys(state.businesses || {});
     currentUser = { email: ADMIN_EMAIL, displayName: '👑 Paco', role: 'admin', assignedBiz: bizKeys };
     isAdmin = true;
@@ -2122,7 +2122,9 @@ function listenCerebro(bizId) {
       const list = document.getElementById('cerebro-items-list');
       if (!list) return;
       const countEl = document.getElementById('cerebro-count');
-      if (snap.size === 0) {
+      // Non-admin users only see their own uploads
+      const filteredDocs = isAdmin ? snap.docs : snap.docs.filter(d => d.data().uploadedBy === currentUser?.email);
+      if (filteredDocs.length === 0) {
         if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">Sin entradas aún</span>';
         list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#9ca3af;">
           <div style="font-size:40px;margin-bottom:10px;">🧠</div>
@@ -2131,11 +2133,11 @@ function listenCerebro(bizId) {
         </div>`;
         return;
       }
-      if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas</span>`;
+      if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${filteredDocs.length} entradas</span>`;
       // Cache cerebro data for AI context
-      _cerebroCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _cerebroCache = filteredDocs.map(d => ({ id: d.id, ...d.data() }));
       // Render entries using shared helper
-      _renderCerebroList(snap, list);
+      _renderCerebroList({ docs: filteredDocs, size: filteredDocs.length }, list);
     }, e => {
       console.warn('onSnapshot error:', e);
       const list = document.getElementById('cerebro-items-list');
@@ -2166,11 +2168,13 @@ function listenCerebroAll() {
   if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">⏳ Cargando todo...</span>';
   _cerebroListener = db.collection('cerebro').orderBy('ts','desc').limit(500)
     .onSnapshot(snap => {
-      if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas (todas)</span>`;
-      if (snap.size === 0) { list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:12px;"><div style="font-size:28px;margin-bottom:8px;">🧠</div>Cerebro vacío — agrega tu primera entrada</div>'; return; }
+      // Non-admin users only see their own uploads
+      const filteredDocs = isAdmin ? snap.docs : snap.docs.filter(d => d.data().uploadedBy === currentUser?.email);
+      if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${filteredDocs.length} entradas (todas)</span>`;
+      if (filteredDocs.length === 0) { list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:12px;"><div style="font-size:28px;margin-bottom:8px;">🧠</div>Cerebro vacío — agrega tu primera entrada</div>'; return; }
       // Cache cerebro data for AI context
-      _cerebroCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      _renderCerebroList(snap, list);
+      _cerebroCache = filteredDocs.map(d => ({ id: d.id, ...d.data() }));
+      _renderCerebroList({ docs: filteredDocs, size: filteredDocs.length }, list);
     }, e => {
       if (list) list.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px;">⚠️ Error: ${e.message}</div>`;
     });
@@ -2669,6 +2673,7 @@ async function feedbackMsg(msgId, type, textEncoded) {
       title: (type === 'like' ? '✅ Le gustó: ' : '❌ No le gustó: ') + text.slice(0, 80),
       content: text,
       feedback: type,
+      uploadedBy: currentUser?.email || 'admin',
       ts: firebase.firestore.FieldValue.serverTimestamp()
     });
     _cerebroCache.push({ biz: state.currentBiz, type: 'preferencia', title: text.slice(0,80), content: text, feedback: type });
@@ -4667,7 +4672,8 @@ async function saveKnowledge() {
     type:       knowType,
     confidence: knowConfidence,
     biz:        state.currentBiz,
-    bizName:    biz.name
+    bizName:    biz.name,
+    uploadedBy: currentUser?.email || 'admin'
   };
   fbSave('cerebro', doc);
   showToast('🧠 Guardado en Cerebro Vivo de ' + biz.name + ' ☁️');
