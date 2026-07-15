@@ -217,6 +217,10 @@
   .chat-input:focus { border-color: var(--primary); }
   .chat-send { background: var(--accent); color: white; border: none; border-radius: 10px; width: 42px; height: 42px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
   .chat-send:hover { background: var(--accent-dark); }
+  .chat-mic { background: var(--primary); color: white; border: none; border-radius: 10px; width: 42px; height: 42px; cursor: pointer; font-size: 17px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .chat-mic:hover { background: var(--primary-dark); }
+  .chat-mic.recording { background: var(--red); animation: pulse-mic 1s infinite; }
+  @keyframes pulse-mic { 0%,100%{transform:scale(1);} 50%{transform:scale(1.1);} }
   .chat-attachments { display: flex; gap: 6px; padding: 0 0 8px; }
   .attach-btn { background: #f3f4f6; border: none; border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-soft); display: flex; align-items: center; gap: 4px; }
   .attach-btn:hover { background: var(--primary-light); color: var(--primary); }
@@ -605,7 +609,8 @@
               style="flex:1;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;resize:none;outline:none;font-family:inherit;line-height:1.4;"
               onfocus="this.style.borderColor='rgba(255,255,255,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDashMsg();}"></textarea>
-            <button onclick="sendDashMsg()" style="background:#fff;color:#6366f1;border:none;border-radius:10px;width:44px;align-self:flex-end;height:44px;font-size:20px;cursor:pointer;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;">➤</button>
+            <button id="dash-mic-btn" onclick="toggleDashMic()" title="Grabar voz" class="chat-mic" style="align-self:flex-end;background:rgba(255,255,255,0.15);border:none;border-radius:10px;width:44px;height:44px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🎤</button>
+            <button onclick="sendDashMsg()" style="background:#fff;color:var(--accent);border:none;border-radius:10px;width:44px;align-self:flex-end;height:44px;font-size:20px;cursor:pointer;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;">➤</button>
           </div>
         </div>
 
@@ -678,7 +683,8 @@
               <button class="attach-btn">💡 Idea rápida</button>
             </div>
             <div class="chat-input-area">
-              <textarea class="chat-input" id="chat-input" rows="1" placeholder="Escribe tu instrucción, idea o pregunta..." onkeydown="handleChatKey(event)"></textarea>
+              <textarea class="chat-input" id="chat-input" rows="1" placeholder="Escribe o graba tu instrucción..." onkeydown="handleChatKey(event)"></textarea>
+              <button class="chat-mic" id="chat-mic-btn" onclick="toggleChatMic()" title="Grabar voz">🎤</button>
               <button class="chat-send" onclick="sendChat()">➤</button>
             </div>
           </div>
@@ -1535,6 +1541,7 @@
       </div>
       <div class="fp-input-area">
         <textarea class="fp-input" id="fp-input" rows="1" placeholder="Pregunta o instrucción..." onkeydown="handleFPKey(event)"></textarea>
+        <button id="fp-mic-btn" onclick="toggleFPMic()" title="Grabar voz" style="background:var(--primary);color:white;border:none;border-radius:8px;width:34px;height:34px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🎤</button>
         <button class="fp-send" onclick="fpSend()">➤</button>
       </div>
     </div>
@@ -2736,6 +2743,54 @@ function addTyping() {
 function handleChatKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
 }
+
+// ─── MICRÓFONO / VOZ A TEXTO (universal) ───
+let _micRecognition = null;
+let _micActive = false;
+let _micActiveBtnId = null;
+
+function toggleMic(inputId, btnId) {
+  const btn = document.getElementById(btnId);
+  const input = document.getElementById(inputId);
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { showToast('⚠️ Usa Chrome para reconocimiento de voz.'); return; }
+  if (_micActive) {
+    _micRecognition && _micRecognition.stop();
+    return;
+  }
+  if (_micActiveBtnId && _micActiveBtnId !== btnId) {
+    const prevBtn = document.getElementById(_micActiveBtnId);
+    if (prevBtn) { prevBtn.classList.remove('recording'); prevBtn.textContent = '🎤'; }
+  }
+  _micRecognition = new SpeechRecognition();
+  _micRecognition.lang = 'es-MX';
+  _micRecognition.continuous = false;
+  _micRecognition.interimResults = true;
+  _micActive = true;
+  _micActiveBtnId = btnId;
+  if (btn) { btn.classList.add('recording'); btn.textContent = '⏹'; btn.title = 'Detener'; }
+  showToast('🎤 Escuchando... habla ahora');
+  _micRecognition.onresult = (e) => {
+    let t = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+    if (input) { input.value = t; input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+  };
+  _micRecognition.onend = () => {
+    _micActive = false;
+    if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤'; btn.title = 'Grabar voz'; }
+    if (input && input.value.trim()) showToast('✅ Transcrito — presiona ➤ o Enter para enviar');
+  };
+  _micRecognition.onerror = (e) => {
+    _micActive = false;
+    if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤'; }
+    if (e.error === 'not-allowed') showToast('⚠️ Permite el micrófono en Chrome → ícono 🔒 en la barra de URL');
+    else showToast('⚠️ Error: ' + e.error);
+  };
+  _micRecognition.start();
+}
+function toggleChatMic() { toggleMic('chat-input', 'chat-mic-btn'); }
+function toggleDashMic() { toggleMic('dash-sec-input', 'dash-mic-btn'); }
+function toggleFPMic()   { toggleMic('fp-input', 'fp-mic-btn'); }
 
 // ═══════════════════ SECRETARIA EN DASHBOARD ═══════════════════
 let _dashHistory = [];
