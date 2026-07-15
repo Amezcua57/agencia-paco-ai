@@ -578,86 +578,165 @@
       <!-- ── DASHBOARD ── -->
       <div class="page active" id="page-dashboard">
 
-        <!-- ══ SECRETARIA GENERAL AI ══ -->
-        <div style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4c1d95 100%);border-radius:16px;margin-bottom:18px;overflow:hidden;box-shadow:0 8px 32px rgba(99,102,241,0.25);">
-          <!-- Header -->
-          <div style="padding:16px 20px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,0.1);">
-            <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🤖</div>
-            <div style="flex:1;">
-              <div style="color:#fff;font-size:16px;font-weight:800;letter-spacing:-0.3px;">Secretaria General AI</div>
-              <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px;">Centro de comando · Coordina todos los agentes</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <div style="width:8px;height:8px;background:#10b981;border-radius:50%;animation:pulse-dot 2s infinite;"></div>
-              <span style="color:#10b981;font-size:11px;font-weight:700;">En línea</span>
-            </div>
+        <!-- ══ EXECUTIVE HEADER BAR ══ -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid var(--border);">
+          <div>
+            <div style="font-size:22px;font-weight:900;color:var(--primary);letter-spacing:-0.5px;" id="dash-greeting">Buenos días, Paco 👋</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:2px;" id="dash-date-line">Cargando...</div>
           </div>
-          <!-- Chat messages -->
-          <div id="dash-sec-msgs" style="height:220px;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;"></div>
-          <!-- Quick chips -->
-          <div style="padding:0 20px 10px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;">
-            <button onclick="dashQuickMsg('Quiero crear un anuncio nuevo')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📢 Crear anuncio</button>
-            <button onclick="dashQuickMsg('Quiero crear un reel o guion de video')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🎬 Crear reel</button>
-            <button onclick="dashQuickMsg('¿Cómo van los leads y campañas hoy?')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📊 ¿Cómo vamos?</button>
-            <button onclick="dashQuickMsg('Investiga a la competencia en redes sociales')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🔍 Competencia</button>
-            <button onclick="dashQuickMsg('Necesito ideas para una campaña nueva')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">💡 Campaña nueva</button>
-            <button onclick="dashQuickMsg('Redacta un mensaje de WhatsApp para leads fríos')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">💬 Mensaje WhatsApp</button>
-          </div>
-          <!-- Input -->
-          <div style="padding:10px 16px 16px;display:flex;gap:8px;">
-            <textarea id="dash-sec-input" rows="1" placeholder="Dime qué necesitas hoy…"
-              style="flex:1;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;resize:none;outline:none;font-family:inherit;line-height:1.4;"
-              onfocus="this.style.borderColor='rgba(255,255,255,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDashMsg();}"></textarea>
-            <button id="dash-mic-btn" onclick="toggleDashMic()" title="Grabar voz" class="chat-mic" style="align-self:flex-end;background:rgba(255,255,255,0.15);border:none;border-radius:10px;width:44px;height:44px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🎤</button>
-            <button onclick="sendDashMsg()" style="background:#fff;color:var(--accent);border:none;border-radius:10px;width:44px;align-self:flex-end;height:44px;font-size:20px;cursor:pointer;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;">➤</button>
+          <div style="display:flex;gap:8px;">
+            <button onclick="dashQuickMsg('Dame un resumen ejecutivo del día: leads, campañas, pendientes.')" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="ti ti-chart-bar"></i> Resumen del día</button>
+            <button onclick="showPage('agents',null)" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="ti ti-robot"></i> Ver agentes</button>
           </div>
         </div>
 
-        <!-- Compact stats -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
-          <div style="background:white;border-radius:10px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
-            <span style="font-size:20px;">👥</span><div><div style="font-size:10px;color:#9ca3af;font-weight:600;">LEADS HOY</div><div style="font-size:20px;font-weight:800;color:var(--text);">8</div></div>
+        <!-- ══ KPI STRIP ══ -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;">
+          <div style="background:linear-gradient(135deg,var(--primary),#1e40af);border-radius:12px;padding:14px 16px;color:#fff;position:relative;overflow:hidden;">
+            <div style="position:absolute;right:-8px;top:-8px;opacity:0.15;font-size:48px;"><i class="ti ti-users"></i></div>
+            <div style="font-size:10px;font-weight:700;opacity:0.8;letter-spacing:0.5px;text-transform:uppercase;">Leads hoy</div>
+            <div style="font-size:28px;font-weight:900;margin:4px 0 2px;">8</div>
+            <div style="font-size:10px;opacity:0.75;">↑ +3 vs ayer</div>
           </div>
-          <div style="background:white;border-radius:10px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
-            <span style="font-size:20px;">📅</span><div><div style="font-size:10px;color:#9ca3af;font-weight:600;">CITAS SEMANA</div><div style="font-size:20px;font-weight:800;color:var(--text);">3</div></div>
+          <div style="background:linear-gradient(135deg,#059669,#065f46);border-radius:12px;padding:14px 16px;color:#fff;position:relative;overflow:hidden;">
+            <div style="position:absolute;right:-8px;top:-8px;opacity:0.15;font-size:48px;"><i class="ti ti-flame"></i></div>
+            <div style="font-size:10px;font-weight:700;opacity:0.8;letter-spacing:0.5px;text-transform:uppercase;">Calientes</div>
+            <div style="font-size:28px;font-weight:900;margin:4px 0 2px;">5</div>
+            <div style="font-size:10px;opacity:0.75;">Listos para cerrar</div>
           </div>
-          <div style="background:white;border-radius:10px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
-            <span style="font-size:20px;">🔥</span><div><div style="font-size:10px;color:#9ca3af;font-weight:600;">LEADS CALIENTES</div><div style="font-size:20px;font-weight:800;color:var(--text);">5</div></div>
+          <div style="background:linear-gradient(135deg,#d97706,#92400e);border-radius:12px;padding:14px 16px;color:#fff;position:relative;overflow:hidden;">
+            <div style="position:absolute;right:-8px;top:-8px;opacity:0.15;font-size:48px;"><i class="ti ti-calendar"></i></div>
+            <div style="font-size:10px;font-weight:700;opacity:0.8;letter-spacing:0.5px;text-transform:uppercase;">Citas semana</div>
+            <div style="font-size:28px;font-weight:900;margin:4px 0 2px;">3</div>
+            <div style="font-size:10px;opacity:0.75;">Próx: mañana 11am</div>
           </div>
-          <div style="background:white;border-radius:10px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
-            <span style="font-size:20px;">✅</span><div><div style="font-size:10px;color:#9ca3af;font-weight:600;">AUTORIZACIONES</div><div style="font-size:20px;font-weight:800;color:var(--red);">2</div></div>
+          <div style="background:linear-gradient(135deg,#7c3aed,#4c1d95);border-radius:12px;padding:14px 16px;color:#fff;position:relative;overflow:hidden;">
+            <div style="position:absolute;right:-8px;top:-8px;opacity:0.15;font-size:48px;"><i class="ti ti-speakerphone"></i></div>
+            <div style="font-size:10px;font-weight:700;opacity:0.8;letter-spacing:0.5px;text-transform:uppercase;">Campañas activas</div>
+            <div style="font-size:28px;font-weight:900;margin:4px 0 2px;">2</div>
+            <div style="font-size:10px;opacity:0.75;">$18,000 MXN/mes</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#dc2626,#7f1d1d);border-radius:12px;padding:14px 16px;color:#fff;position:relative;overflow:hidden;cursor:pointer;" onclick="showPage('auth',null)">
+            <div style="position:absolute;right:-8px;top:-8px;opacity:0.15;font-size:48px;"><i class="ti ti-alert-triangle"></i></div>
+            <div style="font-size:10px;font-weight:700;opacity:0.8;letter-spacing:0.5px;text-transform:uppercase;">Autorizaciones</div>
+            <div style="font-size:28px;font-weight:900;margin:4px 0 2px;">2</div>
+            <div style="font-size:10px;opacity:0.75;">Requieren tu OK</div>
           </div>
         </div>
 
-        <div class="dash-grid">
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">✅ Pendientes de tu autorización</span>
-              <span style="font-size:11px;color:var(--red);font-weight:700;">2 urgentes</span>
+        <!-- ══ MAIN GRID ══ -->
+        <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start;">
+
+          <!-- LEFT: Secretaria AI -->
+          <div style="background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 50%,#0f3460 100%);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(15,52,96,0.35);">
+            <div style="padding:14px 18px 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.08);">
+              <div style="width:40px;height:40px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;"><i class="ti ti-robot" style="color:#fff;"></i></div>
+              <div style="flex:1;">
+                <div style="color:#fff;font-size:14px;font-weight:800;">Secretaria General AI</div>
+                <div style="color:rgba(255,255,255,0.5);font-size:10px;margin-top:1px;">Coordina todos los agentes de la agencia</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;">
+                <div style="width:7px;height:7px;background:#10b981;border-radius:50%;animation:pulse-dot 2s infinite;"></div>
+                <span style="color:#10b981;font-size:10px;font-weight:700;">En línea</span>
+              </div>
             </div>
-            <div class="card-body">
-              <div class="auth-item">
-                <div class="auth-dot" style="background:var(--yellow)"></div>
-                <div class="auth-info"><div class="auth-name">Anuncio "Departamentos desde $2.8M" — Instagram</div><div class="auth-desc">Generador de Anuncios · Score 87/100 · Pre-Autorizador: Aprobado con cambios</div></div>
-                <div class="auth-actions"><button class="btn-sm btn-approve" onclick="showToast('✅ Aprobado')">Aprobar</button><button class="btn-sm btn-reject" onclick="showToast('❌ Rechazado')">Rechazar</button></div>
-              </div>
-              <div class="auth-item">
-                <div class="auth-dot" style="background:var(--red)"></div>
-                <div class="auth-info"><div class="auth-name">Secuencia WhatsApp — 45 leads dormidos</div><div class="auth-desc">Programador de Mensajes · 3 mensajes en 7 días · Requiere aprobación</div></div>
-                <div class="auth-actions"><button class="btn-sm btn-approve" onclick="showToast('✅ Secuencia autorizada')">Aprobar</button><button class="btn-sm btn-reject" onclick="showToast('❌ Rechazado')">Rechazar</button></div>
-              </div>
+            <div id="dash-sec-msgs" style="height:240px;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:8px;"></div>
+            <!-- Quick chips -->
+            <div style="padding:0 14px 8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;">
+              <button onclick="dashQuickMsg('Quiero crear un anuncio nuevo')" style="background:rgba(249,115,22,0.2);color:#fdba74;border:1px solid rgba(249,115,22,0.3);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;"><i class="ti ti-speakerphone"></i> Anuncio</button>
+              <button onclick="dashQuickMsg('Quiero crear un reel o guion de video')" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;"><i class="ti ti-video"></i> Reel</button>
+              <button onclick="dashQuickMsg('¿Cómo van los leads y campañas hoy?')" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;"><i class="ti ti-chart-bar"></i> ¿Cómo vamos?</button>
+              <button onclick="dashQuickMsg('Investiga a la competencia en redes sociales')" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;"><i class="ti ti-search"></i> Competencia</button>
+              <button onclick="dashQuickMsg('Necesito ideas para una campaña nueva')" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;"><i class="ti ti-bulb"></i> Campaña</button>
+              <button onclick="dashQuickMsg('Redacta un mensaje de WhatsApp para leads fríos')" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>
+            </div>
+            <!-- Input -->
+            <div style="padding:8px 14px 14px;display:flex;gap:8px;">
+              <textarea id="dash-sec-input" rows="1" placeholder="Dime qué necesitas hoy…"
+                style="flex:1;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.15);border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;resize:none;outline:none;font-family:inherit;line-height:1.4;"
+                onfocus="this.style.borderColor='rgba(249,115,22,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDashMsg();}"></textarea>
+              <button id="dash-mic-btn" onclick="toggleDashMic()" title="Grabar voz" class="chat-mic" style="align-self:flex-end;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:10px;width:44px;height:44px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;"><i class="ti ti-microphone"></i></button>
+              <button onclick="sendDashMsg()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;width:44px;align-self:flex-end;height:44px;font-size:18px;cursor:pointer;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="ti ti-send"></i></button>
             </div>
           </div>
-          <div class="card">
-            <div class="card-header"><span class="card-title">⚡ Actividad reciente</span></div>
-            <div class="card-body">
-              <div class="activity-item"><div class="activity-icon">🤖</div><div class="activity-text"><strong>Generador de Anuncios</strong> creó 5 variantes para campaña de playa</div><div class="activity-time">hace 12m</div></div>
-              <div class="activity-item"><div class="activity-icon">👤</div><div class="activity-text"><strong>Nuevo lead</strong> "Roberto M." desde landing page Instagram</div><div class="activity-time">hace 28m</div></div>
-              <div class="activity-item"><div class="activity-icon">🧠</div><div class="activity-text"><strong>Cerebro Vivo</strong> actualizó precios de Caracol Diamante</div><div class="activity-time">hace 1h</div></div>
-              <div class="activity-item"><div class="activity-icon">✅</div><div class="activity-text"><strong>Pre-Autorizador</strong> evaluó landing page: Score 91/100</div><div class="activity-time">hace 2h</div></div>
-              <div class="activity-item"><div class="activity-icon">📅</div><div class="activity-text"><strong>Cita confirmada</strong> — Ana González, mañana 11:00am</div><div class="activity-time">hace 3h</div></div>
+
+          <!-- RIGHT COLUMN -->
+          <div style="display:flex;flex-direction:column;gap:12px;">
+
+            <!-- Pendientes de autorización -->
+            <div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">
+              <div style="padding:12px 16px;background:linear-gradient(90deg,#fef2f2,#fff);border-bottom:1px solid #fee2e2;display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <i class="ti ti-alert-circle" style="color:#dc2626;font-size:16px;"></i>
+                  <span style="font-size:13px;font-weight:800;color:#111827;">Requieren tu firma</span>
+                </div>
+                <span style="background:#fee2e2;color:#dc2626;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;">2 URGENTES</span>
+              </div>
+              <div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:8px;height:8px;background:#f59e0b;border-radius:50%;flex-shrink:0;"></div>
+                  <div style="flex:1;font-size:11px;">
+                    <div style="font-weight:700;color:#111827;margin-bottom:1px;">Anuncio Instagram — Deptos desde $2.8M</div>
+                    <div style="color:#9ca3af;">Score 87/100 · Pre-autorizador: OK con cambios</div>
+                  </div>
+                  <div style="display:flex;gap:5px;">
+                    <button class="btn-sm btn-approve" onclick="showToast('✅ Aprobado')">✓</button>
+                    <button class="btn-sm btn-reject" onclick="showToast('❌ Rechazado')">✕</button>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:8px;height:8px;background:#dc2626;border-radius:50%;flex-shrink:0;"></div>
+                  <div style="flex:1;font-size:11px;">
+                    <div style="font-weight:700;color:#111827;margin-bottom:1px;">Secuencia WhatsApp — 45 leads dormidos</div>
+                    <div style="color:#9ca3af;">3 mensajes en 7 días · Programador de Mensajes</div>
+                  </div>
+                  <div style="display:flex;gap:5px;">
+                    <button class="btn-sm btn-approve" onclick="showToast('✅ Secuencia autorizada')">✓</button>
+                    <button class="btn-sm btn-reject" onclick="showToast('❌ Rechazado')">✕</button>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            <!-- Actividad reciente -->
+            <div style="background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;">
+              <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+                <i class="ti ti-activity" style="color:var(--primary);font-size:16px;"></i>
+                <span style="font-size:13px;font-weight:800;color:#111827;">Actividad reciente</span>
+              </div>
+              <div style="padding:8px 16px;display:flex;flex-direction:column;">
+                <div class="activity-item"><div class="activity-icon" style="background:#ede9fe;color:#7c3aed;"><i class="ti ti-robot"></i></div><div class="activity-text"><strong>Generador de Anuncios</strong> creó 5 variantes para campaña de playa</div><div class="activity-time">12m</div></div>
+                <div class="activity-item"><div class="activity-icon" style="background:#dcfce7;color:#16a34a;"><i class="ti ti-user-plus"></i></div><div class="activity-text"><strong>Nuevo lead</strong> Roberto M. desde Instagram</div><div class="activity-time">28m</div></div>
+                <div class="activity-item"><div class="activity-icon" style="background:#dbeafe;color:#2563eb;"><i class="ti ti-brain"></i></div><div class="activity-text"><strong>Cerebro Vivo</strong> actualizó precios de Caracol</div><div class="activity-time">1h</div></div>
+                <div class="activity-item"><div class="activity-icon" style="background:#fef3c7;color:#d97706;"><i class="ti ti-calendar-event"></i></div><div class="activity-text"><strong>Cita confirmada</strong> Ana González — mañana 11am</div><div class="activity-time">3h</div></div>
+              </div>
+            </div>
+
+            <!-- Accesos rápidos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <button onclick="showPage('crm',null)" style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;text-align:left;transition:all 0.15s;" onmouseenter="this.style.borderColor='var(--primary)';this.style.background='#f0f4ff'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='#fff'">
+                <i class="ti ti-address-book" style="font-size:22px;color:var(--primary);display:block;margin-bottom:4px;"></i>
+                <div style="font-size:12px;font-weight:800;color:#111827;">CRM</div>
+                <div style="font-size:10px;color:#9ca3af;">8 prospectos</div>
+              </button>
+              <button onclick="showPage('campaigns',null)" style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;text-align:left;transition:all 0.15s;" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='#fff7ed'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='#fff'">
+                <i class="ti ti-rocket" style="font-size:22px;color:var(--accent);display:block;margin-bottom:4px;"></i>
+                <div style="font-size:12px;font-weight:800;color:#111827;">Campañas</div>
+                <div style="font-size:10px;color:#9ca3af;">2 activas</div>
+              </button>
+              <button onclick="showPage('cerebro',null)" style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;text-align:left;transition:all 0.15s;" onmouseenter="this.style.borderColor='#7c3aed';this.style.background='#faf5ff'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='#fff'">
+                <i class="ti ti-brain" style="font-size:22px;color:#7c3aed;display:block;margin-bottom:4px;"></i>
+                <div style="font-size:12px;font-weight:800;color:#111827;">Cerebro Vivo</div>
+                <div style="font-size:10px;color:#9ca3af;">Base de conocimiento</div>
+              </button>
+              <button onclick="showPage('chat',null)" style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;text-align:left;transition:all 0.15s;" onmouseenter="this.style.borderColor='#059669';this.style.background='#f0fdf4'" onmouseleave="this.style.borderColor='var(--border)';this.style.background='#fff'">
+                <i class="ti ti-message-circle" style="font-size:22px;color:#059669;display:block;margin-bottom:4px;"></i>
+                <div style="font-size:12px;font-weight:800;color:#111827;">Chat completo</div>
+                <div style="font-size:10px;color:#9ca3af;">Historial + contexto</div>
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
@@ -684,7 +763,7 @@
             </div>
             <div class="chat-input-area">
               <textarea class="chat-input" id="chat-input" rows="1" placeholder="Escribe o graba tu instrucción..." onkeydown="handleChatKey(event)"></textarea>
-              <button class="chat-mic" id="chat-mic-btn" onclick="toggleChatMic()" title="Grabar voz">🎤</button>
+              <button class="chat-mic" id="chat-mic-btn" onclick="toggleChatMic()" title="Grabar voz"><i class="ti ti-microphone"></i></button>
               <button class="chat-send" onclick="sendChat()">➤</button>
             </div>
           </div>
@@ -1541,7 +1620,7 @@
       </div>
       <div class="fp-input-area">
         <textarea class="fp-input" id="fp-input" rows="1" placeholder="Pregunta o instrucción..." onkeydown="handleFPKey(event)"></textarea>
-        <button id="fp-mic-btn" onclick="toggleFPMic()" title="Grabar voz" style="background:var(--primary);color:white;border:none;border-radius:8px;width:34px;height:34px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🎤</button>
+        <button id="fp-mic-btn" onclick="toggleFPMic()" title="Grabar voz" style="background:var(--primary);color:white;border:none;border-radius:8px;width:34px;height:34px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="ti ti-microphone"></i></button>
         <button class="fp-send" onclick="fpSend()">➤</button>
       </div>
     </div>
@@ -2769,12 +2848,12 @@ function toggleMic(inputId, btnId) {
   }
   _micRecognition = new SpeechRecognition();
   _micRecognition.lang = 'es-MX';
-  _micRecognition.continuous = false;
+  _micRecognition.continuous = true;
   _micRecognition.interimResults = true;
   _micActive = true;
   _micActiveBtnId = btnId;
-  if (btn) { btn.classList.add('recording'); btn.textContent = '⏹'; btn.title = 'Detener'; }
-  showToast('🎤 Escuchando... habla ahora');
+  if (btn) { btn.classList.add('recording'); btn.innerHTML = '<i class="ti ti-player-stop-filled"></i>'; btn.title = 'Detener grabación'; }
+  showToast('🎤 Escuchando... habla ahora. Presiona el botón rojo para detener.');
   _micRecognition.onresult = (e) => {
     let t = '';
     for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
@@ -2782,12 +2861,12 @@ function toggleMic(inputId, btnId) {
   };
   _micRecognition.onend = () => {
     _micActive = false;
-    if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤'; btn.title = 'Grabar voz'; }
+    if (btn) { btn.classList.remove('recording'); btn.innerHTML = '<i class="ti ti-microphone"></i>'; btn.title = 'Grabar voz'; }
     if (input && input.value.trim()) showToast('✅ Transcrito — presiona ➤ o Enter para enviar');
   };
   _micRecognition.onerror = (e) => {
     _micActive = false;
-    if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤'; }
+    if (btn) { btn.classList.remove('recording'); btn.innerHTML = '<i class="ti ti-microphone"></i>'; }
     if (e.error === 'not-allowed') showToast('⚠️ Permite el micrófono en Chrome → ícono 🔒 en la barra de URL');
     else showToast('⚠️ Error: ' + e.error);
   };
@@ -2802,6 +2881,17 @@ let _dashHistory = [];
 let _dashInit = false;
 
 function initDashSecretaria() {
+  // Update greeting and date
+  const now = new Date();
+  const h = now.getHours();
+  const greetWord = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const dayNames = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const gEl = document.getElementById('dash-greeting');
+  const dEl = document.getElementById('dash-date-line');
+  if (gEl) gEl.textContent = `${greetWord}, Paco 👋`;
+  if (dEl) dEl.textContent = `${dayNames[now.getDay()]} ${now.getDate()} de ${monthNames[now.getMonth()]} — tu agencia está lista`;
+
   const msgs = document.getElementById('dash-sec-msgs');
   if (!msgs || _dashInit) return;
   _dashInit = true;
