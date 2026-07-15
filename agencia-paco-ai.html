@@ -1864,6 +1864,7 @@ function showPage(id, el) {
   if (id === 'config') { renderBizListCfg(); renderIntegrations(); }
   if (id === 'cerebro') { if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz); }
   if (id === 'agents') renderAgentsGrid();
+  if (id === 'chat' && _chatHistory.length === 0) loadChatHistory();
   if (id === 'ideas') syncIdeasPage();
   if (id === 'guia') renderGuiaPage();
   if (id === 'phone') renderPhonePage();
@@ -2555,12 +2556,20 @@ Responde siempre en español mexicano, de forma directa, profesional y accionabl
   const cerebroEntries = _cerebroCache.filter(e => !e.biz || e.biz === bizId);
   let cerebroContext = '';
   if (cerebroEntries.length > 0) {
-    const entries = cerebroEntries.slice(0, 40).map(e => {
-      let line = `[${e.type || 'info'}] ${e.title || ''}`;
-      if (e.content) line += `: ${e.content.slice(0, 300)}`;
-      return line;
-    }).join('\n');
-    cerebroContext = `\n\n--- CEREBRO VIVO (conocimiento del negocio) ---\n${entries}\n--- FIN CEREBRO ---`;
+    // Separate by type for clarity
+    const fotos = cerebroEntries.filter(e => e.type === 'foto');
+    const preferencias = cerebroEntries.filter(e => e.type === 'preferencia');
+    const aprobados = preferencias.filter(e => e.feedback === 'like');
+    const rechazados = preferencias.filter(e => e.feedback === 'dislike');
+    const resto = cerebroEntries.filter(e => e.type !== 'foto' && e.type !== 'preferencia').slice(0, 30);
+
+    let sections = [];
+    if (resto.length) sections.push('CONOCIMIENTO DEL NEGOCIO:\n' + resto.map(e => `[${e.type||'info'}] ${e.title||''}${e.content ? ': ' + e.content.slice(0,250) : ''}`).join('\n'));
+    if (fotos.length) sections.push('IMÁGENES DE REFERENCIA VISUAL (úsalas para describir estilo y estética):\n' + fotos.map(e => `- ${e.title||''}${e.link ? ' → ' + e.link : ''}${e.content ? ' ('+e.content.slice(0,150)+')' : ''}`).join('\n'));
+    if (aprobados.length) sections.push('ESTILO QUE LE GUSTA A PACO (✅ aprobados):\n' + aprobados.slice(0,10).map(e => `- ${e.title||e.content||''}`.slice(0,120)).join('\n'));
+    if (rechazados.length) sections.push('LO QUE NO LE GUSTA A PACO (❌ rechazados — EVITAR):\n' + rechazados.slice(0,10).map(e => `- ${e.title||e.content||''}`.slice(0,120)).join('\n'));
+
+    if (sections.length) cerebroContext = `\n\n--- CEREBRO VIVO ---\n${sections.join('\n\n')}\n--- FIN CEREBRO ---`;
   }
 
   if (short) return base + cerebroContext + '\nDa respuestas de máximo 2-3 líneas. Ve al grano.';
@@ -2605,6 +2614,60 @@ function getAIResponse(msg) {
   if (m.includes('campaña') || m.includes('campaign')) return aiResponses.campana[0];
   return aiResponses.default[Math.floor(Math.random()*3)];
 }
+let _chatHistory = [];
+
+async function saveChatHistory() {
+  if (!fbReady || !state.currentBiz) return;
+  try {
+    await db.collection('chatHistory').doc(state.currentBiz).set({
+      messages: _chatHistory.slice(-60),
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch(e) {}
+}
+
+async function loadChatHistory() {
+  if (!fbReady || !state.currentBiz) return;
+  try {
+    const snap = await db.collection('chatHistory').doc(state.currentBiz).get();
+    if (snap.exists && snap.data().messages?.length) {
+      _chatHistory = snap.data().messages;
+      const msgs = document.getElementById('chat-messages');
+      if (msgs) {
+        // Clear welcome message and render history
+        msgs.innerHTML = '';
+        _chatHistory.forEach(m => {
+          if (m.role === 'user') addUserMsg(m.content, true);
+          else addAIMsg(m.content, true);
+        });
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+    }
+  } catch(e) {}
+}
+
+async function feedbackMsg(msgId, type, textEncoded) {
+  const el = document.getElementById(msgId);
+  if (el) {
+    el.querySelectorAll('.feedback-btn').forEach(b => b.style.display = 'none');
+    const timeEl = el.querySelector('.msg-time');
+    if (timeEl) timeEl.textContent += type === 'like' ? ' · 👍 Guardado' : ' · 👎 Feedback guardado';
+  }
+  if (!fbReady) return;
+  const text = decodeURIComponent(textEncoded);
+  try {
+    await db.collection('cerebro').add({
+      biz: state.currentBiz,
+      type: 'preferencia',
+      title: (type === 'like' ? '✅ Le gustó: ' : '❌ No le gustó: ') + text.slice(0, 80),
+      content: text,
+      feedback: type,
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    _cerebroCache.push({ biz: state.currentBiz, type: 'preferencia', title: text.slice(0,80), content: text, feedback: type });
+  } catch(e) {}
+}
+
 function sendChat() {
   const input = document.getElementById('chat-input');
   const msg = input.value.trim();
@@ -2612,16 +2675,22 @@ function sendChat() {
   addUserMsg(msg);
   input.value = '';
   input.style.height = 'auto';
+  _chatHistory.push({ role: 'user', content: msg });
+  if (_chatHistory.length > 30) _chatHistory = _chatHistory.slice(-30);
   const typing = addTyping();
   if (claudeApiKey) {
-    callClaude([{role:'user', content:msg}], getBizContext(false)).then(response => {
+    callClaude([..._chatHistory], getBizContext(false)).then(response => {
       typing.remove();
       addAIMsg(response);
+      _chatHistory.push({ role: 'assistant', content: response });
+      saveChatHistory();
     });
   } else {
     setTimeout(() => {
       typing.remove();
-      addAIMsg(getAIResponse(msg));
+      const resp = getAIResponse(msg);
+      addAIMsg(resp);
+      _chatHistory.push({ role: 'assistant', content: resp });
     }, 1200 + Math.random()*600);
   }
 }
@@ -2632,17 +2701,28 @@ function sendQuickMsg(msg) {
     sendChat();
   }, 300);
 }
-function addUserMsg(text) {
+function addUserMsg(text, silent) {
   const msgs = document.getElementById('chat-messages');
-  const biz = state.businesses[state.currentBiz];
-  msgs.innerHTML += `<div class="msg user"><div class="msg-avatar user">PA</div><div><div class="msg-bubble">${text}</div><div class="msg-time">Paco · ahora</div></div></div>`;
-  msgs.scrollTop = msgs.scrollHeight;
+  msgs.innerHTML += `<div class="msg user"><div class="msg-avatar user">PA</div><div><div class="msg-bubble">${text}</div><div class="msg-time">Paco</div></div></div>`;
+  if (!silent) msgs.scrollTop = msgs.scrollHeight;
 }
-function addAIMsg(text) {
+function addAIMsg(text, silent) {
   const msgs = document.getElementById('chat-messages');
   const formatted = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
-  msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar ai">🤖</div><div><div class="msg-bubble">${formatted}</div><div class="msg-time">Secretaria General AI · ahora</div></div></div>`;
-  msgs.scrollTop = msgs.scrollHeight;
+  const msgId = 'msg-' + Date.now() + Math.random().toString(36).slice(2,6);
+  const encoded = encodeURIComponent(text.slice(0, 200));
+  msgs.innerHTML += `<div class="msg ai" id="${msgId}">
+    <div class="msg-avatar ai">🤖</div>
+    <div style="flex:1;">
+      <div class="msg-bubble">${formatted}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+        <div class="msg-time">Secretaria General AI</div>
+        <button class="feedback-btn" onclick="feedbackMsg('${msgId}','like','${encoded}')" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:#6b7280;" title="Me gusta, guárdalo">👍</button>
+        <button class="feedback-btn" onclick="feedbackMsg('${msgId}','dislike','${encoded}')" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:#6b7280;" title="No me gusta">👎</button>
+      </div>
+    </div>
+  </div>`;
+  if (!silent) msgs.scrollTop = msgs.scrollHeight;
 }
 function addTyping() {
   const msgs = document.getElementById('chat-messages');
