@@ -2079,6 +2079,7 @@ function fbSave(collection, data) {
 
 let _cerebroListener = null;
 let _cerebroRetries = 0;
+let _cerebroCache = []; // Cache of cerebro entries for AI context
 function listenCerebro(bizId) {
   if (!fbReady) {
     _cerebroRetries++;
@@ -2123,6 +2124,8 @@ function listenCerebro(bizId) {
         return;
       }
       if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas</span>`;
+      // Cache cerebro data for AI context
+      _cerebroCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // Render entries using shared helper
       _renderCerebroList(snap, list);
     }, e => {
@@ -2157,6 +2160,8 @@ function listenCerebroAll() {
     .onSnapshot(snap => {
       if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${snap.size} entradas (todas)</span>`;
       if (snap.size === 0) { list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:12px;"><div style="font-size:28px;margin-bottom:8px;">🧠</div>Cerebro vacío — agrega tu primera entrada</div>'; return; }
+      // Cache cerebro data for AI context
+      _cerebroCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       _renderCerebroList(snap, list);
     }, e => {
       if (list) list.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px;">⚠️ Error: ${e.message}</div>`;
@@ -2544,8 +2549,22 @@ Negocio activo: ${biz.name} (${biz.type || 'marketing digital'}).
 Dueño: Francisco "Paco" Amezcua, empresario mexicano.
 Otros negocios: Seguros, Bienes Raíces, Servicios Digitales.
 Responde siempre en español mexicano, de forma directa, profesional y accionable. Usa emojis con moderación. Sé conciso.`;
-  if (short) return base + '\nDa respuestas de máximo 2-3 líneas. Ve al grano.';
-  return base;
+
+  // Inject Cerebro Vivo knowledge base
+  const bizId = state.currentBiz;
+  const cerebroEntries = _cerebroCache.filter(e => !e.biz || e.biz === bizId);
+  let cerebroContext = '';
+  if (cerebroEntries.length > 0) {
+    const entries = cerebroEntries.slice(0, 40).map(e => {
+      let line = `[${e.type || 'info'}] ${e.title || ''}`;
+      if (e.content) line += `: ${e.content.slice(0, 300)}`;
+      return line;
+    }).join('\n');
+    cerebroContext = `\n\n--- CEREBRO VIVO (conocimiento del negocio) ---\n${entries}\n--- FIN CEREBRO ---`;
+  }
+
+  if (short) return base + cerebroContext + '\nDa respuestas de máximo 2-3 líneas. Ve al grano.';
+  return base + cerebroContext;
 }
 
 async function saveApiKey() {
