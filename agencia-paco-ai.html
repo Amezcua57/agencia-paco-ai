@@ -1451,7 +1451,7 @@
         </div>
         <input type="file" id="know-file-input" style="display:none;"
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,video/*"
-          onchange="handleFileInput(event)">
+          onchange="handleKnowFile(this)">
       </div>
       <!-- Preview de lo que se detectó -->
       <div id="know-paste-preview" style="display:none;background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#065f46;">
@@ -1487,8 +1487,6 @@
       <!-- Archivo o link -->
       <div style="margin-bottom:14px;" id="know-file-section">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;" id="know-file-label">Archivo o link (opcional)</label>
-        <!-- Real file input — hidden, triggered by button -->
-        <input type="file" id="know-file-input" accept=".txt,.csv,.md,.pdf,.doc,.docx" style="display:none;" onchange="handleKnowFile(this)">
         <!-- File upload button — prominent for Documento type -->
         <div id="know-upload-zone" style="display:none;border:2px dashed #6366f1;border-radius:10px;padding:18px;text-align:center;cursor:pointer;background:#f5f3ff;margin-bottom:8px;" onclick="document.getElementById('know-file-input').click()">
           <div style="font-size:24px;margin-bottom:6px;">📂</div>
@@ -2159,9 +2157,9 @@ try {
 } catch(e) { console.warn('Firebase init failed:', e); }
 
 function fbSave(collection, data) {
-  if (!fbReady) return;
+  if (!fbReady) { showToast('⚠️ Sin conexión a Firebase. Reintentando...'); return; }
   db.collection(collection).add({ ...data, ts: firebase.firestore.FieldValue.serverTimestamp() })
-    .catch(e => console.warn('fbSave error:', e));
+    .catch(e => { console.warn('fbSave error:', e); showToast('❌ Error al guardar: ' + e.message); });
 }
 
 let _cerebroListener = null;
