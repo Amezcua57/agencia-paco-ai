@@ -2265,7 +2265,7 @@ function listenCerebroAll() {
     });
 }
 
-let _cerebroViewMode = 'list'; // 'list' or 'grid'
+let _cerebroViewMode = 'grid'; // 'grid' or 'list' — grid is default so photos are visible
 
 function _getThumbUrl(lnk) {
   if (!lnk) return null;
@@ -2273,6 +2273,31 @@ function _getThumbUrl(lnk) {
   const m = lnk.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w300';
   return null;
+}
+
+function _abrirFotoLightbox(url, title, docId) {
+  let lb = document.getElementById('_foto-lightbox');
+  if (!lb) {
+    lb = document.createElement('div');
+    lb.id = '_foto-lightbox';
+    lb.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center;';
+    document.body.appendChild(lb);
+  }
+  lb.innerHTML = `
+    <div style="position:absolute;top:16px;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:1;">
+      <div style="color:#fff;font-size:14px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,0.5);">🖼️ ${title}</div>
+      <div style="display:flex;gap:8px;">
+        <a href="${url}" target="_blank" style="background:#fff;color:#111;text-decoration:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;">⬇️ Abrir / Descargar</a>
+        <button onclick="document.getElementById('_foto-lightbox').style.display='none'" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;">✕ Cerrar</button>
+      </div>
+    </div>
+    <img src="${url}" style="max-width:92vw;max-height:82vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.6);" onerror="this.alt='No se pudo cargar la imagen'">
+    <div style="margin-top:12px;display:flex;gap:10px;">
+      <button onclick="event.stopPropagation();document.getElementById('_foto-lightbox').style.display='none';verEntradaById('${docId}')" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:11px;font-weight:700;cursor:pointer;">✏️ Ver detalles / Editar</button>
+      <button onclick="event.stopPropagation();document.getElementById('_foto-lightbox').style.display='none';eliminarEntradaCerebro('${docId}','${title.replace(/'/g,'')}',null)" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:11px;cursor:pointer;">🗑️ Eliminar</button>
+    </div>`;
+  lb.style.display = 'flex';
+  lb.onclick = (e) => { if (e.target === lb) lb.style.display='none'; };
 }
 
 function _cerebroToggleView(mode) {
@@ -2308,32 +2333,37 @@ function _renderCerebroList(snap, list) {
   const entriesList = document.getElementById('cerebro-entries-list');
 
   if (_cerebroViewMode === 'grid') {
-    // ── GRID / GALLERY VIEW ──
-    entriesList.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;';
+    // ── GRID / GALLERY VIEW — photos large enough to actually see ──
+    entriesList.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;';
     snap.docs.forEach((doc, i) => {
       const d = doc.data();
       const thumbUrl = _getThumbUrl(d.link||'');
+      const isPhoto = thumbUrl !== null;
       const card = document.createElement('div');
       card.id = 'fb-' + doc.id;
       card.dataset.search = ((d.title||'') + ' ' + (d.type||'')).toLowerCase();
-      card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:10px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;';
-      card.onmouseenter = () => { card.style.borderColor='#6366f1'; card.style.transform='translateY(-2px)'; card.style.boxShadow='0 4px 12px rgba(99,102,241,0.15)'; };
-      card.onmouseleave = () => { card.style.borderColor='#e5e7eb'; card.style.transform=''; card.style.boxShadow=''; };
-      card.onclick = () => verEntradaById(doc.id);
+      card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;box-shadow:0 1px 4px rgba(0,0,0,0.06);';
+      card.onmouseenter = () => { card.style.borderColor='#6366f1'; card.style.transform='translateY(-3px)'; card.style.boxShadow='0 8px 24px rgba(99,102,241,0.18)'; };
+      card.onmouseleave = () => { card.style.borderColor='#e5e7eb'; card.style.transform=''; card.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'; };
+      card.onclick = () => isPhoto ? _abrirFotoLightbox(thumbUrl, d.title||'', doc.id) : verEntradaById(doc.id);
       const previewHtml = thumbUrl
-        ? `<div style="width:100%;height:100px;overflow:hidden;background:#f9fafb;"><img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML='<div style=\\'height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;background:${typeColor[d.type]||'#f3f4f6'}\\'>'+typeEmoji['${d.type||''}']||'📁'+'</div>'"></div>`
-        : `<div style="width:100%;height:100px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:36px;">${typeEmoji[d.type]||'📁'}</div>`;
+        ? `<div style="width:100%;height:150px;overflow:hidden;background:#f9fafb;position:relative;">
+             <img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"
+               onerror="this.parentNode.style.background='${typeColor[d.type]||'#f3f4f6'}';this.style.display='none';this.parentNode.innerHTML+='<div style=\\'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;\\'>${typeEmoji[d.type]||'📁'}</div>'">
+             <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.45);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;backdrop-filter:blur(4px);">🔍 Ver</div>
+           </div>`
+        : `<div style="width:100%;height:150px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:48px;">${typeEmoji[d.type]||'📁'}</div>`;
       card.innerHTML = previewHtml
-        + `<div style="padding:7px 8px;">
-             <div style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>
-             <div style="font-size:9px;color:#9ca3af;margin-top:2px;">${(typeLabel[d.type]||d.type||'').toUpperCase()}</div>
-             <div style="display:flex;gap:4px;margin-top:5px;">
-               <button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="flex:1;background:#6366f1;color:#fff;border:none;border-radius:4px;padding:3px 0;font-size:9px;font-weight:700;cursor:pointer;">Abrir</button>
-               <button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:3px 5px;font-size:10px;cursor:pointer;">🗑</button>
+        + `<div style="padding:9px 10px;">
+             <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>
+             <div style="font-size:9px;color:#9ca3af;margin-top:2px;">${(typeLabel[d.type]||d.type||'').toUpperCase()} · ${d.ts?.toDate ? d.ts.toDate().toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : ''}</div>
+             <div style="display:flex;gap:5px;margin-top:7px;">
+               <button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="flex:1;background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;">✏️ Detalles</button>
+               <button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;" title="Eliminar">🗑</button>
              </div>
            </div>`;
       entriesList.appendChild(card);
-      setTimeout(() => { card.style.opacity='1'; }, Math.min(i*20, 400));
+      setTimeout(() => { card.style.opacity='1'; card.style.transition='opacity 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease'; }, Math.min(i*25, 500));
     });
 
   } else {
