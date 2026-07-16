@@ -743,12 +743,19 @@
 
       <!-- ── CHAT (Secretaria General AI) ── -->
       <div class="page" id="page-chat">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px 4px;border-bottom:1px solid #f3f4f6;">
+          <div style="font-size:12px;font-weight:700;color:#374151;">🤖 Secretaria General AI</div>
+          <div style="display:flex;gap:6px;">
+            <span id="chat-history-badge" style="font-size:10px;color:#6366f1;background:#ede9fe;padding:3px 8px;border-radius:10px;font-weight:700;display:none;"></span>
+            <button onclick="clearChatHistory()" title="Limpiar conversación" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">🗑️ Limpiar</button>
+          </div>
+        </div>
         <div class="chat-layout">
           <div class="chat-messages" id="chat-messages">
-            <div class="msg ai">
+            <div class="msg ai" id="chat-welcome-msg">
               <div class="msg-avatar ai">🤖</div>
               <div>
-                <div class="msg-bubble">¡Hola Paco! Soy tu Secretaria General AI. Estoy aquí para coordinar toda la agencia.<br><br>Puedes hablarme en lenguaje natural. Dime una idea, sube una foto, un PDF, un video, o simplemente dime qué quieres lograr hoy — yo me encargo de convertirlo en acción.<br><br>¿Por dónde empezamos?</div>
+                <div class="msg-bubble" id="chat-welcome-text">¡Hola! Soy tu Secretaria General AI. Estoy aquí para coordinar toda la agencia.<br><br>Puedes hablarme en lenguaje natural. Dime una idea, sube una foto, un PDF, un video, o simplemente dime qué quieres lograr hoy — yo me encargo de convertirlo en acción.<br><br>¿Por dónde empezamos?</div>
                 <div class="msg-time">Secretaria General AI · ahora</div>
               </div>
             </div>
@@ -1886,6 +1893,7 @@ function enterApp() {
   else if (!isAdmin && acc.length === 0) showToast('⚠️ Aún sin negocios asignados. El admin te dará acceso.');
   setTimeout(() => listenCerebroAll(), 1000);
   setTimeout(() => initDashSecretaria(), 600);
+  setTimeout(() => _updateChatWelcome(), 100);
   // Load global API key from Firebase (works for all users, not just admin)
   loadGlobalApiKey();
   // Hide API key input from non-admin users — they should never see or touch it
@@ -2724,34 +2732,81 @@ function getAIResponse(msg) {
 }
 let _chatHistory = [];
 
+function _chatDocId() {
+  // History per user — so Karina and Paco never overwrite each other's conversations
+  const userKey = _emailKey(currentUser?.email || 'admin');
+  const biz = state.currentBiz || 'default';
+  return userKey + '_' + biz;
+}
+
+function _updateChatWelcome() {
+  const name = currentUser?.displayName || currentUser?.email || 'Usuario';
+  const firstName = name.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g,'').trim().split(/\s+/)[0] || name;
+  const h = new Date().getHours();
+  const greeting = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const el = document.getElementById('chat-welcome-text');
+  if (el) el.innerHTML = `${greeting}, <strong>${firstName}</strong>. Soy tu Secretaria General AI, lista para coordinar toda la agencia.<br><br>Dime una idea, una foto, un link o simplemente qué quieres lograr hoy — yo me encargo de convertirlo en acción. Tu historial de conversaciones se conserva cada vez que regresas.<br><br>¿Por dónde empezamos?`;
+}
+
+async function clearChatHistory() {
+  if (!confirm('¿Limpiar toda la conversación? El historial se borrará permanentemente.')) return;
+  _chatHistory = [];
+  if (fbReady && currentUser) {
+    try { await db.collection('chatHistory').doc(_chatDocId()).delete(); } catch(e) {}
+  }
+  const msgs = document.getElementById('chat-messages');
+  if (msgs) {
+    msgs.innerHTML = '';
+    const welcome = document.createElement('div');
+    welcome.className = 'msg ai';
+    welcome.id = 'chat-welcome-msg';
+    const name = currentUser?.displayName || 'Usuario';
+    const firstName = name.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g,'').trim().split(/\s+/)[0] || name;
+    welcome.innerHTML = `<div class="msg-avatar ai">🤖</div><div><div class="msg-bubble" id="chat-welcome-text">Listo, ${firstName} — historial limpio. ¿En qué puedo ayudarte hoy?</div><div class="msg-time">Secretaria General AI · ahora</div></div>`;
+    msgs.appendChild(welcome);
+  }
+  const badge = document.getElementById('chat-history-badge');
+  if (badge) badge.style.display = 'none';
+  showToast('🗑️ Historial de conversación borrado');
+}
+
 async function saveChatHistory() {
-  if (!fbReady || !state.currentBiz) return;
+  if (!fbReady || !state.currentBiz || !currentUser) return;
   try {
-    await db.collection('chatHistory').doc(state.currentBiz).set({
-      messages: _chatHistory.slice(-60),
+    await db.collection('chatHistory').doc(_chatDocId()).set({
+      messages: _chatHistory.slice(-80),
+      user: currentUser.email,
+      biz: state.currentBiz,
       ts: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
   } catch(e) {}
 }
 
 async function loadChatHistory() {
-  if (!fbReady || !state.currentBiz) return;
+  if (!fbReady || !state.currentBiz || !currentUser) return;
   try {
-    const snap = await db.collection('chatHistory').doc(state.currentBiz).get();
+    const snap = await db.collection('chatHistory').doc(_chatDocId()).get();
     if (snap.exists && snap.data().messages?.length) {
       _chatHistory = snap.data().messages;
       const msgs = document.getElementById('chat-messages');
       if (msgs) {
-        // Clear welcome message and render history
         msgs.innerHTML = '';
         _chatHistory.forEach(m => {
-          if (m.role === 'user') addUserMsg(m.content, true);
+          if (m.role === 'user') addUserMsg(m.content, true, m.displayName);
           else addAIMsg(m.content, true);
         });
+        // Divider
+        const divider = document.createElement('div');
+        divider.style.cssText = 'text-align:center;font-size:10px;color:#9ca3af;padding:8px 0;margin:4px 0;border-top:1px dashed #e5e7eb;';
+        divider.textContent = '— Historial cargado · ' + _chatHistory.length + ' mensajes anteriores —';
+        msgs.appendChild(divider);
         msgs.scrollTop = msgs.scrollHeight;
+        // Badge
+        const badge = document.getElementById('chat-history-badge');
+        if (badge) { badge.textContent = '📜 ' + _chatHistory.length + ' msgs guardados'; badge.style.display = 'inline'; }
       }
     }
-  } catch(e) {}
+  } catch(e) { console.warn('loadChatHistory error:', e); }
 }
 
 async function feedbackMsg(msgId, type, textEncoded) {
@@ -2781,14 +2836,16 @@ function sendChat() {
   const input = document.getElementById('chat-input');
   const msg = input.value.trim();
   if (!msg) return;
+  const displayName = currentUser?.displayName || currentUser?.email || 'Usuario';
   addUserMsg(msg);
   input.value = '';
   input.style.height = 'auto';
-  _chatHistory.push({ role: 'user', content: msg });
-  if (_chatHistory.length > 30) _chatHistory = _chatHistory.slice(-30);
+  _chatHistory.push({ role: 'user', content: msg, displayName });
+  if (_chatHistory.length > 80) _chatHistory = _chatHistory.slice(-80);
+  saveChatHistory(); // Save immediately so user's message is never lost
   const typing = addTyping();
   if (claudeApiKey) {
-    callClaude([..._chatHistory], getBizContext(false)).then(response => {
+    callClaude([..._chatHistory.map(m => ({role:m.role, content:m.content}))], getBizContext(false)).then(response => {
       typing.remove();
       addAIMsg(response);
       _chatHistory.push({ role: 'assistant', content: response });
@@ -2800,6 +2857,7 @@ function sendChat() {
       const resp = getAIResponse(msg);
       addAIMsg(resp);
       _chatHistory.push({ role: 'assistant', content: resp });
+      saveChatHistory();
     }, 1200 + Math.random()*600);
   }
 }
@@ -2810,9 +2868,11 @@ function sendQuickMsg(msg) {
     sendChat();
   }, 300);
 }
-function addUserMsg(text, silent) {
+function addUserMsg(text, silent, overrideName) {
   const msgs = document.getElementById('chat-messages');
-  msgs.innerHTML += `<div class="msg user"><div class="msg-avatar user">PA</div><div><div class="msg-bubble">${text}</div><div class="msg-time">Paco</div></div></div>`;
+  const name = overrideName || currentUser?.displayName || currentUser?.email || 'Usuario';
+  const initials = name.replace(/[^a-zA-Z\s]/g,'').trim().split(/\s+/).map(w=>w[0]).join('').substring(0,2).toUpperCase() || 'US';
+  msgs.innerHTML += `<div class="msg user"><div class="msg-avatar user">${initials}</div><div><div class="msg-bubble">${text}</div><div class="msg-time">${name}</div></div></div>`;
   if (!silent) msgs.scrollTop = msgs.scrollHeight;
 }
 function addAIMsg(text, silent) {
