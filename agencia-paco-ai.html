@@ -2715,6 +2715,61 @@ async function loadGlobalApiKey() {
   } catch(e) { /* silent — use whatever is in localStorage */ }
 }
 
+// Fetch an image URL and compress it to base64 so Claude can see it
+// (Firebase Storage URLs need the browser to fetch them — CORS blocks direct server access)
+async function _imageUrlToBase64(url, maxPx = 900, quality = 0.72) {
+  if (!url) return null;
+  // Already base64
+  if (url.startsWith('data:image/')) {
+    // Still compress if very large
+    if (url.length < 300000) return url;
+  }
+  try {
+    // Try canvas approach first (works for same-origin + CORS-enabled images)
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+      img.src = url + (url.includes('?') ? '&_cb=' : '?_cb=') + Date.now();
+    });
+    const scale = Math.min(1, maxPx / Math.max(img.width || maxPx, img.height || maxPx));
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.round((img.width  || maxPx) * scale);
+    canvas.height = Math.round((img.height || maxPx) * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch(_) {
+    // Fallback: direct fetch → FileReader
+    try {
+      const blob = await fetch(url).then(r => r.blob());
+      return await new Promise((res, rej) => {
+        const rd = new FileReader();
+        rd.onload = () => {
+          // If large, compress via canvas
+          if (rd.result.length > 300000) {
+            const img2 = new Image();
+            img2.onload = () => {
+              const scale = Math.min(1, maxPx / Math.max(img2.width, img2.height));
+              const c = document.createElement('canvas');
+              c.width = Math.round(img2.width * scale);
+              c.height = Math.round(img2.height * scale);
+              c.getContext('2d').drawImage(img2, 0, 0, c.width, c.height);
+              res(c.toDataURL('image/jpeg', quality));
+            };
+            img2.onerror = () => res(rd.result);
+            img2.src = rd.result;
+          } else {
+            res(rd.result);
+          }
+        };
+        rd.onerror = rej;
+        rd.readAsDataURL(blob);
+      });
+    } catch(e2) { return null; }
+  }
+}
+
 // Helper: collect viewable image URLs from Cerebro for the current biz
 function _getCerebroImages(limit = 8) {
   const bizId = state.currentBiz;
@@ -2741,34 +2796,32 @@ async function callClaude(messages, systemPrompt, cerebroImageUrls = []) {
     // Build final messages — text-safe copy
     let apiMessages = messages.map(m => ({ role: m.role, content: m.content }));
 
-    // If there are cerebro images, prepend a visual-context exchange so Claude SEES them
+    // If there are cerebro images, convert to base64 and prepend as visual context
+    // (Firebase Storage URLs need browser fetch — CORS blocks Anthropic servers from accessing them)
     if (cerebroImageUrls.length > 0) {
-      const imageBlocks = cerebroImageUrls.map(url => {
-        if (url.startsWith('data:image/')) {
-          const sep = url.indexOf(',');
-          const header = url.substring(0, sep);
-          const data = url.substring(sep + 1);
-          const media = header.match(/data:(image\/\w+)/)?.[1] || 'image/jpeg';
-          return { type: 'image', source: { type: 'base64', media_type: media, data } };
-        }
-        return { type: 'image', source: { type: 'url', url } };
+      const b64s = await Promise.all(cerebroImageUrls.slice(0, 5).map(u => _imageUrlToBase64(u)));
+      const imageBlocks = b64s.filter(Boolean).map(b64 => {
+        const sep = b64.indexOf(',');
+        const media = b64.substring(0, sep).match(/data:(image\/[\w+]+)/)?.[1] || 'image/jpeg';
+        return { type: 'image', source: { type: 'base64', media_type: media, data: b64.substring(sep + 1) } };
       });
-      // Inject: user shows images → assistant acknowledges → then real conversation
-      const n = cerebroImageUrls.length;
-      apiMessages = [
-        {
-          role: 'user',
-          content: [
-            ...imageBlocks,
-            { type: 'text', text: `Aquí están las ${n} FOTO${n!==1?'S':''} REALES del negocio, ya subidas al Cerebro Vivo. REGLA: en cualquier plan de contenido, video o anuncio DEBES usar estas fotos específicas — menciónalas. NUNCA digas "si existe", "si hay foto" o "busca en banco de imágenes". Estas son las únicas fotos disponibles del negocio y con ellas debes trabajar.` }
-          ]
-        },
-        {
-          role: 'assistant',
-          content: `Perfecto — ya veo las ${n} foto${n!==1?'s':''} reales del Cerebro Vivo. Las usaré de forma específica en mis planes. No pediré fotos adicionales ni usaré frases como "si existe" — estas son las fotos con las que trabajo.`
-        },
-        ...apiMessages
-      ];
+      if (imageBlocks.length > 0) {
+        const n = imageBlocks.length;
+        apiMessages = [
+          {
+            role: 'user',
+            content: [
+              ...imageBlocks,
+              { type: 'text', text: `Aquí están las ${n} FOTO${n!==1?'S':''} REALES del negocio, ya cargadas al Cerebro Vivo. REGLA: en cualquier plan de contenido, video, reel o anuncio DEBES usar estas fotos específicas — menciónala por nombre. NUNCA digas "si existe", "si hay foto" o "busca en banco de imágenes". Estas son las fotos reales del negocio, trabaja con ellas y desarrolla contenido a partir de ellas.` }
+            ]
+          },
+          {
+            role: 'assistant',
+            content: `Perfecto — ya puedo ver las ${n} foto${n!==1?'s':''} reales del Cerebro Vivo. Las voy a usar de forma específica para desarrollar el contenido. No pediré fotos adicionales ni usaré "si existe" — estas son las fotos del negocio y con ellas trabajo.`
+          },
+          ...apiMessages
+        ];
+      }
     }
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
