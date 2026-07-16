@@ -792,7 +792,7 @@
             <div class="chat-attachments">
               <button class="attach-btn">📎 Archivo</button>
               <button class="attach-btn">🖼️ Foto</button>
-              <button class="attach-btn">🎬 Video</button>
+              <button class="attach-btn" onclick="openReelBuilder()" title="Crear reel/video con fotos del Cerebro">🎬 Reel Builder</button>
               <button class="attach-btn">🔗 Link</button>
               <button class="attach-btn">💡 Idea rápida</button>
             </div>
@@ -2808,8 +2808,13 @@ function _getCerebroImages(limit = 8) {
       if (!lnk) return false;
       // Skip large base64 (>400KB) to keep payload manageable
       if (lnk.startsWith('data:image/') && lnk.length > 400000) return false;
-      return /\.(jpg|jpeg|png|gif|webp|avif|bmp)(\?|$)/i.test(lnk)
+      // Explicit foto type always included if has link
+      if (e.type === 'foto' && lnk.length > 10) return true;
+      // URL-based detection (extension or storage domain)
+      return /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)(\?|$|&)/i.test(lnk)
           || /firebasestorage\.googleapis\.com/i.test(lnk)
+          || /storage\.googleapis\.com/i.test(lnk)
+          || /imgbb\.com|imgur\.com|cloudinary\.com|res\.cloudinary/i.test(lnk)
           || lnk.startsWith('data:image/');
     })
     .map(e => e.link)
@@ -3114,23 +3119,33 @@ function sendChat() {
   // Si el usuario dice "hazlo" / "usa las fotos" / "conviértelas" etc.
   // en el contexto de un reel/video → abrir Reel Builder de inmediato.
   const msgL = msg.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const _msgTrim = msgL.trim();
   const isDirectAction =
-    /^(hazlo|hazla|haz|dale|uselas|usalas|si|adelante|ahora|orale|va|ok|okay|listo|perfecto)$/.test(msgL.trim()) ||
-    /\b(usa|busca|toma|agarra|coge|utiliza)\b.{0,20}\b(foto|imagen|fotos|imagenes|cerebro|banco|memoria)\b/i.test(msgL) ||
-    /convierte?.{0,12}(foto|imagen).{0,12}(video|reel|anuncio)/i.test(msgL) ||
-    /\b(del cerebro|del banco|de la memoria|de ahi|de ahí)\b/i.test(msgL);
+    /^(hazlo|hazla|haz|dale|uselas|usalas|si|sii|si!|adelante|ahora|orale|va|ok|okay|listo|perfecto|hazle|hazlas|hacelo|hacelas|ponla|ponlas)$/.test(_msgTrim) ||
+    /\b(usa|busca|toma|agarra|coge|utiliza|saca|carga)\b.{0,25}\b(foto|imagen|fotos|imagenes|cerebro|banco|memoria)\b/i.test(msgL) ||
+    /convierte?.{0,15}(foto|imagen).{0,15}(video|reel|anuncio|clip)/i.test(msgL) ||
+    /\b(del cerebro|del banco|de la memoria|de ahi|las fotos|mis fotos|esas fotos|estas fotos)\b/i.test(msgL) ||
+    /\b(en video|al video|hacer.*video|hacer.*reel|crea.*reel|crea.*video|genera.*reel|genera.*video)\b/i.test(msgL);
   const prevHasReelTopic = _chatHistory.some(m =>
     m.role === 'assistant' &&
-    /reel|video|tiktok|instagram|anunci|storyboard|escena|clip|filmacion/i.test(m.content));
+    /reel|video|tiktok|instagram|anunci|storyboard|escena|clip|filmac/i.test(m.content));
   const cerebroPhotos = _getCerebroImages(8);
 
   if (isDirectAction && prevHasReelTopic && cerebroPhotos.length > 0) {
     const n = cerebroPhotos.length;
-    const reply = `✅ ¡Listo! Abriendo el Reel Builder con ${n} foto${n!==1?'s':''} del Cerebro Vivo.\n\n📱 Ya las tienes cargadas — ordénalas, agrega textos y presiona ▶ Ver Preview. Cuando quieras exportar el video dale al botón naranja.`;
+    const reply = `✅ ¡Listo! Abriendo el Reel Builder con ${n} foto${n!==1?'s':''} del Cerebro Vivo.\n\n📱 Ya están cargadas — ordénalas, agrega texto y presiona ▶ Ver Preview. Para exportar el video dale al botón naranja 📥.`;
     addAIMsg(reply);
     _chatHistory.push({ role: 'assistant', content: reply });
     saveChatHistory();
     setTimeout(() => openReelBuilder(), 350);
+    return;
+  }
+  // Si no hay fotos pero usuario pide reel: abrir builder sin fotos con aviso
+  if (isDirectAction && prevHasReelTopic && cerebroPhotos.length === 0) {
+    const reply = `⚠️ No encontré fotos en el Cerebro Vivo todavía.\n\nSube fotos en **Cerebro Vivo → + Foto** y luego vuelve aquí — las cargo automáticamente en el Reel Builder.`;
+    addAIMsg(reply);
+    _chatHistory.push({ role: 'assistant', content: reply });
+    saveChatHistory();
     return;
   }
   // ── FIN REEL BUILDER DIRECTO ─────────────────────────────────────
