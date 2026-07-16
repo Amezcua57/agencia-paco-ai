@@ -1354,10 +1354,10 @@
         <div style="background:white;border:1.5px solid var(--border);border-radius:14px;padding:20px;margin-bottom:18px;">
           <div style="font-size:13px;font-weight:800;color:#1a1a2e;margin-bottom:12px;">⚙️ Servidor del Agente (Railway)</div>
           <div style="display:flex;gap:8px;margin-bottom:8px;">
-            <input id="phone-server-url" class="wiz-input" type="text" placeholder="https://tu-app.up.railway.app" style="flex:1;font-size:13px;" oninput="savePhoneConfig()">
+            <input id="phone-server-url" class="wiz-input" type="url" placeholder="https://tu-app.up.railway.app" style="flex:1;font-size:13px;" oninput="savePhoneConfig()">
             <button onclick="checkPhoneServer()" style="background:#6366f1;color:white;border:none;border-radius:8px;padding:0 16px;font-size:12px;font-weight:700;cursor:pointer;">Probar</button>
           </div>
-          <div style="font-size:11px;color:#9ca3af;">Despliega <code>phone-agent/server.js</code> en Railway y pega aquí tu URL pública.</div>
+          <div id="phone-url-hint" style="font-size:11px;color:#9ca3af;">⚠️ Aquí va la URL del servidor (ej: <code>https://xxx.railway.app</code>), <strong>NO un número de teléfono</strong>. Si no tienes servidor activo en Railway, el Agente Telefónico no puede hacer ni recibir llamadas.</div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
@@ -1999,7 +1999,7 @@ function showPage(id, el) {
   if (id === 'chat' && _chatHistory.length === 0) loadChatHistory();
   if (id === 'ideas') syncIdeasPage();
   if (id === 'guia') renderGuiaPage();
-  if (id === 'phone') renderPhonePage();
+  if (id === 'phone') { if (typeof _initPhonePage === 'function') _initPhonePage(); }
   if (id === 'canal-claude') { if (!isAdmin) { showToast('⛔ Acceso restringido — solo administrador'); showPage('dashboard', null); return; } loadCanalClaude(); }
   if (id === 'mensajes') loadClientMessages();
   if (id === 'whatsapp') initWAPage();
@@ -3225,6 +3225,148 @@ function handleChatKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
 }
 
+// ════════════════════════════════════════════════════════════════════
+// AGENTE TELEFÓNICO — Twilio + Railway
+// ════════════════════════════════════════════════════════════════════
+let _phoneServerUrl = localStorage.getItem('phoneServerUrl') || '';
+
+function _initPhonePage() {
+  const inp = document.getElementById('phone-server-url');
+  if (inp && _phoneServerUrl) inp.value = _phoneServerUrl;
+  _updatePhoneWebhook();
+  _updatePhoneStatusBar();
+}
+
+function savePhoneConfig() {
+  const inp = document.getElementById('phone-server-url');
+  if (!inp) return;
+  let val = inp.value.trim();
+  // Validate: must be a URL not a phone number
+  if (val && !val.startsWith('http')) {
+    inp.style.borderColor = '#ef4444';
+    const hint = document.getElementById('phone-url-hint');
+    if (hint) hint.textContent = '⚠️ Debe ser una URL que empiece con https:// — no un número de teléfono';
+    if (hint) hint.style.color = '#ef4444';
+    return;
+  }
+  // Remove trailing slash
+  val = val.replace(/\/$/, '');
+  _phoneServerUrl = val;
+  localStorage.setItem('phoneServerUrl', val);
+  inp.style.borderColor = val ? '#10b981' : '';
+  _updatePhoneWebhook();
+  _updatePhoneStatusBar();
+}
+
+function _updatePhoneWebhook() {
+  const el = document.getElementById('phone-webhook-url');
+  if (!el) return;
+  el.textContent = _phoneServerUrl
+    ? `${_phoneServerUrl}/voice`
+    : 'Configura la URL del servidor primero';
+}
+
+function _updatePhoneStatusBar() {
+  const dot = document.getElementById('phone-status-dot');
+  const txt = document.getElementById('phone-status-text');
+  if (!dot || !txt) return;
+  if (!_phoneServerUrl) {
+    dot.style.background = '#e5e7eb';
+    txt.textContent = 'Configura la URL del servidor Railway para activar el agente';
+  } else {
+    dot.style.background = '#f97316';
+    txt.textContent = `Servidor configurado: ${_phoneServerUrl} — Presiona Verificar para comprobar conexión`;
+  }
+}
+
+async function checkPhoneServer() {
+  const url = _phoneServerUrl;
+  if (!url) {
+    showToast('⚠️ Ingresa primero la URL del servidor Railway');
+    return;
+  }
+  if (!url.startsWith('http')) {
+    showToast('⚠️ La URL debe empezar con https:// — ¿pusiste un número de teléfono?');
+    document.getElementById('phone-server-url').style.borderColor = '#ef4444';
+    return;
+  }
+  const dot = document.getElementById('phone-status-dot');
+  const txt = document.getElementById('phone-status-text');
+  if (dot) dot.style.background = '#f97316';
+  if (txt) txt.textContent = 'Verificando conexión...';
+  try {
+    const res = await fetch(url + '/health', { method: 'GET', signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      if (dot) dot.style.background = '#10b981';
+      if (txt) txt.textContent = '✅ Servidor activo — Agente Telefónico listo para recibir llamadas';
+      showToast('✅ Servidor Railway conectado');
+    } else {
+      throw new Error('HTTP ' + res.status);
+    }
+  } catch(e) {
+    if (dot) dot.style.background = '#ef4444';
+    if (txt) txt.textContent = `❌ No se pudo conectar: ${e.message} — verifica que Railway esté corriendo`;
+    showToast('❌ Error de conexión: ' + e.message);
+  }
+}
+
+async function makePhoneCall() {
+  const url = _phoneServerUrl;
+  const to = (document.getElementById('phone-to')?.value || '').trim();
+  const greeting = (document.getElementById('phone-greeting')?.value || '').trim();
+  if (!url) { showToast('⚠️ Configura la URL del servidor Railway primero'); return; }
+  if (!to) { showToast('⚠️ Ingresa el número de teléfono a marcar'); return; }
+  if (!to.startsWith('+')) { showToast('⚠️ El número debe incluir código de país: +52XXXXXXXXXX'); return; }
+  const biz = state.businesses?.[state.currentBiz];
+  const cerebroCtx = getCerebroContext();
+  try {
+    showToast('📞 Iniciando llamada...');
+    const res = await fetch(url + '/call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, greeting: greeting || `Hola, le llamo de parte de ${biz?.name || 'la empresa'}`, context: cerebroCtx.slice(0, 2000) })
+    });
+    const data = await res.json();
+    if (data.success || data.callSid) {
+      showToast(`✅ Llamada iniciada — SID: ${data.callSid || 'ok'}`);
+      _addCallLog({ to, direction: 'out', status: 'initiated', ts: Date.now() });
+    } else {
+      showToast('❌ Error: ' + (data.error || JSON.stringify(data)));
+    }
+  } catch(e) {
+    showToast('❌ Error al llamar: ' + e.message);
+  }
+}
+
+function copyWebhookUrl() {
+  const url = _phoneServerUrl ? `${_phoneServerUrl}/voice` : '';
+  if (!url) { showToast('⚠️ Configura la URL del servidor primero'); return; }
+  navigator.clipboard.writeText(url).then(() => showToast('✅ URL webhook copiada — pégala en Twilio → Phone Numbers'));
+}
+
+function _addCallLog(entry) {
+  const log = document.getElementById('phone-call-log');
+  if (!log) return;
+  const emptyMsg = log.querySelector('div[style*="text-align:center"]');
+  if (emptyMsg) emptyMsg.remove();
+  const d = new Date(entry.ts);
+  const el = document.createElement('div');
+  el.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f9fafb;border-radius:10px;font-size:12px;';
+  el.innerHTML = `
+    <span style="font-size:18px;">${entry.direction==='out'?'📤':'📲'}</span>
+    <div style="flex:1;">
+      <div style="font-weight:700;color:#1e293b;">${entry.to}</div>
+      <div style="color:#6b7280;">${entry.status} · ${d.toLocaleTimeString()}</div>
+    </div>
+    <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;">
+      ${entry.direction === 'out' ? 'Saliente' : 'Entrante'}
+    </span>`;
+  log.prepend(el);
+}
+// ════════════════════════════════════════════════════════════════════
+// FIN AGENTE TELEFÓNICO
+// ════════════════════════════════════════════════════════════════════
+
 // ─── MICRÓFONO / VOZ A TEXTO (universal) ───
 let _micRecognition = null;
 let _micActive = false;
@@ -4174,14 +4316,30 @@ let _reelPlaying = false;
 
 function openReelBuilder(preloadPhotos) {
   const bizId = state.currentBiz;
-  const photos = preloadPhotos || _cerebroCache
-    .filter(e => (!e.biz || e.biz === bizId) && e.link && (
-      /\.(jpg|jpeg|png|gif|webp|avif|bmp)(\?|$)/i.test(e.link) ||
-      /firebasestorage\.googleapis\.com/i.test(e.link) ||
-      e.link.startsWith('data:image/')))
+  let photos = preloadPhotos || _cerebroCache
+    .filter(e => {
+      if (e.biz && e.biz !== bizId) return false; // skip other biz
+      const lnk = e.link || '';
+      if (!lnk) return false;
+      if (e.type === 'foto') return true; // explicit foto type
+      return /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)(\?|$|&)/i.test(lnk)
+          || /firebasestorage\.googleapis\.com/i.test(lnk)
+          || /storage\.googleapis\.com/i.test(lnk)
+          || lnk.startsWith('data:image/');
+    })
     .map(e => ({ url: e.link, title: e.title || 'Foto' }));
 
-  if (!photos.length) { showToast('⚠️ No hay fotos en el Cerebro Vivo. Sube fotos primero.'); return; }
+  // Si no hay fotos, usar imágenes de demo para que el usuario vea cómo funciona
+  if (!photos.length) {
+    const bizName = (state.businesses?.[bizId]?.name || 'tu negocio');
+    photos = [
+      { url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80', title: 'Villa — Exterior (Demo)' },
+      { url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80', title: 'Área Común — Piscina (Demo)' },
+      { url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80', title: 'Interior Loft (Demo)' },
+    ];
+    // Show non-blocking toast instead of return
+    setTimeout(() => showToast(`ℹ️ Usando imágenes demo — sube tus fotos de ${bizName} en Cerebro Vivo → + Foto para usarlas aquí`), 500);
+  }
 
   _reelSlides = photos.slice(0, 15).map((p, i) => ({
     url: typeof p === 'string' ? p : p.url,
