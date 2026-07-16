@@ -875,6 +875,14 @@
           </div>
           <!-- Messages -->
           <div id="agent-modal-messages" style="flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:10px;"></div>
+          <!-- Photo selector bar (collapsed by default) -->
+          <div id="agent-photo-bar" style="display:none;border-top:1px solid #e5e7eb;background:#f9fafb;">
+            <div onclick="_toggleAgentPhotoBar()" style="padding:8px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;">
+              <span id="agent-photo-bar-label" style="font-size:11px;font-weight:700;color:#6366f1;">📸 Fotos del Cerebro — clic para seleccionar las que usará el agente</span>
+              <span id="agent-photo-bar-arrow" style="font-size:10px;color:#9ca3af;">▼ Ver fotos</span>
+            </div>
+            <div id="agent-photo-grid" style="display:none;padding:8px 14px 12px;display:flex;flex-wrap:wrap;gap:8px;max-height:160px;overflow-y:auto;"></div>
+          </div>
           <!-- Input -->
           <div style="padding:12px 18px;border-top:1px solid #e5e7eb;display:flex;gap:8px;align-items:flex-end;">
             <button id="agent-mic-btn" class="chat-mic" onclick="toggleAgentMic()" title="Grabar voz"
@@ -3913,6 +3921,9 @@ function openAgentChat(agentId) {
   document.getElementById('agent-chat-modal').style.display = 'flex';
   document.getElementById('agent-modal-input').focus();
   document.getElementById('agent-modal-input').value = '';
+  // Build photo selector bar
+  _agentPhotoBarOpen = false;
+  _buildAgentPhotoBar();
   _agentHistory.push({ role:'assistant', content: fullGreeting });
   // Warn proactively if no API key (check after small delay to allow async load to finish)
   setTimeout(() => {
@@ -3925,6 +3936,83 @@ function openAgentChat(agentId) {
     }
   }, 800);
 }
+
+// ── PHOTO SELECTOR for agent modal ─────────────────────────────────
+let _agentSelectedPhotos = []; // {url, title} of user-chosen photos
+
+function _buildAgentPhotoBar() {
+  const bizId = state.currentBiz;
+  const photos = _cerebroCache.filter(e => {
+    if (e.biz && e.biz !== bizId) return false;
+    const lnk = e.link || '';
+    return /\.(jpg|jpeg|png|gif|webp|avif|bmp)(\?|$)/i.test(lnk)
+        || /firebasestorage\.googleapis\.com/i.test(lnk)
+        || lnk.startsWith('data:image/');
+  });
+  const bar = document.getElementById('agent-photo-bar');
+  const grid = document.getElementById('agent-photo-grid');
+  if (!bar || !grid) return;
+  if (photos.length === 0) { bar.style.display = 'none'; return; }
+  bar.style.display = 'block';
+  // Default: ALL selected
+  _agentSelectedPhotos = photos.map(e => ({ url: e.link, title: e.title || 'Foto' }));
+  grid.innerHTML = '';
+  photos.forEach((e, i) => {
+    const url = e.link;
+    const title = e.title || 'Foto ' + (i+1);
+    const thumb = document.createElement('div');
+    thumb.dataset.url = url;
+    thumb.dataset.title = title;
+    thumb.dataset.selected = 'true';
+    thumb.title = title;
+    thumb.style.cssText = 'position:relative;width:70px;height:70px;border-radius:8px;overflow:hidden;cursor:pointer;border:3px solid #6366f1;box-shadow:0 0 0 2px #e0e7ff;flex-shrink:0;transition:all .15s;';
+    thumb.innerHTML = `
+      <img src="${url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'">
+      <div class="_photo-check" style="position:absolute;top:3px;right:3px;background:#6366f1;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:900;">✓</div>
+      <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#fff;font-size:8px;padding:2px 3px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${title}</div>`;
+    thumb.onclick = () => _togglePhotoSelection(thumb, url, title);
+    grid.appendChild(thumb);
+  });
+  _updatePhotoBarLabel();
+}
+
+function _togglePhotoSelection(el, url, title) {
+  const isSelected = el.dataset.selected === 'true';
+  if (isSelected) {
+    el.dataset.selected = 'false';
+    el.style.borderColor = '#d1d5db';
+    el.style.boxShadow = 'none';
+    el.style.opacity = '0.45';
+    el.querySelector('._photo-check').style.display = 'none';
+    _agentSelectedPhotos = _agentSelectedPhotos.filter(p => p.url !== url);
+  } else {
+    el.dataset.selected = 'true';
+    el.style.borderColor = '#6366f1';
+    el.style.boxShadow = '0 0 0 2px #e0e7ff';
+    el.style.opacity = '1';
+    el.querySelector('._photo-check').style.display = 'flex';
+    _agentSelectedPhotos.push({ url, title });
+  }
+  _updatePhotoBarLabel();
+}
+
+function _updatePhotoBarLabel() {
+  const n = _agentSelectedPhotos.length;
+  const lbl = document.getElementById('agent-photo-bar-label');
+  if (lbl) lbl.textContent = n > 0
+    ? `📸 ${n} foto${n!==1?'s':''} seleccionada${n!==1?'s':''} — el agente las verá y usará`
+    : `📸 Sin fotos seleccionadas — el agente no tendrá referencia visual`;
+}
+
+let _agentPhotoBarOpen = false;
+function _toggleAgentPhotoBar() {
+  _agentPhotoBarOpen = !_agentPhotoBarOpen;
+  const grid = document.getElementById('agent-photo-grid');
+  const arrow = document.getElementById('agent-photo-bar-arrow');
+  if (grid) grid.style.display = _agentPhotoBarOpen ? 'flex' : 'none';
+  if (arrow) arrow.textContent = _agentPhotoBarOpen ? '▲ Ocultar' : '▼ Ver fotos';
+}
+// ── END PHOTO SELECTOR ──────────────────────────────────────────────
 
 function _addAgentMsg(text, sender, emoji) {
   const msgs = document.getElementById('agent-modal-messages');
@@ -3969,8 +4057,10 @@ async function sendAgentMessage() {
   const bizName = state.businesses?.[state.currentBiz]?.name || 'el negocio';
   // Use getCerebroContext() — clean knowledge block, no persona conflict
   const systemPrompt = _activeAgent.system(bizName) + '\n\n' + getCerebroContext();
-  // Collect Cerebro images so Claude can actually SEE them (multimodal)
-  const cerebroImgs = _getCerebroImages(8);
+  // Use user-selected photos (from the photo bar), fallback to all cerebro images
+  const cerebroImgs = _agentSelectedPhotos.length > 0
+    ? _agentSelectedPhotos.map(p => p.url).slice(0, 8)
+    : _getCerebroImages(8);
   try {
     const reply = await callClaude([..._agentHistory], systemPrompt, cerebroImgs);
     typing.remove();
