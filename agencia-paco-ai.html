@@ -792,9 +792,11 @@
             <div class="chat-attachments">
               <button class="attach-btn">📎 Archivo</button>
               <button class="attach-btn">🖼️ Foto</button>
+              <input type="file" id="chat-foto-input" accept="image/*,video/*" multiple style="display:none" onchange="uploadChatFotos(event)">
+              <button class="attach-btn" onclick="document.getElementById('chat-foto-input').click()" title="Subir foto al Cerebro Vivo y usarla en el Reel">📷 Foto</button>
               <button class="attach-btn" onclick="openReelBuilder()" title="Crear reel/video con fotos del Cerebro">🎬 Reel Builder</button>
-              <button class="attach-btn">🔗 Link</button>
-              <button class="attach-btn">💡 Idea rápida</button>
+              <button class="attach-btn" onclick="_chatAddLink()" title="Agregar link">🔗 Link</button>
+              <button class="attach-btn" onclick="_chatAddIdea()" title="Guardar idea rápida">💡 Idea rápida</button>
             </div>
             <div class="chat-input-area">
               <textarea class="chat-input" id="chat-input" rows="1" placeholder="Escribe o graba tu instrucción..." onkeydown="handleChatKey(event)"></textarea>
@@ -4299,6 +4301,110 @@ function _toggleAgentPhotoBar() {
 // ── END PHOTO SELECTOR ──────────────────────────────────────────────
 
 // ════════════════════════════════════════════════════════════════════
+// SUBIDA DE FOTOS DESDE EL CHAT → Cerebro Vivo
+// ════════════════════════════════════════════════════════════════════
+async function uploadChatFotos(event) {
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
+  if (!currentUser) { showToast('⚠️ Inicia sesión para subir fotos'); return; }
+
+  const biz = state.businesses?.[state.currentBiz];
+  const totalMsg = files.length > 1 ? `${files.length} fotos` : `"${files[0].name}"`;
+  showToast(`📤 Subiendo ${totalMsg} al Cerebro Vivo...`);
+
+  const uploadedPhotos = [];
+
+  for (const file of files) {
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    if (!isImage && !isVideo) { showToast(`⚠️ ${file.name} no es imagen ni video`); continue; }
+
+    try {
+      let finalLink = null;
+
+      // Try Firebase Storage first
+      if (fbStorage) {
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `cerebro/${state.currentBiz}/${Date.now()}_${file.name.replace(/\s+/g,'_')}`;
+        const ref = fbStorage.ref(path);
+        const snap = await ref.put(file);
+        finalLink = await snap.ref.getDownloadURL();
+      } else {
+        // Fallback: base64 (only for images < 800KB)
+        if (isImage && file.size < 800000) {
+          finalLink = await new Promise((res, rej) => {
+            const rd = new FileReader();
+            rd.onload = () => res(rd.result);
+            rd.onerror = rej;
+            rd.readAsDataURL(file);
+          });
+        } else {
+          showToast(`⚠️ ${file.name}: Firebase Storage no disponible y archivo muy grande para base64`);
+          continue;
+        }
+      }
+
+      // Save to Cerebro Vivo
+      const title = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+      const doc = {
+        title,
+        content: `Foto subida desde chat — ${biz?.name || 'negocio'}`,
+        link: finalLink,
+        type: isVideo ? 'video' : 'foto',
+        confidence: 'alta',
+        biz: state.currentBiz,
+        bizName: biz?.name || '',
+        uploadedBy: currentUser?.email || 'admin'
+      };
+      await fbSave('cerebro', doc);
+      uploadedPhotos.push({ url: finalLink, title });
+      showToast(`✅ "${title}" guardada en Cerebro Vivo`);
+
+    } catch(e) {
+      console.warn('uploadChatFotos error:', e);
+      showToast(`❌ Error subiendo ${file.name}: ${e.message}`);
+    }
+  }
+
+  // Reset input so same file can be uploaded again
+  event.target.value = '';
+
+  // After uploading, refresh Cerebro listener and offer Reel Builder
+  if (uploadedPhotos.length > 0) {
+    setTimeout(() => {
+      if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz);
+    }, 600);
+
+    // Add AI message confirming and offering reel
+    const names = uploadedPhotos.map(p => `"${p.title}"`).join(', ');
+    const reply = `✅ ${uploadedPhotos.length > 1 ? uploadedPhotos.length + ' fotos guardadas' : 'Foto guardada'} en el Cerebro Vivo: ${names}.\n\n📱 ¿Quieres hacer un reel con ${uploadedPhotos.length > 1 ? 'estas fotos' : 'esta foto'}? Dale al botón 🎬 Reel Builder.`;
+    addAIMsg(reply);
+    _chatHistory.push({ role: 'assistant', content: reply });
+    saveChatHistory();
+
+    // Auto-load into Reel Builder
+    setTimeout(() => openReelBuilder(uploadedPhotos), 1200);
+  }
+}
+
+function _chatAddLink() {
+  const url = prompt('Pega el link que quieres agregar al Cerebro Vivo:');
+  if (!url || !url.startsWith('http')) return;
+  document.getElementById('chat-input').value = `Agrega este link al Cerebro: ${url}`;
+  document.getElementById('chat-input').focus();
+}
+
+function _chatAddIdea() {
+  const idea = prompt('¿Cuál es tu idea rápida?');
+  if (!idea) return;
+  document.getElementById('chat-input').value = `Idea rápida: ${idea}`;
+  document.getElementById('chat-input').focus();
+}
+// ════════════════════════════════════════════════════════════════════
+// FIN SUBIDA DE FOTOS DESDE CHAT
+// ════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════
 // REEL BUILDER — crea videos/reels desde las fotos del Cerebro Vivo
 // ════════════════════════════════════════════════════════════════════
 const _REEL_FILTERS = {
@@ -4314,34 +4420,63 @@ let _reelCurrent = 0;
 let _reelTimer = null;
 let _reelPlaying = false;
 
+let _reelUsingDemo = false;
+
 function openReelBuilder(preloadPhotos) {
   const bizId = state.currentBiz;
-  let photos = preloadPhotos || _cerebroCache
+  const bizName = state.businesses?.[bizId]?.name || 'tu negocio';
+
+  const _extractCerebroPhotos = () => _cerebroCache
     .filter(e => {
-      if (e.biz && e.biz !== bizId) return false; // skip other biz
+      if (e.biz && e.biz !== bizId) return false;
       const lnk = e.link || '';
       if (!lnk) return false;
-      if (e.type === 'foto') return true; // explicit foto type
-      return /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)(\?|$|&)/i.test(lnk)
+      if (e.type === 'foto' || e.type === 'video') return true;
+      return /\.(jpg|jpeg|png|gif|webp|avif|bmp)(\?|$|&)/i.test(lnk)
           || /firebasestorage\.googleapis\.com/i.test(lnk)
           || /storage\.googleapis\.com/i.test(lnk)
           || lnk.startsWith('data:image/');
     })
     .map(e => ({ url: e.link, title: e.title || 'Foto' }));
 
-  // Si no hay fotos, usar imágenes de demo para que el usuario vea cómo funciona
-  if (!photos.length) {
-    const bizName = (state.businesses?.[bizId]?.name || 'tu negocio');
-    photos = [
-      { url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80', title: 'Villa — Exterior (Demo)' },
-      { url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80', title: 'Área Común — Piscina (Demo)' },
-      { url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80', title: 'Interior Loft (Demo)' },
-    ];
-    // Show non-blocking toast instead of return
-    setTimeout(() => showToast(`ℹ️ Usando imágenes demo — sube tus fotos de ${bizName} en Cerebro Vivo → + Foto para usarlas aquí`), 500);
+  let photos = preloadPhotos || _extractCerebroPhotos();
+  _reelUsingDemo = false;
+
+  // Si no hay fotos pero el usuario está logueado: esperar 1.5s por si Firebase está cargando
+  if (!photos.length && currentUser) {
+    showToast('⏳ Cargando fotos del Cerebro Vivo...');
+    setTimeout(() => {
+      const delayed = _extractCerebroPhotos();
+      if (delayed.length) {
+        openReelBuilder(delayed);
+      } else {
+        // Truly no photos — open with demo + clear banner
+        _openReelBuilderWithPhotos([], bizName);
+      }
+    }, 1500);
+    return;
   }
 
-  _reelSlides = photos.slice(0, 15).map((p, i) => ({
+  if (!photos.length) {
+    // Not logged in or no photos at all
+    _openReelBuilderWithPhotos([], bizName);
+    return;
+  }
+
+  _openReelBuilderWithPhotos(photos, bizName);
+}
+
+function _openReelBuilderWithPhotos(photos, bizName) {
+  const DEMO_PHOTOS = [
+    { url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80', title: '📌 DEMO — Reemplaza con tus fotos reales' },
+    { url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80', title: '📌 DEMO — Sube fotos en Cerebro Vivo' },
+    { url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80', title: '📌 DEMO — o usa el botón 📷 Foto arriba' },
+  ];
+
+  _reelUsingDemo = !photos.length;
+  const finalPhotos = photos.length ? photos : DEMO_PHOTOS;
+
+  _reelSlides = finalPhotos.slice(0, 15).map((p, i) => ({
     url: typeof p === 'string' ? p : p.url,
     title: typeof p === 'string' ? 'Foto '+(i+1) : (p.title || 'Foto '+(i+1)),
     text: '', subtext: '', filter: 'Original', duration: 3
@@ -4352,7 +4487,20 @@ function openReelBuilder(preloadPhotos) {
 
   // Build modal if not exists
   if (!document.getElementById('reel-builder-modal')) _buildReelBuilderModal();
-  document.getElementById('reel-builder-modal').style.display = 'flex';
+  const modal = document.getElementById('reel-builder-modal');
+  modal.style.display = 'flex';
+
+  // Show/hide demo warning banner
+  setTimeout(() => {
+    const banner = document.getElementById('reel-demo-banner');
+    if (banner) banner.style.display = _reelUsingDemo ? 'flex' : 'none';
+    // Update header subtitle
+    const sub = document.getElementById('reel-header-sub');
+    if (sub) sub.textContent = _reelUsingDemo
+      ? '⚠️ Usando fotos demo — sube tus fotos reales con el botón 📷 Foto en el chat'
+      : `✅ ${finalPhotos.length} foto${finalPhotos.length!==1?'s':''} reales de tu Cerebro Vivo — arrastra, edita y exporta`;
+  }, 50);
+
   _renderReelTimeline();
   _selectReelSlide(0);
 }
@@ -4367,9 +4515,16 @@ function _buildReelBuilderModal() {
     <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;">
       <div>
         <div style="font-size:18px;font-weight:800;letter-spacing:-0.3px;">🎬 Reel Builder</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;">Crea tu reel con las fotos del Cerebro Vivo — arrastra, edita y exporta</div>
+        <div id="reel-header-sub" style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;">Crea tu reel con las fotos del Cerebro Vivo — arrastra, edita y exporta</div>
       </div>
       <button onclick="closeReelBuilder()" style="background:rgba(255,255,255,0.1);color:#fff;border:none;border-radius:10px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:13px;">✕ Cerrar</button>
+    </div>
+
+    <!-- Demo warning banner -->
+    <div id="reel-demo-banner" style="display:none;background:#f97316;color:#fff;padding:10px 20px;font-size:12px;font-weight:700;align-items:center;gap:10px;">
+      <span>⚠️ MODO DEMO — estas fotos NO son tuyas</span>
+      <span style="font-weight:400;opacity:0.85;">Sube tus fotos reales con el botón <strong>📷 Foto</strong> en el chat, o en Cerebro Vivo → + Foto</span>
+      <button onclick="closeReelBuilder();document.getElementById('chat-foto-input')?.click();" style="margin-left:auto;background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">📷 Subir mis fotos ahora</button>
     </div>
 
     <!-- Timeline strip -->
