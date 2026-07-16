@@ -2707,11 +2707,61 @@ async function loadGlobalApiKey() {
   } catch(e) { /* silent — use whatever is in localStorage */ }
 }
 
-async function callClaude(messages, systemPrompt) {
+// Helper: collect viewable image URLs from Cerebro for the current biz
+function _getCerebroImages(limit = 8) {
+  const bizId = state.currentBiz;
+  return _cerebroCache
+    .filter(e => !e.biz || e.biz === bizId)
+    .filter(e => {
+      const lnk = e.link || '';
+      if (!lnk) return false;
+      // Skip large base64 (>400KB) to keep payload manageable
+      if (lnk.startsWith('data:image/') && lnk.length > 400000) return false;
+      return /\.(jpg|jpeg|png|gif|webp|avif|bmp)(\?|$)/i.test(lnk)
+          || /firebasestorage\.googleapis\.com/i.test(lnk)
+          || lnk.startsWith('data:image/');
+    })
+    .map(e => e.link)
+    .slice(0, limit);
+}
+
+async function callClaude(messages, systemPrompt, cerebroImageUrls = []) {
   if (!claudeApiKey) {
     return '⚠️ Para activar la inteligencia real, agrega tu API Key de Claude en **Configuración → IA y Agentes**.';
   }
   try {
+    // Build final messages — text-safe copy
+    let apiMessages = messages.map(m => ({ role: m.role, content: m.content }));
+
+    // If there are cerebro images, prepend a visual-context exchange so Claude SEES them
+    if (cerebroImageUrls.length > 0) {
+      const imageBlocks = cerebroImageUrls.map(url => {
+        if (url.startsWith('data:image/')) {
+          const sep = url.indexOf(',');
+          const header = url.substring(0, sep);
+          const data = url.substring(sep + 1);
+          const media = header.match(/data:(image\/\w+)/)?.[1] || 'image/jpeg';
+          return { type: 'image', source: { type: 'base64', media_type: media, data } };
+        }
+        return { type: 'image', source: { type: 'url', url } };
+      });
+      // Inject: user shows images → assistant acknowledges → then real conversation
+      apiMessages = [
+        {
+          role: 'user',
+          content: [
+            ...imageBlocks,
+            { type: 'text', text: `Estas son las ${cerebroImageUrls.length} foto${cerebroImageUrls.length!==1?'s':''} del Cerebro Vivo del negocio. Tenlas presentes, puedes verlas y analizarlas en nuestra conversación.` }
+          ]
+        },
+        {
+          role: 'assistant',
+          content: `Perfecto — ya puedo ver las ${cerebroImageUrls.length} foto${cerebroImageUrls.length!==1?'s':''} del Cerebro Vivo. Las tengo disponibles para analizar, describir y usar como referencia visual durante nuestra sesión.`
+        },
+        ...apiMessages
+      ];
+    }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -2722,9 +2772,9 @@ async function callClaude(messages, systemPrompt) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        max_tokens: 1500,
         system: systemPrompt,
-        messages: messages
+        messages: apiMessages
       })
     });
     if (!res.ok) {
@@ -2957,7 +3007,8 @@ function sendChat() {
   saveChatHistory(); // Save immediately so user's message is never lost
   const typing = addTyping();
   if (claudeApiKey) {
-    callClaude([..._chatHistory.map(m => ({role:m.role, content:m.content}))], getBizContext(false)).then(response => {
+    const chatImgs = _getCerebroImages(6);
+    callClaude([..._chatHistory.map(m => ({role:m.role, content:m.content}))], getBizContext(false), chatImgs).then(response => {
       typing.remove();
       addAIMsg(response);
       _chatHistory.push({ role: 'assistant', content: response });
@@ -3912,8 +3963,10 @@ async function sendAgentMessage() {
   const bizName = state.businesses?.[state.currentBiz]?.name || 'el negocio';
   // Use getCerebroContext() — clean knowledge block, no persona conflict
   const systemPrompt = _activeAgent.system(bizName) + '\n\n' + getCerebroContext();
+  // Collect Cerebro images so Claude can actually SEE them (multimodal)
+  const cerebroImgs = _getCerebroImages(8);
   try {
-    const reply = await callClaude([..._agentHistory], systemPrompt);
+    const reply = await callClaude([..._agentHistory], systemPrompt, cerebroImgs);
     typing.remove();
     _addAgentMsg(reply, 'agent', _activeAgent.emoji);
     _agentHistory.push({ role:'assistant', content: reply });
