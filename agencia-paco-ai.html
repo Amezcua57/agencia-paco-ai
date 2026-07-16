@@ -2746,17 +2746,18 @@ async function callClaude(messages, systemPrompt, cerebroImageUrls = []) {
         return { type: 'image', source: { type: 'url', url } };
       });
       // Inject: user shows images → assistant acknowledges → then real conversation
+      const n = cerebroImageUrls.length;
       apiMessages = [
         {
           role: 'user',
           content: [
             ...imageBlocks,
-            { type: 'text', text: `Estas son las ${cerebroImageUrls.length} foto${cerebroImageUrls.length!==1?'s':''} del Cerebro Vivo del negocio. Tenlas presentes, puedes verlas y analizarlas en nuestra conversación.` }
+            { type: 'text', text: `Aquí están las ${n} FOTO${n!==1?'S':''} REALES del negocio, ya subidas al Cerebro Vivo. REGLA: en cualquier plan de contenido, video o anuncio DEBES usar estas fotos específicas — menciónalas. NUNCA digas "si existe", "si hay foto" o "busca en banco de imágenes". Estas son las únicas fotos disponibles del negocio y con ellas debes trabajar.` }
           ]
         },
         {
           role: 'assistant',
-          content: `Perfecto — ya puedo ver las ${cerebroImageUrls.length} foto${cerebroImageUrls.length!==1?'s':''} del Cerebro Vivo. Las tengo disponibles para analizar, describir y usar como referencia visual durante nuestra sesión.`
+          content: `Perfecto — ya veo las ${n} foto${n!==1?'s':''} reales del Cerebro Vivo. Las usaré de forma específica en mis planes. No pediré fotos adicionales ni usaré frases como "si existe" — estas son las fotos con las que trabajo.`
         },
         ...apiMessages
       ];
@@ -2820,10 +2821,15 @@ function getCerebroContext() {
       });
     }
     if (fotos.length) {
-      lines.push('\n🖼️ BANCO DE FOTOS / REFERENCIAS VISUALES:');
-      fotos.forEach(e => {
-        lines.push(`• ${e.title||'Foto'}${e.link ? ' → ' + e.link : ''}${e.content ? ' | '+e.content.slice(0,200) : ''}`);
+      lines.push(`\n🖼️ FOTOS REALES DEL NEGOCIO — YA SUBIDAS AL SISTEMA (${fotos.length} fotos):`);
+      lines.push('⛔ REGLA ABSOLUTA: NUNCA digas "si existe", "si hay", "si tienen foto" o "busca en banco".');
+      lines.push('⛔ NUNCA pidas más fotos al usuario — ESTAS son las disponibles, úsalas ESPECÍFICAMENTE.');
+      lines.push('✅ En cualquier plan visual, video o anuncio: cita cada foto por su NOMBRE EXACTO de esta lista.');
+      fotos.forEach((e, i) => {
+        const desc = e.content ? ` — ${e.content.slice(0, 150)}` : '';
+        lines.push(`  📸 FOTO ${i+1}: "${e.title || 'Sin título'}"${desc}`);
       });
+      lines.push('↑ ESTAS son tus fotos. Trabaja con ellas. Menciónalas por nombre en tus planes.');
     }
     if (likes.length) {
       lines.push('\n✅ ESTILO APROBADO POR PACO (replicar):');
