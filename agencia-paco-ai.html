@@ -2199,8 +2199,8 @@ function listenCerebro(bizId) {
       const list = document.getElementById('cerebro-items-list');
       if (!list) return;
       const countEl = document.getElementById('cerebro-count');
-      // Non-admin users only see their own uploads
-      const filteredDocs = isAdmin ? snap.docs : snap.docs.filter(d => d.data().uploadedBy === currentUser?.email);
+      // Show all docs for this biz (query already filters by biz for non-admin)
+      const filteredDocs = snap.docs;
       if (filteredDocs.length === 0) {
         if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">Sin entradas aún</span>';
         list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#9ca3af;">
@@ -2245,8 +2245,8 @@ function listenCerebroAll() {
   if (countEl) countEl.innerHTML = '<span style="color:#9ca3af;">⏳ Cargando todo...</span>';
   _cerebroListener = db.collection('cerebro').orderBy('ts','desc').limit(500)
     .onSnapshot(snap => {
-      // Non-admin users only see their own uploads
-      const filteredDocs = isAdmin ? snap.docs : snap.docs.filter(d => d.data().uploadedBy === currentUser?.email);
+      // Admin sees everything; non-admin sees their biz only (already filtered by query)
+      const filteredDocs = snap.docs;
       if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${filteredDocs.length} entradas (todas)</span>`;
       if (filteredDocs.length === 0) { list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:12px;"><div style="font-size:28px;margin-bottom:8px;">🧠</div>Cerebro vacío — agrega tu primera entrada</div>'; return; }
       // Cache cerebro data for AI context
