@@ -9,20 +9,26 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
   :root {
-    --primary: #0f3460;
-    --primary-dark: #0a2540;
-    --primary-light: #dbeafe;
+    --primary: #1d4ed8;
+    --primary-dark: #1e40af;
+    --primary-light: #eff6ff;
     --accent: #f97316;
     --accent-dark: #ea6c10;
-    --text: #0d1b2a;
-    --text-soft: #4b6480;
-    --bg: #f0f4f8;
+    --text: #1e293b;
+    --text-soft: #64748b;
+    --bg: #f1f5f9;
     --white: #ffffff;
-    --border: #d1dce8;
-    --green: #10b981;
-    --yellow: #f59e0b;
-    --red: #ef4444;
-    --sidebar-w: 220px;
+    --border: #e2e8f0;
+    --green: #16a34a;
+    --yellow: #d97706;
+    --red: #dc2626;
+    --purple: #7c3aed;
+    --sidebar-w: 224px;
+    /* Metric tile palettes */
+    --tile-blue-bg: #eff6ff;   --tile-blue-val: #1d4ed8;
+    --tile-green-bg: #f0fdf4;  --tile-green-val: #15803d;
+    --tile-orange-bg: #fff7ed; --tile-orange-val: #c2410c;
+    --tile-purple-bg: #faf5ff; --tile-purple-val: #6d28d9;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
@@ -45,38 +51,40 @@
   /* ─── APP SHELL ─── */
   #app { display: none; height: 100vh; overflow: hidden; }
 
-  /* ─── SIDEBAR ─── */
+  /* ─── SIDEBAR — light & clean ─── */
   .sidebar {
     position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
-    background: linear-gradient(180deg, #0a1929 0%, #0f2744 100%); color: white; display: flex; flex-direction: column;
-    z-index: 100; overflow: hidden; border-right: 1px solid rgba(255,255,255,0.05);
+    background: #ffffff; color: var(--text); display: flex; flex-direction: column;
+    z-index: 100; overflow: hidden; border-right: 1px solid var(--border);
+    box-shadow: 1px 0 8px rgba(0,0,0,0.04);
   }
-  .sidebar-logo { padding: 20px 16px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .sidebar-logo .logo-text { font-size: 15px; font-weight: 800; color: white; letter-spacing: -0.3px; }
-  .sidebar-logo .logo-sub { font-size: 10px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+  .sidebar-logo { padding: 18px 16px 14px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo .logo-text { font-size: 14px; font-weight: 800; color: var(--primary); letter-spacing: -0.3px; }
+  .sidebar-logo .logo-sub { font-size: 9.5px; color: var(--text-soft); margin-top: 2px; }
 
   /* Business switcher */
-  .biz-switcher { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .biz-switcher { padding: 10px; border-bottom: 1px solid var(--border); }
   .biz-current {
-    background: rgba(255,255,255,0.08); border-radius: 8px; padding: 9px 12px;
+    background: var(--primary-light); border-radius: 8px; padding: 8px 10px;
     cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s;
+    border: 1px solid #bfdbfe;
   }
-  .biz-current:hover { background: rgba(255,255,255,0.14); }
-  .biz-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
-  .biz-name { font-size: 12px; font-weight: 700; flex: 1; }
-  .biz-chevron { font-size: 10px; opacity: 0.5; }
+  .biz-current:hover { background: #dbeafe; }
+  .biz-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; background: var(--primary); color: white; }
+  .biz-name { font-size: 11.5px; font-weight: 700; flex: 1; color: var(--primary); }
+  .biz-chevron { font-size: 10px; color: var(--text-soft); }
 
   /* Nav */
-  .sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
-  .nav-section { padding: 12px 16px 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.3); }
+  .sidebar-nav { flex: 1; overflow-y: auto; padding: 6px 8px; }
+  .nav-section { padding: 14px 8px 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-soft); }
   .nav-item {
-    display: flex; align-items: center; gap: 10px; padding: 9px 16px;
-    cursor: pointer; border-radius: 0; color: rgba(255,255,255,0.65); font-size: 13px;
-    transition: all 0.12s; border-left: 3px solid transparent; margin: 1px 0;
+    display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+    cursor: pointer; border-radius: 8px; color: var(--text-soft); font-size: 12.5px;
+    transition: all 0.12s; margin: 1px 0;
   }
-  .nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
-  .nav-item.active { background: rgba(249,115,22,0.18); color: white; border-left-color: var(--accent); font-weight: 600; }
-  .nav-item .nav-icon { width: 18px; text-align: center; font-size: 16px; line-height: 1; flex-shrink: 0; }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+  .nav-item .nav-icon { width: 18px; text-align: center; font-size: 15px; line-height: 1; flex-shrink: 0; }
   .nav-badge { margin-left: auto; background: var(--red); color: white; border-radius: 10px; padding: 1px 7px; font-size: 10px; font-weight: 700; }
   .nav-badge.green { background: var(--green); }
 
@@ -101,12 +109,32 @@
   .page.active { display: block; }
 
   /* ─── DASHBOARD ─── */
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
-  .stat-card { background: white; border-radius: 10px; padding: 16px; border: 1px solid var(--border); }
-  .stat-card .stat-label { font-size: 11px; color: var(--text-soft); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
-  .stat-card .stat-num { font-size: 28px; font-weight: 800; color: var(--text); }
-  .stat-card .stat-sub { font-size: 11px; color: var(--green); margin-top: 4px; font-weight: 600; }
-  .stat-card .stat-icon { font-size: 22px; margin-bottom: 8px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  /* Metric tiles — financial dashboard style */
+  .stat-card {
+    border-radius: 12px; padding: 16px 18px; border: 1px solid transparent;
+    transition: box-shadow 0.15s;
+  }
+  .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .stat-card.tile-blue  { background: var(--tile-blue-bg);   border-color: #bfdbfe; }
+  .stat-card.tile-green { background: var(--tile-green-bg);  border-color: #bbf7d0; }
+  .stat-card.tile-orange{ background: var(--tile-orange-bg); border-color: #fed7aa; }
+  .stat-card.tile-purple{ background: var(--tile-purple-bg); border-color: #ddd6fe; }
+  .stat-card .stat-label {
+    font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+  .stat-card.tile-blue  .stat-label { color: #3b82f6; }
+  .stat-card.tile-green .stat-label { color: #22c55e; }
+  .stat-card.tile-orange .stat-label { color: var(--accent); }
+  .stat-card.tile-purple .stat-label { color: #a855f7; }
+  .stat-card .stat-num  { font-size: 26px; font-weight: 800; }
+  .stat-card.tile-blue   .stat-num { color: var(--tile-blue-val); }
+  .stat-card.tile-green  .stat-num { color: var(--tile-green-val); }
+  .stat-card.tile-orange .stat-num { color: var(--tile-orange-val); }
+  .stat-card.tile-purple .stat-num { color: var(--tile-purple-val); }
+  .stat-card .stat-sub  { font-size: 11px; color: var(--text-soft); margin-top: 4px; font-weight: 500; }
+  .stat-card .stat-icon { font-size: 20px; margin-bottom: 8px; }
 
   .dash-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
   .card { background: white; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
@@ -3110,14 +3138,21 @@ function addAIMsg(text, silent) {
   const formatted = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
   const msgId = 'msg-' + Date.now() + Math.random().toString(36).slice(2,6);
   const encoded = encodeURIComponent(text.slice(0, 200));
+  // Detect reel/video intent → show preview button
+  const hasReelIntent = /reel|video|storyboard|escena|diapositiva|slideshow/i.test(text);
+  const reelBtn = hasReelIntent ? `
+    <button onclick="openReelBuilder()" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      📱 Ver Preview del Reel
+    </button>` : '';
   msgs.innerHTML += `<div class="msg ai" id="${msgId}">
     <div class="msg-avatar ai">🤖</div>
     <div style="flex:1;">
       <div class="msg-bubble">${formatted}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
         <div class="msg-time">Secretaria General AI</div>
         <button class="feedback-btn" onclick="feedbackMsg('${msgId}','like','${encoded}')" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:#6b7280;" title="Me gusta, guárdalo">👍</button>
         <button class="feedback-btn" onclick="feedbackMsg('${msgId}','dislike','${encoded}')" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:1px 7px;font-size:11px;cursor:pointer;color:#6b7280;" title="No me gusta">👎</button>
+        ${reelBtn}
       </div>
     </div>
   </div>`;
@@ -4066,6 +4101,308 @@ function _toggleAgentPhotoBar() {
   if (arrow) arrow.textContent = _agentPhotoBarOpen ? '▲ Ocultar' : '▼ Ver fotos';
 }
 // ── END PHOTO SELECTOR ──────────────────────────────────────────────
+
+// ════════════════════════════════════════════════════════════════════
+// REEL BUILDER — crea videos/reels desde las fotos del Cerebro Vivo
+// ════════════════════════════════════════════════════════════════════
+const _REEL_FILTERS = {
+  'Original': '',
+  'Cálido':   'brightness(1.08) saturate(1.35) sepia(0.12)',
+  'Dramático':'contrast(1.3) brightness(0.95) saturate(1.2)',
+  'Cool':     'brightness(1.05) saturate(0.85) hue-rotate(12deg)',
+  'Vintage':  'sepia(0.45) brightness(0.88) contrast(1.1)',
+  'Vivid':    'saturate(1.7) brightness(1.04) contrast(1.08)',
+};
+let _reelSlides = [];
+let _reelCurrent = 0;
+let _reelTimer = null;
+let _reelPlaying = false;
+
+function openReelBuilder(preloadPhotos) {
+  const bizId = state.currentBiz;
+  const photos = preloadPhotos || _cerebroCache
+    .filter(e => (!e.biz || e.biz === bizId) && e.link && (
+      /\.(jpg|jpeg|png|gif|webp|avif|bmp)(\?|$)/i.test(e.link) ||
+      /firebasestorage\.googleapis\.com/i.test(e.link) ||
+      e.link.startsWith('data:image/')))
+    .map(e => ({ url: e.link, title: e.title || 'Foto' }));
+
+  if (!photos.length) { showToast('⚠️ No hay fotos en el Cerebro Vivo. Sube fotos primero.'); return; }
+
+  _reelSlides = photos.slice(0, 15).map((p, i) => ({
+    url: typeof p === 'string' ? p : p.url,
+    title: typeof p === 'string' ? 'Foto '+(i+1) : (p.title || 'Foto '+(i+1)),
+    text: '', subtext: '', filter: 'Original', duration: 3
+  }));
+  _reelCurrent = 0;
+  _reelPlaying = false;
+  if (_reelTimer) { clearTimeout(_reelTimer); _reelTimer = null; }
+
+  // Build modal if not exists
+  if (!document.getElementById('reel-builder-modal')) _buildReelBuilderModal();
+  document.getElementById('reel-builder-modal').style.display = 'flex';
+  _renderReelTimeline();
+  _selectReelSlide(0);
+}
+
+function _buildReelBuilderModal() {
+  const m = document.createElement('div');
+  m.id = 'reel-builder-modal';
+  m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(10,14,30,0.88);z-index:9999;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;backdrop-filter:blur(4px);';
+  m.innerHTML = `
+  <div style="background:#0f172a;border-radius:20px;width:100%;max-width:900px;color:#fff;padding:0;overflow:hidden;box-shadow:0 40px 120px rgba(0,0,0,0.6);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:18px;font-weight:800;letter-spacing:-0.3px;">🎬 Reel Builder</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;">Crea tu reel con las fotos del Cerebro Vivo — arrastra, edita y exporta</div>
+      </div>
+      <button onclick="closeReelBuilder()" style="background:rgba(255,255,255,0.1);color:#fff;border:none;border-radius:10px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:13px;">✕ Cerrar</button>
+    </div>
+
+    <!-- Timeline strip -->
+    <div style="padding:14px 20px 10px;border-bottom:1px solid rgba(255,255,255,0.08);">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:rgba(255,255,255,0.35);margin-bottom:8px;">SECUENCIA DE FOTOS</div>
+      <div id="reel-timeline" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;"></div>
+    </div>
+
+    <!-- Body: editor + phone preview -->
+    <div style="display:grid;grid-template-columns:1fr 200px;gap:0;">
+      <!-- Left: editor -->
+      <div style="padding:18px 20px;border-right:1px solid rgba(255,255,255,0.08);min-height:320px;">
+        <div id="reel-slide-editor"></div>
+        <!-- Controls -->
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button id="reel-play-btn" onclick="toggleReelPlay()" style="background:#6366f1;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:13px;font-weight:700;cursor:pointer;flex:1;">▶ Ver Preview</button>
+          <button onclick="exportReelScript()" style="background:#10b981;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:12px;font-weight:700;cursor:pointer;flex:1;">📋 Copiar Guión</button>
+          <button onclick="exportReelVideo()" style="background:#f97316;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:12px;font-weight:700;cursor:pointer;flex:1;">📥 Exportar Video</button>
+        </div>
+        <div id="reel-export-status" style="display:none;margin-top:10px;background:rgba(99,102,241,0.2);border-radius:8px;padding:10px 12px;font-size:11px;color:#a5b4fc;text-align:center;"></div>
+      </div>
+      <!-- Right: phone preview -->
+      <div style="padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.35);">VISTA PREVIA</div>
+        <!-- Phone frame 9:16 -->
+        <div style="position:relative;width:130px;height:231px;background:#000;border-radius:18px;border:3px solid #374151;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+          <!-- Notch -->
+          <div style="position:absolute;top:6px;left:50%;transform:translateX(-50%);width:40px;height:5px;background:#374151;border-radius:3px;z-index:5;"></div>
+          <div id="reel-preview-frame" style="width:100%;height:100%;position:relative;overflow:hidden;background:#111;"></div>
+        </div>
+        <div id="reel-duration-badge" style="font-size:10px;color:rgba(255,255,255,0.45);"></div>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+function closeReelBuilder() {
+  if (_reelTimer) { clearTimeout(_reelTimer); _reelTimer = null; }
+  _reelPlaying = false;
+  const m = document.getElementById('reel-builder-modal');
+  if (m) m.style.display = 'none';
+}
+
+function _renderReelTimeline() {
+  const tl = document.getElementById('reel-timeline');
+  if (!tl) return;
+  const total = _reelSlides.reduce((s,r) => s + r.duration, 0);
+  const badge = document.getElementById('reel-duration-badge');
+  if (badge) badge.textContent = `${_reelSlides.length} escenas · ${total}s total`;
+  tl.innerHTML = _reelSlides.map((s, i) => `
+    <div onclick="_selectReelSlide(${i})" id="reel-th-${i}" title="${s.title}"
+      style="flex-shrink:0;width:64px;cursor:pointer;border-radius:8px;overflow:hidden;
+             border:2.5px solid ${i===_reelCurrent?'#6366f1':'rgba(255,255,255,0.12)'};
+             position:relative;background:#1e293b;transition:border-color .15s;">
+      <img src="${s.url}" style="width:64px;height:96px;object-fit:cover;display:block;filter:${_REEL_FILTERS[s.filter]||''}" onerror="this.style.display='none'">
+      <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.72);color:#fff;font-size:7px;padding:2px 3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${i+1}. ${s.title}</div>
+      ${s.text?`<div style="position:absolute;top:3px;right:3px;background:#6366f1;border-radius:3px;width:12px;height:12px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:900;">T</div>`:''}
+      <div style="position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:8px;color:rgba(255,255,255,0.6);">${s.duration}s</div>
+    </div>`).join('') + `
+    <div onclick="_addReelPhotoPrompt()" style="flex-shrink:0;width:64px;height:102px;cursor:pointer;border-radius:8px;border:2px dashed rgba(255,255,255,0.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:rgba(255,255,255,0.35);font-size:22px;">
+      ＋<span style="font-size:8px;color:rgba(255,255,255,0.25);">Agregar</span>
+    </div>`;
+}
+
+function _selectReelSlide(i) {
+  _reelCurrent = i;
+  _renderReelTimeline();
+  _renderPhonePreview();
+  const s = _reelSlides[i];
+  const ed = document.getElementById('reel-slide-editor');
+  if (!ed) return;
+  ed.innerHTML = `
+    <div style="font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.5);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">ESCENA ${i+1} — ${s.title}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:10px;color:rgba(255,255,255,0.5);display:block;margin-bottom:3px;">Texto principal</label>
+        <input value="${s.text||''}" placeholder='Ej: "2 VILLAS 🔥"'
+          oninput="_reelSlides[${i}].text=this.value;_renderPhonePreview();_renderReelTimeline();"
+          style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:7px;padding:7px 9px;color:#fff;font-size:11px;outline:none;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:10px;color:rgba(255,255,255,0.5);display:block;margin-bottom:3px;">Subtexto / CTA</label>
+        <input value="${s.subtext||''}" placeholder='Ej: "Llama ya 744-XXX"'
+          oninput="_reelSlides[${i}].subtext=this.value;_renderPhonePreview();"
+          style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:7px;padding:7px 9px;color:#fff;font-size:11px;outline:none;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:10px;color:rgba(255,255,255,0.5);display:block;margin-bottom:5px;">Filtro</label>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;">
+        ${Object.keys(_REEL_FILTERS).map(f=>`
+          <button onclick="_reelSlides[${i}].filter='${f}';_renderPhonePreview();_renderReelTimeline();"
+            style="background:${s.filter===f?'#6366f1':'rgba(255,255,255,0.1)'};color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:10px;cursor:pointer;transition:background .12s;">${f}</button>`).join('')}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <label style="font-size:10px;color:rgba(255,255,255,0.5);white-space:nowrap;">Duración: <strong id="dur-${i}">${s.duration}s</strong></label>
+      <input type="range" min="1" max="8" step="0.5" value="${s.duration}"
+        oninput="document.getElementById('dur-${i}').textContent=this.value+'s';_reelSlides[${i}].duration=parseFloat(this.value);_renderReelTimeline();"
+        style="flex:1;accent-color:#6366f1;">
+      <button onclick="_reelSlides.splice(${i},1);_reelCurrent=Math.max(0,${i}-1);_renderReelTimeline();_selectReelSlide(_reelCurrent);"
+        style="background:rgba(220,38,38,0.25);color:#fca5a5;border:none;border-radius:6px;padding:5px 9px;font-size:11px;cursor:pointer;">🗑️</button>
+    </div>`;
+}
+
+function _renderPhonePreview() {
+  const s = _reelSlides[_reelCurrent];
+  if (!s) return;
+  const f = document.getElementById('reel-preview-frame');
+  if (!f) return;
+  const prog = _reelSlides.map((_,j) =>
+    `<div style="flex:${_.duration};height:2px;background:${j===_reelCurrent?'#fff':'rgba(255,255,255,0.3)'};border-radius:1px;transition:all .3s;"></div>`
+  ).join('');
+  f.innerHTML = `
+    <img src="${s.url}" style="width:100%;height:100%;object-fit:cover;filter:${_REEL_FILTERS[s.filter]||''}" onerror="this.style.display='none'">
+    ${s.text?`<div style="position:absolute;bottom:34px;left:0;right:0;text-align:center;padding:0 8px;">
+      <div style="background:rgba(0,0,0,0.62);color:#fff;font-size:9px;font-weight:900;padding:4px 7px;border-radius:5px;display:inline-block;">${s.text}</div></div>`:''}
+    ${s.subtext?`<div style="position:absolute;bottom:14px;left:0;right:0;text-align:center;padding:0 8px;">
+      <div style="background:#6366f1;color:#fff;font-size:8px;font-weight:700;padding:3px 7px;border-radius:5px;display:inline-block;">${s.subtext}</div></div>`:''}
+    <div style="position:absolute;top:8px;left:0;right:0;display:flex;gap:2px;padding:0 8px;">${prog}</div>
+    <div style="position:absolute;top:16px;right:8px;font-size:8px;color:rgba(255,255,255,0.65);background:rgba(0,0,0,0.4);padding:1px 4px;border-radius:3px;">${_reelCurrent+1}/${_reelSlides.length}</div>`;
+}
+
+function toggleReelPlay() {
+  if (_reelPlaying) {
+    clearTimeout(_reelTimer); _reelTimer = null; _reelPlaying = false;
+    const btn = document.getElementById('reel-play-btn');
+    if (btn) btn.textContent = '▶ Ver Preview';
+    return;
+  }
+  _reelPlaying = true;
+  _reelCurrent = 0;
+  const btn = document.getElementById('reel-play-btn');
+  if (btn) btn.textContent = '⏸ Pausar';
+  const step = () => {
+    _renderPhonePreview();
+    // Also highlight current thumbnail
+    document.querySelectorAll('[id^="reel-th-"]').forEach((el,j) => {
+      el.style.borderColor = j===_reelCurrent ? '#6366f1' : 'rgba(255,255,255,0.12)';
+    });
+    const dur = (_reelSlides[_reelCurrent]?.duration || 3) * 1000;
+    _reelTimer = setTimeout(() => {
+      if (!_reelPlaying) return;
+      _reelCurrent = (_reelCurrent + 1) % _reelSlides.length;
+      step();
+    }, dur);
+  };
+  step();
+}
+
+function _addReelPhotoPrompt() {
+  // Let user pick from cerebro photos not yet in reel
+  const bizId = state.currentBiz;
+  const allPhotos = _cerebroCache.filter(e => (!e.biz||e.biz===bizId) && e.link && (
+    /\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(e.link)||/firebasestorage/.test(e.link)));
+  const usedUrls = new Set(_reelSlides.map(s=>s.url));
+  const available = allPhotos.filter(p => !usedUrls.has(p.link));
+  if (!available.length) { showToast('Ya están todas las fotos en el reel'); return; }
+  const p = available[0];
+  _reelSlides.push({ url: p.link, title: p.title||'Foto', text:'', subtext:'', filter:'Original', duration:3 });
+  _reelCurrent = _reelSlides.length - 1;
+  _renderReelTimeline();
+  _selectReelSlide(_reelCurrent);
+}
+
+function exportReelScript() {
+  let t = `🎬 GUIÓN DEL REEL — ${state.businesses?.[state.currentBiz]?.name||'Negocio'}\n\n`;
+  let ts = 0;
+  _reelSlides.forEach((s,i) => {
+    t += `ESCENA ${i+1} (${ts}s – ${ts+s.duration}s)\n`;
+    t += `📸 Foto: "${s.title}"\n`;
+    t += `🎨 Filtro: ${s.filter}\n`;
+    if (s.text) t += `📝 Texto: "${s.text}"\n`;
+    if (s.subtext) t += `💬 CTA: "${s.subtext}"\n`;
+    t += '\n'; ts += s.duration;
+  });
+  t += `⏱ Duración total: ${ts}s`;
+  navigator.clipboard.writeText(t).then(() => showToast('✅ Guión copiado al portapapeles'));
+}
+
+async function exportReelVideo() {
+  const status = document.getElementById('reel-export-status');
+  if (status) { status.style.display = 'block'; status.textContent = '⏳ Preparando el video...'; }
+  const W = 720, H = 1280;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+  const stream = canvas.captureStream(24);
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4000000 });
+  const chunks = [];
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `reel-${state.businesses?.[state.currentBiz]?.name||'negocio'}-${Date.now()}.webm`;
+    a.click();
+    if (status) status.textContent = '✅ Video descargado. Ábrelo en cualquier reproductor.';
+    setTimeout(() => { if (status) status.style.display='none'; }, 4000);
+  };
+  rec.start();
+  for (const slide of _reelSlides) {
+    if (status) status.textContent = `⏳ Renderizando "${slide.title}"...`;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise(res => {
+      img.onload = res; img.onerror = res;
+      img.src = slide.url;
+    }).catch(()=>{});
+    const FPS = 24, frames = Math.round(slide.duration * FPS);
+    for (let f = 0; f < frames; f++) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      // Apply filter
+      const fl = _REEL_FILTERS[slide.filter] || '';
+      ctx.filter = fl || 'none';
+      if (img.complete && img.naturalWidth) {
+        const sc = Math.max(W/img.naturalWidth, H/img.naturalHeight);
+        const iw = img.naturalWidth*sc, ih = img.naturalHeight*sc;
+        ctx.drawImage(img, (W-iw)/2, (H-ih)/2, iw, ih);
+      } else {
+        ctx.fillStyle = '#111'; ctx.fillRect(0,0,W,H);
+      }
+      ctx.restore();
+      // Text overlay
+      if (slide.text) {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, H-260, W, 70);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 52px Inter,Arial'; ctx.textAlign = 'center';
+        ctx.fillText(slide.text, W/2, H-215);
+      }
+      if (slide.subtext) {
+        ctx.fillStyle = '#6366f1'; ctx.fillRect(W/4, H-175, W/2, 44);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 28px Inter,Arial'; ctx.textAlign = 'center';
+        ctx.fillText(slide.subtext, W/2, H-147);
+      }
+      await new Promise(r => setTimeout(r, 1000/FPS));
+    }
+  }
+  rec.stop();
+}
+// ════════════════════════════════════════════════════════════════════
+// FIN REEL BUILDER
+// ════════════════════════════════════════════════════════════════════
 
 function _addAgentMsg(text, sender, emoji) {
   const msgs = document.getElementById('agent-modal-messages');
