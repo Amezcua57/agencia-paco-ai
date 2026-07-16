@@ -2939,10 +2939,19 @@ function getCerebroContext() {
 
 function getBizContext(short) {
   const biz = state.businesses[state.currentBiz];
+  const numPhotos = _getCerebroImages(20).length;
+  const photoRule = numPhotos > 0
+    ? `\n\n⛔ REGLA CRÍTICA DE FOTOS (${numPhotos} fotos en Cerebro Vivo):
+- NUNCA digas "no puedo ver las fotos", "no tengo acceso a imágenes" o "busca en Google Drive".
+- Las fotos ya están cargadas en el sistema. El Reel Builder las carga automáticamente.
+- Cuando el usuario pida reel, video, anuncio o contenido visual: responde que el Reel Builder YA TIENE las fotos listas y que el usuario puede abrirlo con el botón "📱 Ver Preview del Reel".
+- Si el usuario dice "hazlo", "usa las fotos", "conviértelas" o similar: responde brevemente "Perfecto, el Reel Builder ya tiene tus fotos listas — dale al botón 📱 Ver Preview del Reel para abrirlo." No expliques más.
+- NUNCA pidas que el usuario comparta links, Google Drive, WhatsApp ni nada externo para las fotos.`
+    : '';
   const base = `Eres la Secretaria General AI de "Agencia Marketing AMEZ", plataforma de marketing con inteligencia artificial.
 Negocio activo: ${biz?.name || 'el negocio'} (${biz?.type || 'marketing digital'}).
 Dueño: Francisco "Paco" Amezcua, empresario mexicano.
-Responde siempre en español mexicano, de forma directa, profesional y accionable. Usa emojis con moderación. Sé conciso.`;
+Responde siempre en español mexicano, de forma directa, profesional y accionable. Usa emojis con moderación. Sé conciso.${photoRule}`;
 
   const cerebroCtx = getCerebroContext();
   if (short) return base + '\n\n' + cerebroCtx + '\nDa respuestas de máximo 2-3 líneas. Ve al grano.';
@@ -3099,7 +3108,33 @@ function sendChat() {
   input.style.height = 'auto';
   _chatHistory.push({ role: 'user', content: msg, displayName });
   if (_chatHistory.length > 80) _chatHistory = _chatHistory.slice(-80);
-  saveChatHistory(); // Save immediately so user's message is never lost
+  saveChatHistory();
+
+  // ── REEL BUILDER DIRECTO ─────────────────────────────────────────
+  // Si el usuario dice "hazlo" / "usa las fotos" / "conviértelas" etc.
+  // en el contexto de un reel/video → abrir Reel Builder de inmediato.
+  const msgL = msg.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const isDirectAction =
+    /^(hazlo|hazla|haz|dale|uselas|usalas|si|adelante|ahora|orale|va|ok|okay|listo|perfecto)$/.test(msgL.trim()) ||
+    /\b(usa|busca|toma|agarra|coge|utiliza)\b.{0,20}\b(foto|imagen|fotos|imagenes|cerebro|banco|memoria)\b/i.test(msgL) ||
+    /convierte?.{0,12}(foto|imagen).{0,12}(video|reel|anuncio)/i.test(msgL) ||
+    /\b(del cerebro|del banco|de la memoria|de ahi|de ahí)\b/i.test(msgL);
+  const prevHasReelTopic = _chatHistory.some(m =>
+    m.role === 'assistant' &&
+    /reel|video|tiktok|instagram|anunci|storyboard|escena|clip|filmacion/i.test(m.content));
+  const cerebroPhotos = _getCerebroImages(8);
+
+  if (isDirectAction && prevHasReelTopic && cerebroPhotos.length > 0) {
+    const n = cerebroPhotos.length;
+    const reply = `✅ ¡Listo! Abriendo el Reel Builder con ${n} foto${n!==1?'s':''} del Cerebro Vivo.\n\n📱 Ya las tienes cargadas — ordénalas, agrega textos y presiona ▶ Ver Preview. Cuando quieras exportar el video dale al botón naranja.`;
+    addAIMsg(reply);
+    _chatHistory.push({ role: 'assistant', content: reply });
+    saveChatHistory();
+    setTimeout(() => openReelBuilder(), 350);
+    return;
+  }
+  // ── FIN REEL BUILDER DIRECTO ─────────────────────────────────────
+
   const typing = addTyping();
   if (claudeApiKey) {
     const chatImgs = _getCerebroImages(6);
@@ -3108,6 +3143,10 @@ function sendChat() {
       addAIMsg(response);
       _chatHistory.push({ role: 'assistant', content: response });
       saveChatHistory();
+      // Auto-abrir Reel Builder si la respuesta habla de reel/video Y hay fotos
+      if (/reel|video|tiktok|storyboard|escena/i.test(response) && _getCerebroImages(1).length > 0) {
+        setTimeout(() => openReelBuilder(), 800);
+      }
     });
   } else {
     setTimeout(() => {
