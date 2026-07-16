@@ -2739,37 +2739,69 @@ async function callClaude(messages, systemPrompt) {
   }
 }
 
+// Builds ONLY the cerebro/business knowledge block — no persona, so agents don't get confused
+function getCerebroContext() {
+  const biz = state.businesses[state.currentBiz];
+  const bizId = state.currentBiz;
+  const all = _cerebroCache.filter(e => !e.biz || e.biz === bizId);
+
+  const lines = [
+    `════ INFORMACIÓN DEL NEGOCIO (ya cargada — NO la pidas al usuario) ════`,
+    `Negocio: ${biz?.name || 'Sin nombre'} | Tipo: ${biz?.type || 'marketing digital'}`,
+    `Cliente: Francisco "Paco" Amezcua, empresario mexicano | Agencia: Agencia Marketing AMEZ`,
+    `INSTRUCCIÓN CRÍTICA: Toda la información del negocio está en el Cerebro Vivo abajo.`,
+    `NUNCA pidas archivos, links, Google Drive ni documentos que ya estén listados aquí.`,
+    `Trabaja CON lo que tienes. Si falta algo específico, indícalo puntualmente.`,
+    ``
+  ];
+
+  if (all.length > 0) {
+    lines.push(`════ CEREBRO VIVO — ${all.length} ENTRADAS CARGADAS ════`);
+
+    const docs    = all.filter(e => ['texto','documento','faq','guion','objecion','precio'].includes(e.type));
+    const fotos   = all.filter(e => e.type === 'foto');
+    const likes   = all.filter(e => e.feedback === 'like');
+    const dislikes = all.filter(e => e.feedback === 'dislike');
+
+    if (docs.length) {
+      lines.push('\n📄 CONOCIMIENTO / DOCUMENTOS:');
+      docs.slice(0, 50).forEach(e => {
+        lines.push(`[${(e.type||'info').toUpperCase()}] ${e.title||''}${e.content ? ': ' + e.content.slice(0, 400) : ''}`);
+      });
+    }
+    if (fotos.length) {
+      lines.push('\n🖼️ BANCO DE FOTOS / REFERENCIAS VISUALES:');
+      fotos.forEach(e => {
+        lines.push(`• ${e.title||'Foto'}${e.link ? ' → ' + e.link : ''}${e.content ? ' | '+e.content.slice(0,200) : ''}`);
+      });
+    }
+    if (likes.length) {
+      lines.push('\n✅ ESTILO APROBADO POR PACO (replicar):');
+      likes.slice(0,15).forEach(e => lines.push(`  + ${(e.title||e.content||'').slice(0,150)}`));
+    }
+    if (dislikes.length) {
+      lines.push('\n❌ LO QUE NO LE GUSTA (EVITAR):');
+      dislikes.slice(0,10).forEach(e => lines.push(`  - ${(e.title||e.content||'').slice(0,150)}`));
+    }
+    lines.push('\n════ FIN CEREBRO VIVO ════');
+  } else {
+    lines.push('(Cerebro Vivo vacío — el admin aún no ha cargado información del negocio)');
+  }
+
+  lines.push('\nResponde SIEMPRE en español mexicano. Sé directo y accionable.');
+  return lines.join('\n');
+}
+
 function getBizContext(short) {
   const biz = state.businesses[state.currentBiz];
   const base = `Eres la Secretaria General AI de "Agencia Marketing AMEZ", plataforma de marketing con inteligencia artificial.
-Negocio activo: ${biz.name} (${biz.type || 'marketing digital'}).
+Negocio activo: ${biz?.name || 'el negocio'} (${biz?.type || 'marketing digital'}).
 Dueño: Francisco "Paco" Amezcua, empresario mexicano.
-Otros negocios: Seguros, Bienes Raíces, Servicios Digitales.
 Responde siempre en español mexicano, de forma directa, profesional y accionable. Usa emojis con moderación. Sé conciso.`;
 
-  // Inject Cerebro Vivo knowledge base
-  const bizId = state.currentBiz;
-  const cerebroEntries = _cerebroCache.filter(e => !e.biz || e.biz === bizId);
-  let cerebroContext = '';
-  if (cerebroEntries.length > 0) {
-    // Separate by type for clarity
-    const fotos = cerebroEntries.filter(e => e.type === 'foto');
-    const preferencias = cerebroEntries.filter(e => e.type === 'preferencia');
-    const aprobados = preferencias.filter(e => e.feedback === 'like');
-    const rechazados = preferencias.filter(e => e.feedback === 'dislike');
-    const resto = cerebroEntries.filter(e => e.type !== 'foto' && e.type !== 'preferencia').slice(0, 30);
-
-    let sections = [];
-    if (resto.length) sections.push('CONOCIMIENTO DEL NEGOCIO:\n' + resto.map(e => `[${e.type||'info'}] ${e.title||''}${e.content ? ': ' + e.content.slice(0,250) : ''}`).join('\n'));
-    if (fotos.length) sections.push('IMÁGENES DE REFERENCIA VISUAL (úsalas para describir estilo y estética):\n' + fotos.map(e => `- ${e.title||''}${e.link ? ' → ' + e.link : ''}${e.content ? ' ('+e.content.slice(0,150)+')' : ''}`).join('\n'));
-    if (aprobados.length) sections.push('ESTILO QUE LE GUSTA A PACO (✅ aprobados):\n' + aprobados.slice(0,10).map(e => `- ${e.title||e.content||''}`.slice(0,120)).join('\n'));
-    if (rechazados.length) sections.push('LO QUE NO LE GUSTA A PACO (❌ rechazados — EVITAR):\n' + rechazados.slice(0,10).map(e => `- ${e.title||e.content||''}`.slice(0,120)).join('\n'));
-
-    if (sections.length) cerebroContext = `\n\n--- CEREBRO VIVO ---\n${sections.join('\n\n')}\n--- FIN CEREBRO ---`;
-  }
-
-  if (short) return base + cerebroContext + '\nDa respuestas de máximo 2-3 líneas. Ve al grano.';
-  return base + cerebroContext;
+  const cerebroCtx = getCerebroContext();
+  if (short) return base + '\n\n' + cerebroCtx + '\nDa respuestas de máximo 2-3 líneas. Ve al grano.';
+  return base + '\n\n' + cerebroCtx;
 }
 
 async function saveApiKey() {
@@ -3809,13 +3841,22 @@ function openAgentChat(agentId) {
   // Clear messages
   const msgs = document.getElementById('agent-modal-messages');
   msgs.innerHTML = '';
-  // Show greeting
-  _addAgentMsg(agent.greeting, 'agent', agent.emoji);
+  // Build context-aware greeting
+  const bizId  = state.currentBiz;
+  const bizName = state.businesses?.[bizId]?.name || 'el negocio';
+  const entries = _cerebroCache.filter(e => !e.biz || e.biz === bizId);
+  const nDocs   = entries.filter(e => !['foto','preferencia'].includes(e.type)).length;
+  const nFotos  = entries.filter(e => e.type === 'foto').length;
+  const cerbroLine = entries.length > 0
+    ? `\n\n📚 Ya estudié el Cerebro Vivo de **${bizName}**: ${entries.length} entrada${entries.length!==1?'s':''} cargadas (${nDocs} doc${nDocs!==1?'s':''}, ${nFotos} foto${nFotos!==1?'s':''}). No necesito que me pases archivos — ya los tengo.`
+    : `\n\n⚠️ El Cerebro Vivo de ${bizName} está vacío. Te recomiendo agregar documentos en Cerebro Vivo primero.`;
+  const fullGreeting = agent.greeting + cerbroLine;
+  _addAgentMsg(fullGreeting, 'agent', agent.emoji);
   // Show modal
   document.getElementById('agent-chat-modal').style.display = 'flex';
   document.getElementById('agent-modal-input').focus();
   document.getElementById('agent-modal-input').value = '';
-  _agentHistory.push({ role:'assistant', content: agent.greeting });
+  _agentHistory.push({ role:'assistant', content: fullGreeting });
   // Warn proactively if no API key (check after small delay to allow async load to finish)
   setTimeout(() => {
     if (!claudeApiKey) {
@@ -3869,7 +3910,8 @@ async function sendAgentMessage() {
   // Typing indicator
   const typing = _addAgentMsg('...', 'agent', _activeAgent.emoji);
   const bizName = state.businesses?.[state.currentBiz]?.name || 'el negocio';
-  const systemPrompt = _activeAgent.system(bizName) + '\n\n' + getBizContext(false);
+  // Use getCerebroContext() — clean knowledge block, no persona conflict
+  const systemPrompt = _activeAgent.system(bizName) + '\n\n' + getCerebroContext();
   try {
     const reply = await callClaude([..._agentHistory], systemPrompt);
     typing.remove();
