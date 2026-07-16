@@ -2265,71 +2265,117 @@ function listenCerebroAll() {
     });
 }
 
+let _cerebroViewMode = 'list'; // 'list' or 'grid'
+
+function _getThumbUrl(lnk) {
+  if (!lnk) return null;
+  if (/\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)(\?|$)/i.test(lnk) || /firebasestorage\.googleapis\.com/i.test(lnk) || lnk.startsWith('data:image/')) return lnk;
+  const m = lnk.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w300';
+  return null;
+}
+
+function _cerebroToggleView(mode) {
+  _cerebroViewMode = mode;
+  // Re-render with current snap stored on the list el
+  const list = document.getElementById('cerebro-items-list');
+  if (list && list._snap) _renderCerebroList(list._snap, list);
+}
+
 function _renderCerebroList(snap, list) {
+  list._snap = snap; // store for re-render on view toggle
   const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
   const typeColor = {texto:'#dbeafe',foto:'#fce7f3',video:'#fee2e2',documento:'#fef3c7',precio:'#d1fae5',objecion:'#f3e8ff',faq:'#e0e7ff',guion:'#ffedd5'};
-  const searchId = 'cerebro-search-' + Date.now();
+  const typeLabel = {texto:'Texto',foto:'Foto',video:'Video',documento:'Doc',precio:'Precio',objecion:'Objeción',faq:'FAQ',guion:'Guión'};
+  const searchId = 'cerebro-search-main';
+
   list.innerHTML = `
-    <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
-      <input id="${searchId}" type="text" placeholder="🔍 Buscar en ${snap.size} entradas..."
-        style="flex:1;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;"
+    <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input id="${searchId}" type="text" placeholder="🔍 Buscar en ${snap.size} archivos..."
+        style="flex:1;min-width:160px;padding:7px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;"
         onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#e5e7eb'"
         oninput="filtrarCerebro(this.value,'cerebro-entries-list')">
-      <span style="font-size:10px;background:#ede9fe;color:#6366f1;padding:4px 10px;border-radius:20px;font-weight:700;white-space:nowrap;">☁️ ${snap.size} docs</span>
+      <div style="display:flex;border:1.5px solid #e5e7eb;border-radius:8px;overflow:hidden;flex-shrink:0;">
+        <button id="cb-view-list" onclick="_cerebroToggleView('list')"
+          style="padding:6px 10px;border:none;background:${_cerebroViewMode==='list'?'#6366f1':'#fff'};color:${_cerebroViewMode==='list'?'#fff':'#374151'};cursor:pointer;font-size:13px;" title="Vista lista">☰</button>
+        <button id="cb-view-grid" onclick="_cerebroToggleView('grid')"
+          style="padding:6px 10px;border:none;border-left:1px solid #e5e7eb;background:${_cerebroViewMode==='grid'?'#6366f1':'#fff'};color:${_cerebroViewMode==='grid'?'#fff':'#374151'};cursor:pointer;font-size:13px;" title="Vista galería">⊞</button>
+      </div>
+      <span style="font-size:10px;background:#ede9fe;color:#6366f1;padding:4px 10px;border-radius:20px;font-weight:700;white-space:nowrap;">☁️ ${snap.size} archivos</span>
     </div>
     <div id="cerebro-entries-list"></div>`;
+
   const entriesList = document.getElementById('cerebro-entries-list');
-  snap.docs.forEach((doc, i) => {
-    const d = doc.data();
-    const confLabel = (d.confidence||3) >= 5 ? '⭐⭐⭐⭐⭐' : (d.confidence||3) >= 3 ? '⭐⭐⭐' : '⭐';
-    const chars = (d.content||'').length;
-    const sizeLabel = chars > 1024 ? (chars/1024).toFixed(1) + ' KB' : chars > 0 ? chars + ' car' : '';
-    const hasLink = !!(d.link);
-    const lnk = d.link || '';
-    // Detect if we can render a real thumbnail
-    const isDirectImg = /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)(\?|$)/i.test(lnk)
-                     || /firebasestorage\.googleapis\.com/i.test(lnk)
-                     || lnk.startsWith('data:image/');
-    const isDriveFile = /drive\.google\.com\/file\/d\//i.test(lnk);
-    let thumbUrl = null;
-    if (isDirectImg) {
-      thumbUrl = lnk;
-    } else if (isDriveFile) {
-      const m = lnk.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (m) thumbUrl = 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w200';
-    }
-    const row = document.createElement('div');
-    row.id = 'fb-' + doc.id;
-    row.dataset.search = ((d.title||'') + ' ' + (d.type||'') + ' ' + (d.content||'').substring(0,200)).toLowerCase();
-    row.style.cssText = 'display:flex;align-items:' + (thumbUrl ? 'flex-start' : 'center') + ';gap:12px;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:10px;margin-bottom:7px;background:white;cursor:pointer;transition:all 0.15s;opacity:0;transform:translateY(6px);';
-    row.onmouseenter = () => { row.style.borderColor='#6366f1'; row.style.background='#fafafe'; };
-    row.onmouseleave = () => { row.style.borderColor='#e5e7eb'; row.style.background='white'; };
-    row.onclick = () => verEntradaById(doc.id);
-    const iconHtml = thumbUrl
-      ? `<div style="width:72px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0;border:1.5px solid #e5e7eb;background:#f9fafb;position:relative;">
-           <img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"
-             onerror="this.parentNode.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;\\'>🖼️</div>'">
-         </div>`
-      : `<div style="width:36px;height:36px;background:${typeColor[d.type]||'#f3f4f6'};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;">${typeEmoji[d.type]||'📁'}</div>`;
-    row.innerHTML =
-      iconHtml
-      + `<div style="flex:1;min-width:0;">`
-      + `<div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>`
-      + `<div style="font-size:10px;color:#9ca3af;margin-top:3px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">`
-      + `<span style="background:#f3f4f6;padding:1px 6px;border-radius:4px;">${(d.type||'texto').toUpperCase()}</span>`
-      + `<span>${confLabel}</span>`
-      + (sizeLabel ? `<span style="color:#6366f1;font-weight:700;background:#ede9fe;padding:1px 6px;border-radius:4px;">📦 ${sizeLabel}</span>` : '')
-      + (hasLink && !thumbUrl ? `<span style="color:#3b82f6;background:#dbeafe;padding:1px 6px;border-radius:4px;">🔗 Link</span>` : '')
-      + (thumbUrl ? `<span style="color:#ec4899;background:#fce7f3;padding:1px 6px;border-radius:4px;">📷 Foto</span>` : '')
-      + `<span style="background:#f0fdf4;color:#059669;padding:1px 6px;border-radius:4px;font-size:9px;">${d.biz||'?'}</span>`
-      + `</div></div>`
-      + `<div style="display:flex;gap:5px;flex-shrink:0;">`
-      + `<button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:10px;font-weight:800;cursor:pointer;" onmouseenter="this.style.background='#4f46e5'" onmouseleave="this.style.background='#6366f1'">👁️ Ver</button>`
-      + `<button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'entrada').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;" title="Eliminar esta entrada">🗑️</button>`
-      + `</div>`;
-    entriesList.appendChild(row);
-    setTimeout(() => { row.style.opacity='1'; row.style.transform='translateY(0)'; row.style.transition='opacity 0.25s ease, transform 0.25s ease'; }, Math.min(i*30, 600));
-  });
+
+  if (_cerebroViewMode === 'grid') {
+    // ── GRID / GALLERY VIEW ──
+    entriesList.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;';
+    snap.docs.forEach((doc, i) => {
+      const d = doc.data();
+      const thumbUrl = _getThumbUrl(d.link||'');
+      const card = document.createElement('div');
+      card.id = 'fb-' + doc.id;
+      card.dataset.search = ((d.title||'') + ' ' + (d.type||'')).toLowerCase();
+      card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:10px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;';
+      card.onmouseenter = () => { card.style.borderColor='#6366f1'; card.style.transform='translateY(-2px)'; card.style.boxShadow='0 4px 12px rgba(99,102,241,0.15)'; };
+      card.onmouseleave = () => { card.style.borderColor='#e5e7eb'; card.style.transform=''; card.style.boxShadow=''; };
+      card.onclick = () => verEntradaById(doc.id);
+      const previewHtml = thumbUrl
+        ? `<div style="width:100%;height:100px;overflow:hidden;background:#f9fafb;"><img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML='<div style=\\'height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;background:${typeColor[d.type]||'#f3f4f6'}\\'>'+typeEmoji['${d.type||''}']||'📁'+'</div>'"></div>`
+        : `<div style="width:100%;height:100px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:36px;">${typeEmoji[d.type]||'📁'}</div>`;
+      card.innerHTML = previewHtml
+        + `<div style="padding:7px 8px;">
+             <div style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>
+             <div style="font-size:9px;color:#9ca3af;margin-top:2px;">${(typeLabel[d.type]||d.type||'').toUpperCase()}</div>
+             <div style="display:flex;gap:4px;margin-top:5px;">
+               <button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="flex:1;background:#6366f1;color:#fff;border:none;border-radius:4px;padding:3px 0;font-size:9px;font-weight:700;cursor:pointer;">Abrir</button>
+               <button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:3px 5px;font-size:10px;cursor:pointer;">🗑</button>
+             </div>
+           </div>`;
+      entriesList.appendChild(card);
+      setTimeout(() => { card.style.opacity='1'; }, Math.min(i*20, 400));
+    });
+
+  } else {
+    // ── LIST / EXPLORER VIEW ──
+    entriesList.style.cssText = '';
+    // Table header
+    entriesList.innerHTML = `<div style="display:grid;grid-template-columns:44px 1fr 90px 70px 70px 100px;gap:0;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px 8px 0 0;padding:6px 10px;font-size:10px;font-weight:800;color:#6b7280;letter-spacing:0.04em;">
+      <div></div><div>NOMBRE</div><div style="text-align:center;">FECHA</div><div style="text-align:center;">TIPO</div><div style="text-align:center;">TAMAÑO</div><div style="text-align:center;">ACCIONES</div>
+    </div>
+    <div id="cerebro-table-body" style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;"></div>`;
+    const tbody = document.getElementById('cerebro-table-body');
+    snap.docs.forEach((doc, i) => {
+      const d = doc.data();
+      const chars = (d.content||'').length;
+      const sizeLabel = chars > 1024 ? (chars/1024).toFixed(1)+' KB' : chars > 0 ? chars+' c' : '—';
+      const thumbUrl = _getThumbUrl(d.link||'');
+      const ts = d.ts?.toDate ? d.ts.toDate() : null;
+      const dateStr = ts ? ts.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+      const row = document.createElement('div');
+      row.id = 'fb-' + doc.id;
+      row.dataset.search = ((d.title||'') + ' ' + (d.type||'') + ' ' + (d.content||'').substring(0,100)).toLowerCase();
+      const bg = i%2===0 ? 'white' : '#fafafa';
+      row.style.cssText = `display:grid;grid-template-columns:44px 1fr 90px 70px 70px 100px;gap:0;align-items:center;padding:5px 10px;background:${bg};border-top:${i>0?'1px solid #f0f0f0':'none'};cursor:pointer;transition:background 0.1s;min-height:40px;`;
+      row.onmouseenter = () => { row.style.background='#ede9fe'; };
+      row.onmouseleave = () => { row.style.background=bg; };
+      row.onclick = () => verEntradaById(doc.id);
+      const iconCell = thumbUrl
+        ? `<div style="width:32px;height:32px;border-radius:5px;overflow:hidden;border:1px solid #e5e7eb;"><img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.outerHTML='<div style=\\'width:32px;height:32px;border-radius:5px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:14px;\\'>${typeEmoji[d.type]||'📁'}</div>'"></div>`
+        : `<div style="width:32px;height:32px;border-radius:5px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:16px;">${typeEmoji[d.type]||'📁'}</div>`;
+      row.innerHTML =
+        `<div>${iconCell}</div>`
+        + `<div style="font-size:12px;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${d.title||'Sin título'}</div>`
+        + `<div style="font-size:10px;color:#6b7280;text-align:center;">${dateStr}</div>`
+        + `<div style="text-align:center;"><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${typeColor[d.type]||'#f3f4f6'};color:#374151;">${(typeLabel[d.type]||d.type||'').toUpperCase()}</span></div>`
+        + `<div style="font-size:10px;color:#6b7280;text-align:center;">${sizeLabel}</div>`
+        + `<div style="display:flex;gap:4px;justify-content:center;">`
+        + `<button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="background:#6366f1;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:9px;font-weight:800;cursor:pointer;">Abrir</button>`
+        + `<button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:5px;padding:4px 6px;font-size:10px;cursor:pointer;">🗑</button>`
+        + `</div>`;
+      tbody.appendChild(row);
+    });
+  }
 }
 
 async function editarEntradaCerebro(docId) {
@@ -2430,13 +2476,13 @@ async function eliminarEntradaCerebro(docId, titulo, btn) {
 }
 
 function filtrarCerebro(query, listId) {
-  const items = document.querySelectorAll('#' + listId + ' > div[data-search]');
+  // Search in both grid cards and list/table rows
   const q = query.toLowerCase().trim();
-  let visible = 0;
+  const items = document.querySelectorAll('[data-search]');
   items.forEach(el => {
+    if (!el.id || !el.id.startsWith('fb-')) return;
     const match = !q || el.dataset.search.includes(q);
     el.style.display = match ? '' : 'none';
-    if (match) visible++;
   });
 }
 
