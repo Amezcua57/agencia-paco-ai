@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cerebro Vivo — Admin</title>
+<style>
+:root{--navy:#0f172a;--navy2:#1e293b;--navy3:#334155;--orange:#f97316;--orange2:#ea580c;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--text:#f1f5f9;--text2:#94a3b8;--border:#334155}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--navy);color:var(--text);min-height:100vh}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-box{background:var(--navy2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:380px;box-shadow:0 25px 50px rgba(0,0,0,.5)}
+.login-logo{font-size:2.5rem;text-align:center;margin-bottom:8px}
+.login-title{text-align:center;font-size:1.4rem;font-weight:700;color:var(--orange);margin-bottom:4px}
+.login-sub{text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:28px}
+.field-label{font-size:.8rem;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.field-input{width:100%;padding:12px 14px;background:var(--navy);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem;outline:none;margin-bottom:18px}
+.field-input:focus{border-color:var(--orange)}
+.btn-primary{width:100%;padding:13px;background:var(--orange);border:none;border-radius:8px;color:#fff;font-size:1rem;font-weight:600;cursor:pointer}
+.btn-primary:hover{background:var(--orange2)}
+.login-error{color:var(--red);font-size:.85rem;text-align:center;margin-top:12px;display:none}
+#app{display:none}
+.top-bar{background:var(--navy2);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.top-bar-logo{font-size:1.3rem}
+.top-bar-title{font-weight:700;font-size:1.1rem;color:var(--orange);flex:1}
+.top-bar-biz{display:flex;align-items:center;gap:8px}
+.biz-select{padding:6px 10px;background:var(--navy);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.85rem;outline:none;cursor:pointer}
+.btn-logout{padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:.8rem;cursor:pointer}
+.btn-logout:hover{border-color:var(--red);color:var(--red)}
+.main{padding:20px;max-width:1000px;margin:0 auto}
+.stats-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.stat-card{flex:1;min-width:100px;background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.stat-num{font-size:1.6rem;font-weight:700}
+.stat-label{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.05em}
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;padding:9px 12px;background:var(--navy2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;outline:none}
+.search-input:focus{border-color:var(--orange)}
+.filter-select{padding:9px 10px;background:var(--navy2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.85rem;outline:none;cursor:pointer}
+.btn-add{padding:9px 18px;background:var(--orange);border:none;border-radius:8px;color:#fff;font-size:.9rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn-add:hover{background:var(--orange2)}
+.entries-grid{display:flex;flex-direction:column;gap:10px}
+.entry-card{background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start}
+.entry-type-badge{padding:3px 8px;border-radius:4px;font-size:.7rem;font-weight:700;text-transform:uppercase;white-space:nowrap;flex-shrink:0;margin-top:2px}
+.entry-body{flex:1;min-width:0}
+.entry-title{font-weight:600;font-size:.95rem;margin-bottom:4px}
+.entry-content{color:var(--text2);font-size:.85rem;line-height:1.5;word-break:break-word}
+.entry-meta{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.conf-stars{color:var(--yellow);font-size:.85rem}
+.entry-date{color:var(--text2);font-size:.75rem}
+.entry-actions{display:flex;gap:6px;flex-shrink:0}
+.btn-edit{padding:5px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:.78rem;cursor:pointer}
+.btn-edit:hover{border-color:var(--orange);color:var(--orange)}
+.btn-del{padding:5px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:.78rem;cursor:pointer}
+.btn-del:hover{border-color:var(--red);color:var(--red)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text2)}
+.empty-icon{font-size:3rem;margin-bottom:12px}
+.loading{text-align:center;padding:40px;color:var(--text2)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--navy2);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:1.1rem;font-weight:700;margin-bottom:20px;color:var(--orange)}
+.form-row{margin-bottom:16px}
+.form-row label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.form-row select,.form-row input,.form-row textarea{width:100%;padding:10px 12px;background:var(--navy);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;outline:none;font-family:inherit}
+.form-row select:focus,.form-row input:focus,.form-row textarea:focus{border-color:var(--orange)}
+.form-row textarea{min-height:110px;resize:vertical;line-height:1.5}
+.conf-row{display:flex;gap:8px}
+.conf-btn{flex:1;padding:8px;background:var(--navy);border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;font-size:1rem;text-align:center}
+.conf-btn.active{background:var(--orange);border-color:var(--orange);color:#fff}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.btn-save{flex:1;padding:11px;background:var(--orange);border:none;border-radius:8px;color:#fff;font-size:.95rem;font-weight:600;cursor:pointer}
+.btn-save:hover{background:var(--orange2)}
+.btn-cancel{padding:11px 18px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:.95rem;cursor:pointer}
+.del-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:300;display:none;align-items:center;justify-content:center;padding:16px}
+.del-overlay.open{display:flex}
+.del-box{background:var(--navy2);border:1px solid var(--red);border-radius:12px;padding:28px;width:100%;max-width:380px;text-align:center}
+.del-icon{font-size:2.5rem;margin-bottom:12px}
+.del-title{font-size:1.1rem;font-weight:700;margin-bottom:8px}
+.del-subtitle{color:var(--text2);font-size:.9rem;margin-bottom:22px}
+.del-actions{display:flex;gap:10px}
+.btn-confirm-del{flex:1;padding:10px;background:var(--red);border:none;border-radius:8px;color:#fff;font-weight:600;cursor:pointer;font-size:.9rem}
+.btn-keep{flex:1;padding:10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;font-size:.9rem}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy2);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.9rem;z-index:999;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#toast.ok{border-color:var(--green);color:var(--green)}
+#toast.err{border-color:var(--red);color:var(--red)}
+@media(max-width:600px){.entry-card{flex-wrap:wrap}.entry-actions{width:100%;justify-content:flex-end}.stats-row{gap:8px}.stat-card{min-width:80px}}
+</style>
+</head>
+<body>
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">🧠</div>
+    <div class="login-title">Cerebro Vivo Admin</div>
+    <div class="login-sub">Gestión del conocimiento de tu agente IA</div>
+    <div class="field-label">Negocio (biz ID)</div>
+    <input class="field-input" id="loginBiz" type="text" placeholder="ej: caracol" value="caracol">
+    <div class="field-label">Contraseña</div>
+    <input class="field-input" id="loginPwd" type="password" placeholder="Contraseña admin">
+    <button class="btn-primary" onclick="doLogin()">Entrar al Cerebro</button>
+    <div class="login-error" id="loginErr">Contraseña incorrecta.</div>
+  </div>
+</div>
+<div id="app">
+  <div class="top-bar">
+    <div class="top-bar-logo">🧠</div>
+    <div class="top-bar-title">Cerebro Vivo Admin</div>
+    <div class="top-bar-biz">
+      <span style="color:var(--text2);font-size:.8rem">Negocio:</span>
+      <select class="biz-select" id="bizSelect" onchange="changeBiz()">
+        <option value="caracol">Caracol Diamante</option>
+        <option value="agencia">Agencia Paco</option>
+        <option value="default">default</option>
+        <option value="__custom__">Otro...</option>
+      </select>
+    </div>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div>
+  <div class="main">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total entradas</div></div>
+      <div class="stat-card"><div class="stat-num" id="statHigh" style="color:var(--green)">—</div><div class="stat-label">Confianza alta ⭐⭐⭐⭐⭐</div></div>
+      <div class="stat-card"><div class="stat-num" id="statTypes">—</div><div class="stat-label">Tipos distintos</div></div>
+    </div>
+    <div class="toolbar">
+      <input class="search-input" id="searchInput" type="text" placeholder="🔍 Buscar..." oninput="renderEntries()">
+      <select class="filter-select" id="typeFilter" onchange="renderEntries()">
+        <option value="">Todos los tipos</option>
+        <option value="producto">Producto</option><option value="precio">Precio</option>
+        <option value="servicio">Servicio</option><option value="horario">Horario</option>
+        <option value="ubicacion">Ubicación</option><option value="promocion">Promoción</option>
+        <option value="faq">FAQ</option><option value="politica">Política</option>
+        <option value="equipo">Equipo</option><option value="dato">Dato general</option>
+      </select>
+      <button class="btn-add" onclick="openModal()">+ Nueva entrada</button>
+    </div>
+    <div class="entries-grid" id="entriesGrid"><div class="loading">Cargando...</div></div>
+  </div>
+</div>
+<div class="overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Nueva entrada</div>
+    <input type="hidden" id="editDocId">
+    <div class="form-row">
+      <label>Tipo</label>
+      <select id="fType">
+        <option value="producto">Producto</option><option value="precio">Precio</option>
+        <option value="servicio">Servicio</option><option value="horario">Horario</option>
+        <option value="ubicacion">Ubicación</option><option value="promocion">Promoción</option>
+        <option value="faq">FAQ</option><option value="politica">Política</option>
+        <option value="equipo">Equipo</option><option value="dato">Dato general</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Título (opcional)</label><input id="fTitle" type="text" placeholder="ej: Precio del collar Celestial"></div>
+    <div class="form-row"><label>Contenido</label><textarea id="fContent" placeholder="Escribe lo que el agente debe saber..."></textarea></div>
+    <div class="form-row">
+      <label>Confianza (1=dudoso, 5=seguro)</label>
+      <div class="conf-row">
+        <button class="conf-btn" data-v="1" onclick="setConf(1)">⭐ 1</button>
+        <button class="conf-btn" data-v="2" onclick="setConf(2)">⭐⭐ 2</button>
+        <button class="conf-btn active" data-v="3" onclick="setConf(3)">⭐⭐⭐ 3</button>
+        <button class="conf-btn" data-v="4" onclick="setConf(4)">⭐⭐⭐⭐ 4</button>
+        <button class="conf-btn" data-v="5" onclick="setConf(5)">⭐⭐⭐⭐⭐ 5</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveEntry()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+<div class="del-overlay" id="delOverlay">
+  <div class="del-box">
+    <div class="del-icon">🗑️</div>
+    <div class="del-title">¿Eliminar esta entrada?</div>
+    <div class="del-subtitle" id="delSubtitle">Esta acción no se puede deshacer.</div>
+    <div class="del-actions">
+      <button class="btn-keep" onclick="closeDel()">Conservar</button>
+      <button class="btn-confirm-del" onclick="confirmDelete()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const FB_KEY='AIzaSyDnn5s6kfDRVxVBDviLIvI7itI5reFbklk';
+const FB_PRJ='infografia-porter';
+const BASE=`https://firestore.googleapis.com/v1/projects/${FB_PRJ}/databases/(default)/documents`;
+const HASHES=['d272dd278614cb465f177ad81c3f247a996a97209a27f283e0a161172f11c46f','f591c8f1da8cba26cbd95924ecad62d422e7aff65be55fa1bab8f53d71dba1a7'];
+let biz='caracol',entries=[],delId=null,conf=3;
+async function h256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+async function doLogin(){const p=document.getElementById('loginPwd').value,z=document.getElementById('loginBiz').value.trim()||'caracol';if(!p)return;const[a,b2]=await Promise.all([h256(p),h256(p.toLowerCase())]);if(HASHES.includes(a)||HASHES.includes(b2)){document.getElementById('loginErr').style.display='none';document.getElementById('loginScreen').style.display='none';document.getElementById('app').style.display='block';biz=z;const s=document.getElementById('bizSelect');(Array.from(s.options).find(o=>o.value===z)||{}).value&&(s.value=z);loadEntries();}else{document.getElementById('loginErr').style.display='block';document.getElementById('loginPwd').value='';}}
+function logout(){document.getElementById('loginScreen').style.display='flex';document.getElementById('app').style.display='none';document.getElementById('loginPwd').value='';entries=[];}
+document.getElementById('loginPwd').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('loginBiz').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPwd').focus();});
+function changeBiz(){const v=document.getElementById('bizSelect').value;if(v==='__custom__'){const c=prompt('Biz ID:');if(c)biz=c.trim();}else biz=v;loadEntries();}
+const fq=(z)=>fetch(`${BASE}:runQuery?key=${FB_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({structuredQuery:{from:[{collectionId:'cerebro'}],where:{fieldFilter:{field:{fieldPath:'biz'},op:'EQUAL',value:{stringValue:z}}},orderBy:[{field:{fieldPath:'ts'},direction:'DESCENDING'}],limit:200}})}).then(r=>r.json());
+const fa=(f)=>fetch(`${BASE}/cerebro?key=${FB_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:f})}).then(r=>r.json());
+const fu=(id,f)=>fetch(`${BASE}/cerebro/${id}?key=${FB_KEY}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:f})}).then(r=>r.json());
+const fd=(id)=>fetch(`${BASE}/cerebro/${id}?key=${FB_KEY}`,{method:'DELETE'}).then(r=>r.ok);
+async function loadEntries(){document.getElementById('entriesGrid').innerHTML='<div class="loading">⏳ Cargando...</div>';try{const d=await fq(biz);if(!Array.isArray(d))throw new Error('Firebase error');entries=d.filter(x=>x.document?.fields).map(x=>{const f=x.document.fields,id=x.document.name.split('/').pop();return{id,biz:f.biz?.stringValue||'',type:f.type?.stringValue||'dato',title:f.title?.stringValue||'',content:f.content?.stringValue||'',confidence:parseInt(f.confidence?.integerValue||f.confidence?.doubleValue||3),ts:f.ts?.timestampValue||f.ts?.stringValue||''};});updStats();render();}catch(e){document.getElementById('entriesGrid').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div>Error: ${e.message}</div></div>`;}}
+function updStats(){document.getElementById('statTotal').textContent=entries.length;document.getElementById('statHigh').textContent=entries.filter(e=>e.confidence>=5).length;document.getElementById('statTypes').textContent=new Set(entries.map(e=>e.type)).size;}
+const TC={producto:'#3b82f6',precio:'#8b5cf6',servicio:'#06b6d4',horario:'#22c55e',ubicacion:'#f97316',promocion:'#ec4899',faq:'#eab308',politica:'#94a3b8',equipo:'#f97316',dato:'#64748b'};
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const stars=n=>'⭐'.repeat(Math.max(1,Math.min(5,n)));
+const fmtD=ts=>{try{return ts?new Date(ts).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}):''}catch{return '';}};
+function render(){const q=document.getElementById('searchInput').value.toLowerCase(),t=document.getElementById('typeFilter').value;let list=entries;if(t)list=list.filter(e=>e.type===t);if(q)list=list.filter(e=>e.title.toLowerCase().includes(q)||e.content.toLowerCase().includes(q)||e.type.toLowerCase().includes(q));const g=document.getElementById('entriesGrid');if(!list.length){g.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin entradas${q?` para "${q}"`:''}.</div><div style="margin-top:10px"><button class="btn-add" onclick="openModal()">+ Agregar</button></div></div>`;return;}g.innerHTML=list.map(e=>{const c=TC[e.type]||'#64748b',d=fmtD(e.ts),p=e.content.length>200?e.content.slice(0,200)+'…':e.content;return`<div class="entry-card"><span class="entry-type-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">${e.type}</span><div class="entry-body">${e.title?`<div class="entry-title">${esc(e.title)}</div>`:''}<div class="entry-content">${esc(p)}</div><div class="entry-meta"><span class="conf-stars">${stars(e.confidence)}</span>${d?`<span class="entry-date">${d}</span>`:''}</div></div><div class="entry-actions"><button class="btn-edit" onclick="openEdit('${e.id}')">✏️ Editar</button><button class="btn-del" onclick="askDel('${e.id}','${esc(e.title||e.content.slice(0,40))}')">🗑️</button></div></div>`;}).join('');}
+function setConf(n){conf=n;document.querySelectorAll('.conf-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.v)===n));}
+function openModal(){document.getElementById('modalTitle').textContent='Nueva entrada';document.getElementById('editDocId').value='';document.getElementById('fType').value='producto';document.getElementById('fTitle').value='';document.getElementById('fContent').value='';setConf(3);document.getElementById('modalOverlay').classList.add('open');setTimeout(()=>document.getElementById('fContent').focus(),100);}
+function openEdit(id){const e=entries.find(x=>x.id===id);if(!e)return;document.getElementById('modalTitle').textContent='Editar entrada';document.getElementById('editDocId').value=id;document.getElementById('fType').value=e.type;document.getElementById('fTitle').value=e.title;document.getElementById('fContent').value=e.content;setConf(e.confidence);document.getElementById('modalOverlay').classList.add('open');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+async function saveEntry(){const id=document.getElementById('editDocId').value,type=document.getElementById('fType').value,title=document.getElementById('fTitle').value.trim(),content=document.getElementById('fContent').value.trim();if(!content){toast('Contenido requerido','err');return;}const f={biz:{stringValue:biz},type:{stringValue:type},title:{stringValue:title},content:{stringValue:content},confidence:{integerValue:String(conf)},ts:{timestampValue:new Date().toISOString()}};const btn=document.querySelector('.btn-save');btn.textContent='⏳ Guardando...';btn.disabled=true;try{if(id){await fu(id,f);const i=entries.findIndex(e=>e.id===id);if(i>=0)entries[i]={id,biz,type,title,content,confidence:conf,ts:new Date().toISOString()};toast('Actualizado ✓','ok');}else{const r=await fa(f);if(r.name){entries.unshift({id:r.name.split('/').pop(),biz,type,title,content,confidence:conf,ts:new Date().toISOString()});toast('Guardado ✓','ok');}else throw new Error(r.error?.message||'Error');}updStats();render();closeModal();}catch(e){toast('Error: '+e.message,'err');}finally{btn.textContent='💾 Guardar';btn.disabled=false;}}
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+function askDel(id,label){delId=id;document.getElementById('delSubtitle').textContent=`"${label}" — No se puede deshacer.`;document.getElementById('delOverlay').classList.add('open');}
+function closeDel(){delId=null;document.getElementById('delOverlay').classList.remove('open');}
+async function confirmDelete(){if(!delId)return;const id=delId;closeDel();try{if(await fd(id)){entries=entries.filter(e=>e.id!==id);updStats();render();toast('Eliminado','ok');}else toast('Error al eliminar','err');}catch(e){toast('Error: '+e.message,'err');}}
+let tt;function toast(m,t='ok'){const el=document.getElementById('toast');el.textContent=m;el.className=t;el.style.display='block';clearTimeout(tt);tt=setTimeout(()=>el.style.display='none',2800);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDel();}if((e.ctrlKey||e.metaKey)&&e.key==='n'&&document.getElementById('app').style.display!=='none'){e.preventDefault();openModal();}});
+</script>
+</body>
+</html>
