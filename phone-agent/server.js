@@ -1,10 +1,15 @@
 /**
  * Agencia Paco AI — Agente Telefónico
  * Servidor Node.js con Twilio ConversationRelay + Claude API
+ * Lee el Cerebro Vivo de Firebase para responder con conocimiento real
  *
- * Env vars en Railway:
- *   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
- *   ANTHROPIC_API_KEY, SERVER_URL, PORT
+ * Env vars necesarias (configura en Railway):
+ *   TWILIO_ACCOUNT_SID   — de console.twilio.com
+ *   TWILIO_AUTH_TOKEN    — de console.twilio.com
+ *   TWILIO_PHONE_NUMBER  — número Twilio +521234567890
+ *   ANTHROPIC_API_KEY    — sk-ant-...
+ *   SERVER_URL           — https://tu-app.railway.app (sin / al final)
+ *   PORT                 — Railway lo pone automático (default 3000)
  */
 
 'use strict';
@@ -26,27 +31,28 @@ const PORT                = parseInt(process.env.PORT || '3000');
 const FB_API_KEY    = 'AIzaSyDnn5s6kfDRVxVBDviLIvI7itI5reFbklk';
 const FB_PROJECT_ID = 'infografia-porter';
 
-// ── Twilio — wrapped so placeholder values don't crash the server ────────────
+// ── Twilio client — wrapped in try/catch so placeholder values don't crash ──
 let twilioClient = null;
 try {
-  if (TWILIO_ACCOUNT_SID.startsWith('AC') && TWILIO_ACCOUNT_SID.length === 34 && TWILIO_AUTH_TOKEN.length >= 20) {
+  if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN &&
+      TWILIO_ACCOUNT_SID.startsWith('AC') && TWILIO_ACCOUNT_SID.length === 34) {
     twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
     console.log('✅ Twilio client inicializado');
   } else {
-    console.warn('⚠️  Twilio no configurado — configura TWILIO_ACCOUNT_SID y TWILIO_AUTH_TOKEN reales en Railway');
+    console.warn('⚠️  Twilio no configurado — llamadas deshabilitadas (configura TWILIO_ACCOUNT_SID y TWILIO_AUTH_TOKEN reales)');
   }
 } catch (e) {
   console.warn('⚠️  Twilio error al iniciar:', e.message);
 }
 
-// ── Anthropic — wrapped so placeholder values don't crash ────────────────────
+// ── Anthropic client ──────────────────────────────────────────────────────────
 let anthropic = null;
 try {
-  if (ANTHROPIC_API_KEY.startsWith('sk-ant')) {
+  if (ANTHROPIC_API_KEY && ANTHROPIC_API_KEY.startsWith('sk-ant')) {
     anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
     console.log('✅ Anthropic client inicializado');
   } else {
-    console.warn('⚠️  ANTHROPIC_API_KEY no configurada — IA deshabilitada');
+    console.warn('⚠️  ANTHROPIC_API_KEY no configurada — respuestas de IA deshabilitadas');
   }
 } catch (e) {
   console.warn('⚠️  Anthropic error al iniciar:', e.message);
@@ -63,97 +69,154 @@ const wss = new WebSocket.Server({ server, path: '/conversation' });
 async function loadCerebro(bizId) {
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FB_API_KEY}`;
-    const body = { structuredQuery: { from: [{ collectionId: 'cerebro' }], where: { fieldFilter: { field: { fieldPath: 'biz' }, op: 'EQUAL', value: { stringValue: bizId } } }, orderBy: [{ field: { fieldPath: 'ts' }, direction: 'DESCENDING' }], limit: 40 } };
+    const body = {
+      structuredQuery: {
+        from: [{ collectionId: 'cerebro' }],
+        where: { fieldFilter: { field: { fieldPath: 'biz' }, op: 'EQUAL', value: { stringValue: bizId } } },
+        orderBy: [{ field: { fieldPath: 'ts' }, direction: 'DESCENDING' }],
+        limit: 40
+      }
+    };
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const docs = await res.json();
     if (!Array.isArray(docs)) return '';
     return docs.filter(d => d.document?.fields).map(d => {
       const f = d.document.fields;
+      const type = f.type?.stringValue || 'dato';
+      const title = f.title?.stringValue || '';
+      const content2 = f.content?.stringValue || '';
       const conf = f.confidence?.integerValue || f.confidence?.doubleValue || 3;
       const stars = conf >= 5 ? '⭐⭐⭐⭐⭐' : conf >= 3 ? '⭐⭐⭐' : '⭐';
-      return `[${(f.type?.stringValue||'dato').toUpperCase()} ${stars}] ${f.title?.stringValue||''}: ${f.content?.stringValue||''}`;
+      return `[${type.toUpperCase()} ${stars}] ${title ? title + ': ' : ''}${content2}`;
     }).join('\n');
-  } catch (e) { console.error('Error Cerebro:', e.message); return ''; }
+  } catch (e) { console.error('Error loading Cerebro Vivo:', e.message); return ''; }
 }
 
-function buildSystemPrompt(bizName, bizId, knowledge, mode) {
-  return `Eres el asistente de IA de ${bizName}. ${mode==='outbound'?'Estás llamando en su nombre.':'Estás atendiendo una llamada entrante.'}
+function buildSystemPrompt(bizName, bizId, knowledge, mode = 'inbound') {
+  const intro = mode === 'outbound'
+    ? `Estás haciendo una llamada en nombre de ${bizName}.`
+    : `Estás contestando una llamada entrante para ${bizName}.`;
+  return `IDIOMA OBLIGATORIO: Responde SIEMPRE y ÚNICAMENTE en español mexicano. Jamás respondas en inglés, ni aunque el usuario hable en inglés. Si alguien habla en inglés, respóndele en español de todas formas.
 
-REGLAS: Habla natural, conciso (2-3 oraciones). Español mexicano. No menciones que eres IA salvo que pregunten. Si quieren comprar/agendar pide nombre y número. Si no sabes algo di que el equipo les marcará. Despídete con "¡Que tenga un excelente día!"
+Eres el asistente de inteligencia artificial de ${bizName}.
+${intro}
 
-${knowledge ? 'CONOCIMIENTO:\n' + knowledge : '(Sin conocimiento cargado aún.)'}`;
+REGLAS DE CONVERSACIÓN:
+• Habla de forma NATURAL y CONCISA — máximo 2-3 oraciones por respuesta.
+• Usa español mexicano informal pero profesional.
+• NUNCA uses inglés bajo ninguna circunstancia.
+• Nunca digas que eres una IA a menos que te lo pregunten directamente.
+• Si te preguntan si eres humano, di: "Soy el asistente virtual de ${bizName}."
+• Si el cliente quiere comprar o agendar, pide su nombre completo y número para que el equipo le llame.
+• Si no sabes algo, di: "Déjame consultar con el equipo y te marcamos en breve."
+• Nunca inventes precios, fechas ni datos que no tengas en el conocimiento.
+• Al despedirte di siempre: "¡Que tenga un excelente día!"
+
+${knowledge ? `CONOCIMIENTO DE ${bizName.toUpperCase()}:\n${knowledge}` : `(Conocimiento aún no cargado. Ofrece poner en contacto con el equipo.)`}`;
 }
 
 wss.on('connection', (ws, req) => {
-  const params = new URLSearchParams(req.url.split('?')[1] || '');
+  const params = new URLSearchParams(req.url.replace('/conversation?', ''));
   const bizId = params.get('biz') || 'default';
-  const bizName = decodeURIComponent(params.get('name') || 'la empresa');
+  const bizName = params.get('name') || 'la empresa';
   const mode = params.get('mode') || 'inbound';
   const history = [];
   let knowledge = '';
   let aborted = false;
   loadCerebro(bizId).then(k => { knowledge = k; });
-  console.log(`📞 Conexión | biz=${bizId} mode=${mode}`);
+  console.log(`📞 Nueva conexión | biz=${bizId} | mode=${mode}`);
 
   ws.on('message', async (raw) => {
-    let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
     if (msg.type === 'interrupt') { aborted = true; return; }
-    if (msg.type !== 'prompt' || !msg.voicePrompt?.trim()) return;
-    history.push({ role: 'user', content: msg.voicePrompt });
-    aborted = false;
-    if (!anthropic) { ws.send(JSON.stringify({ type: 'text', token: 'El servicio de IA no está configurado aún. Por favor comunícate más tarde.', last: true })); return; }
-    try {
-      const stream = await anthropic.messages.stream({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, system: buildSystemPrompt(bizName, bizId, knowledge, mode), messages: history });
-      let full = '';
-      for await (const chunk of stream) {
-        if (aborted) break;
-        if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-          full += chunk.delta.text;
-          ws.send(JSON.stringify({ type: 'text', token: chunk.delta.text, last: false }));
-        }
+    if (msg.type === 'prompt') {
+      const userText = msg.voicePrompt || '';
+      if (!userText.trim()) return;
+      history.push({ role: 'user', content: userText });
+      aborted = false;
+
+      if (!anthropic) {
+        ws.send(JSON.stringify({ type: 'text', token: 'El servicio de IA no está configurado aún. Por favor contacta al administrador.', last: true }));
+        return;
       }
-      if (!aborted) { ws.send(JSON.stringify({ type: 'text', token: '', last: true })); history.push({ role: 'assistant', content: full }); }
-    } catch (err) { console.error('Claude error:', err.message); ws.send(JSON.stringify({ type: 'text', token: 'Disculpa el problema técnico. ¿Puedes repetir?', last: true })); }
+
+      const systemPrompt = buildSystemPrompt(bizName, bizId, knowledge, mode);
+      try {
+        const stream = await anthropic.messages.stream({
+          model: 'claude-haiku-4-5-20251001', max_tokens: 200,
+          system: systemPrompt, messages: history
+        });
+        let fullResponse = '';
+        for await (const chunk of stream) {
+          if (aborted) break;
+          if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
+            const token = chunk.delta.text;
+            fullResponse += token;
+            ws.send(JSON.stringify({ type: 'text', token, last: false }));
+          }
+        }
+        if (!aborted) {
+          ws.send(JSON.stringify({ type: 'text', token: '', last: true }));
+          history.push({ role: 'assistant', content: fullResponse });
+        }
+      } catch (err) {
+        console.error('Error Claude:', err.message);
+        ws.send(JSON.stringify({ type: 'text', token: 'Disculpa, tuve un problema técnico. ¿Puedes repetir?', last: true }));
+      }
+    }
   });
-  ws.on('close', () => console.log(`📵 Fin llamada biz=${bizId}`));
+  ws.on('close', () => console.log(`📵 Llamada terminada | biz=${bizId}`));
 });
 
 app.post('/incoming-call', (req, res) => {
   const bizId = req.query.biz || req.body.biz || 'default';
   const bizName = req.query.name || req.body.name || 'la Agencia';
-  const wsUrl = `wss://${new URL(SERVER_URL).host}/conversation?biz=${bizId}&name=${encodeURIComponent(bizName)}&mode=inbound`;
-  const twiml = new twilio.twiml.VoiceResponse();
-  twiml.connect({ action: `${SERVER_URL}/call-ended` }).conversationRelay({ url: wsUrl, welcomeGreeting: `¡Hola! Gracias por llamar a ${bizName}. ¿En qué te puedo ayudar?`, language: 'es-MX', ttsProvider: 'google', voice: 'es-MX-Standard-B', interruptible: 'any', transcriptionProvider: 'google' });
+  const serverHost = new URL(SERVER_URL).host;
+  const wsUrl = `wss://${serverHost}/conversation?biz=${bizId}&name=${encodeURIComponent(bizName)}&mode=inbound`;
+  const VR = twilio.twiml.VoiceResponse;
+  const twiml = new VR();
+  const connect = twiml.connect({ action: `${SERVER_URL}/call-ended` });
+  connect.conversationRelay({ url: wsUrl, welcomeGreeting: `¡Hola! Gracias por llamar a ${bizName}. ¿En qué te puedo ayudar?`, language: 'es-MX', ttsProvider: 'google', voice: 'es-MX-Standard-B', interruptible: 'any', transcriptionProvider: 'google' });
   res.type('text/xml').send(twiml.toString());
 });
 
 app.post('/outbound-twiml', (req, res) => {
   const bizId = req.query.biz || 'default';
   const bizName = req.query.name || 'la Agencia';
-  const greeting = req.query.greeting || `Hola, soy el asistente de ${bizName}.`;
-  const wsUrl = `wss://${new URL(SERVER_URL).host}/conversation?biz=${bizId}&name=${encodeURIComponent(bizName)}&mode=outbound`;
-  const twiml = new twilio.twiml.VoiceResponse();
+  const greeting = req.query.greeting || `Hola, soy el asistente de ${bizName}. ¿Tiene un momento?`;
+  const serverHost = new URL(SERVER_URL).host;
+  const wsUrl = `wss://${serverHost}/conversation?biz=${bizId}&name=${encodeURIComponent(bizName)}&mode=outbound`;
+  const VR = twilio.twiml.VoiceResponse;
+  const twiml = new VR();
   twiml.connect({ action: `${SERVER_URL}/call-ended` }).conversationRelay({ url: wsUrl, welcomeGreeting: greeting, language: 'es-MX', ttsProvider: 'google', voice: 'es-MX-Standard-B', interruptible: 'any' });
   res.type('text/xml').send(twiml.toString());
 });
 
 app.post('/make-call', async (req, res) => {
-  if (!twilioClient) return res.status(500).json({ error: 'Twilio no configurado — agrega credenciales reales en Railway Variables' });
+  if (!twilioClient) return res.status(500).json({ error: 'Twilio no configurado — agrega TWILIO_ACCOUNT_SID y TWILIO_AUTH_TOKEN reales en Railway' });
   const { to, bizId, bizName, greeting } = req.body;
   if (!to) return res.status(400).json({ error: 'Número destino requerido' });
+  const twimlUrl = `${SERVER_URL}/outbound-twiml?biz=${encodeURIComponent(bizId||'default')}&name=${encodeURIComponent(bizName||'la Agencia')}&greeting=${encodeURIComponent(greeting||'')}`;
   try {
-    const call = await twilioClient.calls.create({ to, from: TWILIO_PHONE_NUMBER, url: `${SERVER_URL}/outbound-twiml?biz=${encodeURIComponent(bizId||'default')}&name=${encodeURIComponent(bizName||'la Agencia')}&greeting=${encodeURIComponent(greeting||'')}`, statusCallback: `${SERVER_URL}/call-status`, statusCallbackMethod: 'POST' });
+    const call = await twilioClient.calls.create({ to, from: TWILIO_PHONE_NUMBER, url: twimlUrl, statusCallback: `${SERVER_URL}/call-status`, statusCallbackMethod: 'POST' });
     res.json({ success: true, callSid: call.sid });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/call-ended', (req, res) => res.type('text/xml').send('<Response></Response>'));
-app.post('/call-status', (req, res) => res.sendStatus(200));
+app.post('/call-ended', (req, res) => { res.type('text/xml').send('<Response></Response>'); });
+app.post('/call-status', (req, res) => { res.sendStatus(200); });
 
-app.get('/health', (req, res) => res.json({ status: 'ok', twilio: !!twilioClient, claude: !!anthropic }));
-app.get('/', (req, res) => res.json({ status: 'ok', app: 'Agencia Paco AI — Agente Telefónico', twilio: !!twilioClient, claude: !!anthropic, url: SERVER_URL }));
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', app: 'Agencia Paco AI — Agente Telefónico', twilio: !!twilioClient, claude: !!anthropic });
+});
+
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', app: 'Agencia Paco AI — Agente Telefónico', twilio: !!twilioClient, claude: !!anthropic, serverUrl: SERVER_URL });
+});
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 Agente Telefónico en puerto ${PORT}`);
-  console.log(`   Twilio: ${twilioClient ? '✅' : '❌ (falta SID/Token)'} | Claude: ${anthropic ? '✅' : '❌ (falta API key)'}`);
+  console.log(`\n🚀 Agente Telefónico corriendo en puerto ${PORT}`);
+  console.log(`   Twilio: ${twilioClient ? '✅' : '❌ (configura credenciales reales)'} | Claude: ${anthropic ? '✅' : '❌ (configura API key real)'}`);
+  console.log(`   SERVER_URL: ${SERVER_URL}`);
 });
