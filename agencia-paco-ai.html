@@ -5916,6 +5916,21 @@ function handleKnowFile(input) {
     titleEl.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
   }
 
+  // ── IMAGE FILES: store for upload in saveKnowledge ──
+  const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)$/i.test(file.name);
+  if (isImage) {
+    window._knowPendingFile = file;
+    fileName.textContent = '🖼️ ' + file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+      window._knowPastedImage = e.target.result; // base64 fallback
+      fileMsg.innerHTML = '<div style="margin-top:6px;"><img src="' + e.target.result + '" style="max-width:100%;max-height:120px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.12);"><div style="font-size:10px;color:#16a34a;font-weight:700;margin-top:4px;">✅ Imagen lista — se subirá a Firebase al guardar</div></div>';
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+    return;
+  }
+
   // Read text-based files
   const readable = /\.(txt|csv|md|html|json|xml)$/i.test(file.name);
   if (readable) {
