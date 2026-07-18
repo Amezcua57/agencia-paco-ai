@@ -1955,6 +1955,17 @@ function enterApp() {
     setTimeout(loadCanalClaude, 1500);
     setTimeout(loadClientMessagesCount, 2000);
   }
+  // ── Deep-link: #fotos → va directo a Cerebro galería de fotos ──
+  setTimeout(() => {
+    const h = (location.hash || '').toLowerCase().replace('#', '').trim();
+    if (h === 'fotos' || h === 'cerebro-fotos' || h === 'mis-fotos') {
+      showPage('cerebro', null);
+      setTimeout(() => {
+        _cerebroViewMode = 'grid';
+        if (typeof _filtrarCerebroByType === 'function') _filtrarCerebroByType('foto');
+      }, 1400);
+    }
+  }, 900);
 }
 
 function renderBizDropdown() {
