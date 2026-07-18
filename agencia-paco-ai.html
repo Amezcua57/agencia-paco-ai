@@ -2334,6 +2334,7 @@ function listenCerebroAll() {
 
 let _cerebroViewMode = 'grid'; // 'grid' or 'list' — grid is default so photos are visible
 let _cerebroSelectedPhotos = new Set(); // doc IDs of photos selected for AI use
+let _cerebroFotoFolder = null; // null = folder list view, string = inside a specific folder
 
 function _getThumbUrl(lnk) {
   if (!lnk) return null;
@@ -2392,7 +2393,7 @@ function _filtrarCerebroByType(type) {
     : baseSnap.docs;
   // Auto switch to grid when filtering for photos; clear selection when leaving foto
   if (_cerebroActiveTypeFilter === 'foto') _cerebroViewMode = 'grid';
-  else { _cerebroSelectedPhotos.clear(); _updateFotoSelectionBar(); }
+  else { _cerebroSelectedPhotos.clear(); _cerebroFotoFolder = null; _updateFotoSelectionBar(); }
   _renderCerebroList({ docs: activeDocs, size: activeDocs.length, _fullSnap: baseSnap }, list);
   // Highlight active stat card
   ['foto','video','documento','all'].forEach(t => {
@@ -2430,34 +2431,131 @@ function _renderCerebroList(snap, list) {
   const searchId = 'cerebro-search-main';
   const isFotoMode = _cerebroActiveTypeFilter === 'foto';
 
-  // Build drop zone HTML (only in foto mode)
-  const dropZoneHtml = isFotoMode ? `
-    <div id="_foto-dropzone"
-      ondragover="event.preventDefault();this.style.borderColor='#ec4899';this.style.background='#fdf2f8';"
-      ondragleave="this.style.borderColor='#f9a8d4';this.style.background='#fff0f7';"
-      ondrop="event.preventDefault();this.style.borderColor='#f9a8d4';this.style.background='#fff0f7';_bulkUploadFotos([...event.dataTransfer.files]);"
-      onclick="document.getElementById('_foto-multi-input').click()"
-      style="border:2.5px dashed #f9a8d4;border-radius:14px;padding:18px 20px;text-align:center;background:#fff0f7;margin-bottom:12px;cursor:pointer;transition:all 0.2s;position:relative;">
-      <div style="font-size:28px;margin-bottom:6px;">📸</div>
-      <div style="font-size:13px;font-weight:800;color:#be185d;">Arrastra tus fotos aquí</div>
-      <div style="font-size:11px;color:#f472b6;margin-top:3px;">o haz clic para seleccionar — puedes subir varias a la vez</div>
-      <input id="_foto-multi-input" type="file" accept="image/*" multiple style="display:none"
-        onchange="_bulkUploadFotos([...this.files]);this.value=''">
-    </div>` : '';
+  // ══════════════ FOTO MODE: FOLDER EXPLORER ══════════════
+  if (isFotoMode) {
+    const fotoDocs = snap.docs.filter(d => d.data().type === 'foto' && d.data().link); // only with real images
+    const emptyFotos = snap.docs.filter(d => d.data().type === 'foto' && !d.data().link);
 
-  // Build selection toolbar (only in foto mode when photos selected)
-  const nSel = _cerebroSelectedPhotos.size;
-  const selBarHtml = (isFotoMode && nSel > 0) ? `
-    <div style="background:linear-gradient(90deg,#fce7f3,#ede9fe);border:1.5px solid #f9a8d4;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-size:12px;font-weight:800;color:#be185d;">📸 ${nSel} foto${nSel>1?'s':''} seleccionada${nSel>1?'s':''}</span>
-      <button onclick="_usarFotosSeleccionadas()" style="background:#ec4899;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;">✨ Usar estas fotos</button>
-      <button onclick="_seleccionarTodasFotos()" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">Seleccionar todas</button>
-      <button onclick="_cerebroSelectedPhotos.clear();_filtrarCerebroByType('foto')" style="background:#f3f4f6;color:#374151;border:none;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">✕ Ninguna</button>
-    </div>` : '';
+    // ── INSIDE A FOLDER ──
+    if (_cerebroFotoFolder !== null) {
+      const folderDocs = fotoDocs.filter(d => (d.data().folder || 'Sin clasificar') === _cerebroFotoFolder);
+      const nSel = _cerebroSelectedPhotos.size;
+      const selBar = nSel > 0
+        ? '<div style="background:linear-gradient(90deg,#fce7f3,#ede9fe);border:1.5px solid #f9a8d4;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+          + '<span style="font-size:12px;font-weight:800;color:#be185d;">📸 ' + nSel + ' foto' + (nSel>1?'s':'') + ' seleccionada' + (nSel>1?'s':'') + '</span>'
+          + '<button onclick="_usarFotosSeleccionadas()" style="background:#ec4899;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;">✨ Usar estas fotos</button>'
+          + '<button onclick="_seleccionarTodasFotos()" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">Todas</button>'
+          + '<button onclick="_cerebroSelectedPhotos.clear();_filtrarCerebroByType(\'foto\')" style="background:#f3f4f6;color:#374151;border:none;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">✕ Ninguna</button>'
+          + '</div>' : '';
+
+      list.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">'
+        + '<button onclick="_volverACarpetas()" style="background:#f3f4f6;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;">← Carpetas</button>'
+        + '<span style="font-size:10px;color:#9ca3af;">🗂️ Fotos /</span>'
+        + '<span style="font-size:14px;font-weight:800;color:#be185d;">📁 ' + _cerebroFotoFolder + '</span>'
+        + '<span style="font-size:10px;background:#fce7f3;color:#be185d;padding:3px 8px;border-radius:10px;font-weight:700;">' + folderDocs.length + ' fotos</span>'
+        + '<button onclick="_crearCarpetaFotos()" style="margin-left:auto;background:#fce7f3;color:#be185d;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">+ Nueva carpeta</button>'
+        + '</div>'
+        + selBar
+        + '<div id="_foto-dropzone" ondragover="event.preventDefault();this.style.borderColor=\'#ec4899\';this.style.background=\'#fdf2f8\';" ondragleave="this.style.borderColor=\'#f9a8d4\';this.style.background=\'#fff0f7\';" ondrop="event.preventDefault();this.style.borderColor=\'#f9a8d4\';this.style.background=\'#fff0f7\';_bulkUploadFotos([...event.dataTransfer.files]);" onclick="document.getElementById(\'_foto-multi-input\').click()" style="border:2.5px dashed #f9a8d4;border-radius:12px;padding:14px;text-align:center;background:#fff0f7;margin-bottom:14px;cursor:pointer;transition:all 0.2s;">'
+        + '<div style="font-size:20px;">📸</div><div style="font-size:12px;font-weight:800;color:#be185d;margin-top:4px;">Arrastra fotos aquí o haz clic para seleccionar</div>'
+        + '<div style="font-size:10px;color:#f472b6;">Puedes subir varias a la vez · Se guardan en esta carpeta</div>'
+        + '<input id="_foto-multi-input" type="file" accept="image/*" multiple style="display:none" onchange="_bulkUploadFotos([...this.files]);this.value=\'\'"></div>'
+        + '<div id="cerebro-entries-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;"></div>';
+
+      const grid = document.getElementById('cerebro-entries-list');
+      if (folderDocs.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;color:#9ca3af;"><div style="font-size:40px;margin-bottom:8px;">📂</div><div style="font-size:13px;font-weight:700;">Carpeta vacía</div><div style="font-size:11px;margin-top:4px;">Arrastra fotos arriba o haz clic en el área rosada</div></div>';
+        return;
+      }
+      folderDocs.forEach((doc, i) => {
+        const d = doc.data();
+        const thumbUrl = _getThumbUrl(d.link||'');
+        const isSelected = _cerebroSelectedPhotos.has(doc.id);
+        const card = document.createElement('div');
+        card.id = 'fb-' + doc.id;
+        card.dataset.fotoId = doc.id;
+        card.style.cssText = 'border:2.5px solid ' + (isSelected?'#ec4899':'#e5e7eb') + ';border-radius:10px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;position:relative;box-shadow:' + (isSelected?'0 0 0 3px rgba(236,72,153,0.2)':'0 1px 3px rgba(0,0,0,0.06)') + ';';
+        card.onmouseenter = () => { if (!_cerebroSelectedPhotos.has(doc.id)) card.style.borderColor='#6366f1'; };
+        card.onmouseleave = () => { if (!_cerebroSelectedPhotos.has(doc.id)) card.style.borderColor='#e5e7eb'; };
+        card.onclick = () => _toggleFotoSelection(doc.id, card);
+        const chkBg = isSelected ? '#ec4899' : 'rgba(0,0,0,0.28)';
+        const chkBorder = isSelected ? '#ec4899' : 'rgba(255,255,255,0.85)';
+        const imgHtml = thumbUrl
+          ? '<div style="width:100%;height:130px;overflow:hidden;background:#f5f5f5;position:relative;"><img src="' + thumbUrl + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML=\'<div style=padding:20px;text-align:center;font-size:32px;>📷</div>\'"><div class="_foto-sel-check" onclick="event.stopPropagation();_toggleFotoSelection(\'' + doc.id + '\',this.closest(\'[data-foto-id]\'))" style="position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:5px;border:2.5px solid ' + chkBorder + ';background:' + chkBg + ';display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 1px 3px rgba(0,0,0,0.3);">' + (isSelected?'<span style="color:#fff;font-size:12px;font-weight:900;">✓</span>':'') + '</div></div>'
+          : '<div style="width:100%;height:130px;background:#fce7f3;display:flex;align-items:center;justify-content:center;font-size:36px;">📷</div>';
+        const safeTitle = (d.title||'').replace(/</g,'&lt;');
+        const dateStr = d.ts?.toDate ? d.ts.toDate().toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '';
+        card.innerHTML = imgHtml
+          + '<div style="padding:7px 8px;">'
+          + '<div style="font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111;">' + safeTitle + '</div>'
+          + '<div style="font-size:9px;color:#9ca3af;margin-top:1px;">' + dateStr + '</div>'
+          + '<div style="display:flex;gap:4px;margin-top:6px;">'
+          + '<button onclick="event.stopPropagation();_abrirFotoLightbox(\'' + (thumbUrl||'') + '\',\'' + safeTitle.replace(/'/g,'') + '\',\'' + doc.id + '\')" style="flex:1;background:#6366f1;color:#fff;border:none;border-radius:5px;padding:4px 0;font-size:9px;font-weight:700;cursor:pointer;">🔍 Ver</button>'
+          + '<button onclick="event.stopPropagation();eliminarEntradaCerebro(\'' + doc.id + '\',\'' + (d.title||'').replace(/'/g,'') + '\',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:5px;padding:4px 7px;font-size:10px;cursor:pointer;">🗑</button>'
+          + '</div></div>';
+        grid.appendChild(card);
+        setTimeout(() => { card.style.opacity='1'; card.style.transition='opacity 0.2s, transform 0.15s, box-shadow 0.15s'; }, Math.min(i*20,400));
+      });
+      return;
+    }
+
+    // ── FOLDER LIST VIEW ──
+    // Group photos by folder
+    const folderMap = {};
+    fotoDocs.forEach(doc => {
+      const f = doc.data().folder || 'Sin clasificar';
+      if (!folderMap[f]) folderMap[f] = { docs:[], thumb:null };
+      folderMap[f].docs.push(doc);
+      if (!folderMap[f].thumb && doc.data().link) folderMap[f].thumb = _getThumbUrl(doc.data().link);
+    });
+    const folderNames = Object.keys(folderMap).sort((a,b) => a==='Sin clasificar'?1:b==='Sin clasificar'?-1:a.localeCompare(b));
+    const hasEmpty = emptyFotos.length > 0;
+
+    list.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">'
+      + '<span style="font-size:16px;font-weight:800;color:#be185d;">📁 Mis Fotos</span>'
+      + '<span style="font-size:10px;background:#fce7f3;color:#be185d;padding:3px 8px;border-radius:10px;font-weight:700;">' + fotoDocs.length + ' fotos</span>'
+      + '<button onclick="_crearCarpetaFotos()" style="background:#ec4899;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;">+ Nueva carpeta</button>'
+      + (hasEmpty ? '<button onclick="_limpiarFotosVacias()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑 Limpiar ' + emptyFotos.length + ' vacías</button>' : '')
+      + '</div>'
+      + '<div id="_foto-dropzone-root" ondragover="event.preventDefault();this.style.borderColor=\'#ec4899\';this.style.background=\'#fdf2f8\';" ondragleave="this.style.borderColor=\'#f9a8d4\';this.style.background=\'#fff0f7\';" ondrop="event.preventDefault();this.style.borderColor=\'#f9a8d4\';this.style.background=\'#fff0f7\';_bulkUploadFotos([...event.dataTransfer.files]);" onclick="document.getElementById(\'_foto-multi-input-root\').click()" style="border:2.5px dashed #f9a8d4;border-radius:12px;padding:14px;text-align:center;background:#fff0f7;margin-bottom:16px;cursor:pointer;transition:all 0.2s;">'
+      + '<div style="font-size:18px;">📸</div><div style="font-size:12px;font-weight:800;color:#be185d;">Arrastra fotos aquí para subirlas</div>'
+      + '<div style="font-size:10px;color:#f472b6;">Se guardan en "Sin clasificar" · luego las mueves a la carpeta que quieras</div>'
+      + '<input id="_foto-multi-input-root" type="file" accept="image/*" multiple style="display:none" onchange="_bulkUploadFotos([...this.files]);this.value=\'\'"></div>'
+      + '<div id="cerebro-entries-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;"></div>';
+
+    const grid = document.getElementById('cerebro-entries-list');
+
+    if (folderNames.length === 0) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:48px;margin-bottom:10px;">📂</div><div style="font-size:14px;font-weight:700;">No hay fotos aún</div><div style="font-size:11px;margin-top:6px;">Arrastra tus fotos arriba o crea una carpeta</div></div>';
+      return;
+    }
+
+    // Render folder cards
+    folderNames.forEach((fname, i) => {
+      const info = folderMap[fname];
+      const card = document.createElement('div');
+      card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;box-shadow:0 1px 4px rgba(0,0,0,0.06);';
+      card.onmouseenter = () => { card.style.borderColor='#ec4899'; card.style.transform='translateY(-3px)'; card.style.boxShadow='0 8px 24px rgba(236,72,153,0.15)'; };
+      card.onmouseleave = () => { card.style.borderColor='#e5e7eb'; card.style.transform=''; card.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'; };
+      card.onclick = () => _abrirCarpetaFotos(fname);
+      const previewHtml = info.thumb
+        ? '<div style="width:100%;height:120px;overflow:hidden;position:relative;background:#f5f5f5;"><img src="' + info.thumb + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;filter:brightness(0.85);" onerror="this.parentNode.innerHTML=\'<div style=width:100%;height:120px;background:#fce7f3;display:flex;align-items:center;justify-content:center;font-size:40px;>📁</div>\'"><div style="position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,0.5);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;">' + info.docs.length + '</div></div>'
+        : '<div style="width:100%;height:120px;background:linear-gradient(135deg,#fce7f3,#ede9fe);display:flex;align-items:center;justify-content:center;font-size:44px;">📁</div>';
+      card.innerHTML = previewHtml
+        + '<div style="padding:10px 12px;display:flex;align-items:center;gap:8px;">'
+        + '<div style="flex:1;"><div style="font-size:12px;font-weight:800;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + fname + '</div>'
+        + '<div style="font-size:10px;color:#9ca3af;margin-top:1px;">' + info.docs.length + ' foto' + (info.docs.length!==1?'s':'') + '</div></div>'
+        + '<div style="font-size:18px;color:#be185d;">›</div></div>';
+      grid.appendChild(card);
+      setTimeout(() => { card.style.opacity='1'; card.style.transition='opacity 0.2s, transform 0.15s, box-shadow 0.15s'; }, Math.min(i*30,400));
+    });
+    return;
+  }
+  // ══════════════ END FOTO MODE ══════════════
+
+  // Build drop zone HTML — not in foto mode
 
   list.innerHTML = `
-    ${dropZoneHtml}
-    ${selBarHtml}
     <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input id="${searchId}" type="text" placeholder="🔍 Buscar en ${snap.size} archivos..."
         style="flex:1;min-width:160px;padding:7px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;"
@@ -2636,6 +2734,44 @@ function _updateFotoSelectionBar() {
   }
 }
 
+// ── FOLDER NAVIGATION ─────────────────────────────────────────────────────────
+function _abrirCarpetaFotos(name) {
+  _cerebroFotoFolder = name;
+  _cerebroSelectedPhotos.clear();
+  _filtrarCerebroByType('foto');
+}
+
+function _volverACarpetas() {
+  _cerebroFotoFolder = null;
+  _cerebroSelectedPhotos.clear();
+  _filtrarCerebroByType('foto');
+}
+
+function _crearCarpetaFotos() {
+  const name = prompt('Nombre de la nueva carpeta (ej: Amenidades, Departamentos, Familia...):');
+  if (!name || !name.trim()) return;
+  _cerebroFotoFolder = name.trim();
+  _cerebroSelectedPhotos.clear();
+  _filtrarCerebroByType('foto');
+  showToast('📁 Carpeta "' + name.trim() + '" creada — arrastra fotos aquí para llenarla');
+}
+
+async function _limpiarFotosVacias() {
+  if (!confirm('¿Eliminar todas las entradas de fotos que no tienen imagen? Esto no borra ningún archivo de tu computadora.')) return;
+  try {
+    const snap = await db.collection('cerebro').where('biz','==',state.currentBiz).where('type','==','foto').get();
+    const vacias = snap.docs.filter(d => !d.data().link);
+    if (vacias.length === 0) { showToast('No hay entradas vacías'); return; }
+    const batch = db.batch();
+    vacias.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    showToast('✅ ' + vacias.length + ' entradas vacías eliminadas');
+    listenCerebro(state.currentBiz);
+    setTimeout(() => _filtrarCerebroByType('foto'), 700);
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+// ── END FOLDER NAVIGATION ──────────────────────────────────────────────────────
+
 function _seleccionarTodasFotos() {
   const list = document.getElementById('cerebro-items-list');
   const snap = list?._snap;
@@ -2684,7 +2820,8 @@ async function _bulkUploadFotos(files) {
         url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(compressed); });
       }
       const title = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
-      await db.collection('cerebro').add({ type:'foto', title, link:url, content:'', biz, ts: firebase.firestore.FieldValue.serverTimestamp() });
+      const folder = _cerebroFotoFolder || 'Sin clasificar';
+      await db.collection('cerebro').add({ type:'foto', title, link:url, content:'', folder, biz, ts: firebase.firestore.FieldValue.serverTimestamp() });
       uploaded++;
     } catch(e) { console.error('bulkUpload', file.name, e); errors.push(file.name); }
   }
