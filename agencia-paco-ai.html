@@ -931,13 +931,16 @@
       <div class="page" id="page-cerebro">
         <div class="page-header">
           <div><h2>🧠 Cerebro Vivo</h2><p id="cerebro-biz-desc">Conocimiento de Caracol Diamante</p></div>
-          <button class="btn-primary" onclick="openAddKnowledge()">＋ Agregar conocimiento</button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn-sm" style="background:#fce7f3;color:#be185d;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;" onclick="_filtrarCerebroByType('foto');_cerebroViewMode='grid';">🖼️ Ver mis fotos</button>
+            <button class="btn-primary" onclick="openAddKnowledge()">＋ Agregar conocimiento</button>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
-          <div class="card" style="padding:14px;text-align:center;cursor:pointer;" onclick="showToast('Filtrando por fotos...')"><div style="font-size:28px;margin-bottom:4px;">🖼️</div><div style="font-size:12px;font-weight:700;">Fotos</div><div style="font-size:20px;font-weight:800;color:var(--primary);">23</div></div>
-          <div class="card" style="padding:14px;text-align:center;cursor:pointer;" onclick="showToast('Filtrando por videos...')"><div style="font-size:28px;margin-bottom:4px;">🎬</div><div style="font-size:12px;font-weight:700;">Videos</div><div style="font-size:20px;font-weight:800;color:var(--primary);">8</div></div>
-          <div class="card" style="padding:14px;text-align:center;cursor:pointer;" onclick="showToast('Filtrando por documentos...')"><div style="font-size:28px;margin-bottom:4px;">📄</div><div style="font-size:12px;font-weight:700;">Documentos</div><div style="font-size:20px;font-weight:800;color:var(--primary);">15</div></div>
-          <div class="card" style="padding:14px;text-align:center;cursor:pointer;" onclick="showToast('Filtrando por conocimiento...')"><div style="font-size:28px;margin-bottom:4px;">💬</div><div style="font-size:12px;font-weight:700;">Respuestas</div><div style="font-size:20px;font-weight:800;color:var(--primary);">41</div></div>
+          <div id="cerebro-stat-foto" class="card" style="padding:14px;text-align:center;cursor:pointer;transition:all .2s;" onclick="_filtrarCerebroByType('foto')"><div style="font-size:28px;margin-bottom:4px;">🖼️</div><div style="font-size:12px;font-weight:700;">Fotos</div><div id="cerebro-stat-n-foto" style="font-size:20px;font-weight:800;color:var(--primary);">—</div></div>
+          <div id="cerebro-stat-video" class="card" style="padding:14px;text-align:center;cursor:pointer;transition:all .2s;" onclick="_filtrarCerebroByType('video')"><div style="font-size:28px;margin-bottom:4px;">🎬</div><div style="font-size:12px;font-weight:700;">Videos</div><div id="cerebro-stat-n-video" style="font-size:20px;font-weight:800;color:var(--primary);">—</div></div>
+          <div id="cerebro-stat-documento" class="card" style="padding:14px;text-align:center;cursor:pointer;transition:all .2s;" onclick="_filtrarCerebroByType('documento')"><div style="font-size:28px;margin-bottom:4px;">📄</div><div style="font-size:12px;font-weight:700;">Documentos</div><div id="cerebro-stat-n-documento" style="font-size:20px;font-weight:800;color:var(--primary);">—</div></div>
+          <div id="cerebro-stat-all" class="card" style="padding:14px;text-align:center;cursor:pointer;transition:all .2s;" onclick="_filtrarCerebroByType(null)"><div style="font-size:28px;margin-bottom:4px;">💬</div><div style="font-size:12px;font-weight:700;">Todo</div><div id="cerebro-stat-n-all" style="font-size:20px;font-weight:800;color:var(--primary);">—</div></div>
         </div>
         <!-- Business Profile Card -->
         <div class="card" style="margin-bottom:12px;border-left:4px solid var(--primary);">
@@ -2263,8 +2266,13 @@ function listenCerebro(bizId) {
       if (countEl) countEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ ${filteredDocs.length} entradas</span>`;
       // Cache cerebro data for AI context
       _cerebroCache = filteredDocs.map(d => ({ id: d.id, ...d.data() }));
-      // Render entries using shared helper
-      _renderCerebroList({ docs: filteredDocs, size: filteredDocs.length }, list);
+      _updateCerebroStats();
+      // Render entries using shared helper (apply active filter if any)
+      const _fullS = { docs: filteredDocs, size: filteredDocs.length };
+      const _renderDocs = _cerebroActiveTypeFilter
+        ? filteredDocs.filter(doc => doc.data().type === _cerebroActiveTypeFilter)
+        : filteredDocs;
+      _renderCerebroList({ docs: _renderDocs, size: _renderDocs.length, _fullSnap: _fullS }, list);
     }, e => {
       console.warn('onSnapshot error:', e);
       const list = document.getElementById('cerebro-items-list');
@@ -2301,7 +2309,12 @@ function listenCerebroAll() {
       if (filteredDocs.length === 0) { list.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:12px;"><div style="font-size:28px;margin-bottom:8px;">🧠</div>Cerebro vacío — agrega tu primera entrada</div>'; return; }
       // Cache cerebro data for AI context
       _cerebroCache = filteredDocs.map(d => ({ id: d.id, ...d.data() }));
-      _renderCerebroList({ docs: filteredDocs, size: filteredDocs.length }, list);
+      _updateCerebroStats();
+      const _fullSAll = { docs: filteredDocs, size: filteredDocs.length };
+      const _renderDocsAll = _cerebroActiveTypeFilter
+        ? filteredDocs.filter(doc => doc.data().type === _cerebroActiveTypeFilter)
+        : filteredDocs;
+      _renderCerebroList({ docs: _renderDocsAll, size: _renderDocsAll.length, _fullSnap: _fullSAll }, list);
     }, e => {
       if (list) list.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px;">⚠️ Error: ${e.message}</div>`;
     });
@@ -2349,7 +2362,52 @@ function _cerebroToggleView(mode) {
   if (list && list._snap) _renderCerebroList(list._snap, list);
 }
 
+// ── CEREBRO TYPE FILTER ────────────────────────────────────────────
+let _cerebroActiveTypeFilter = null;
+
+function _filtrarCerebroByType(type) {
+  // Toggle off if same type clicked again
+  _cerebroActiveTypeFilter = (_cerebroActiveTypeFilter === type && type !== null) ? null : type;
+  const list = document.getElementById('cerebro-items-list');
+  if (!list) return;
+  // Always filter from the FULL (unfiltered) snap
+  const baseSnap = list._fullSnap || list._snap;
+  if (!baseSnap) return;
+  const activeDocs = _cerebroActiveTypeFilter
+    ? baseSnap.docs.filter(doc => doc.data().type === _cerebroActiveTypeFilter)
+    : baseSnap.docs;
+  // Auto switch to grid when filtering for photos
+  if (_cerebroActiveTypeFilter === 'foto') _cerebroViewMode = 'grid';
+  _renderCerebroList({ docs: activeDocs, size: activeDocs.length, _fullSnap: baseSnap }, list);
+  // Highlight active stat card
+  ['foto','video','documento','all'].forEach(t => {
+    const el = document.getElementById('cerebro-stat-' + t);
+    if (!el) return;
+    const active = t === (_cerebroActiveTypeFilter || 'all');
+    el.style.borderColor = active ? '#6366f1' : '#e5e7eb';
+    el.style.background = active ? '#ede9fe' : '';
+    el.style.transform = active ? 'scale(1.03)' : '';
+  });
+}
+
+function _updateCerebroStats() {
+  const entries = _cerebroCache;
+  const nFoto = entries.filter(e => e.type === 'foto').length;
+  const nVideo = entries.filter(e => e.type === 'video').length;
+  const nDoc = entries.filter(e => e.type === 'documento').length;
+  const nAll = entries.length;
+  const setN = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
+  setN('cerebro-stat-n-foto', nFoto);
+  setN('cerebro-stat-n-video', nVideo);
+  setN('cerebro-stat-n-documento', nDoc);
+  setN('cerebro-stat-n-all', nAll);
+}
+// ── END CEREBRO TYPE FILTER ────────────────────────────────────────
+
 function _renderCerebroList(snap, list) {
+  // Preserve full (unfiltered) snap for type-filter toggling
+  if (snap._fullSnap) { list._fullSnap = snap._fullSnap; }
+  else { list._fullSnap = snap; }
   list._snap = snap; // store for re-render on view toggle
   const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
   const typeColor = {texto:'#dbeafe',foto:'#fce7f3',video:'#fee2e2',documento:'#fef3c7',precio:'#d1fae5',objecion:'#f3e8ff',faq:'#e0e7ff',guion:'#ffedd5'};
@@ -4260,6 +4318,11 @@ function _buildAgentPhotoBar() {
     grid.appendChild(thumb);
   });
   _updatePhotoBarLabel();
+  // Auto-expand so photos are visible immediately — no need to click "Ver fotos"
+  _agentPhotoBarOpen = true;
+  grid.style.display = 'flex';
+  const arrow = document.getElementById('agent-photo-bar-arrow');
+  if (arrow) arrow.textContent = '▲ Ocultar';
 }
 
 function _togglePhotoSelection(el, url, title) {
