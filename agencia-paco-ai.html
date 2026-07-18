@@ -2522,22 +2522,20 @@ function _renderCerebroList(snap, list) {
                  <div style="font-size:9px;color:#fff;background:#ec4899;border-radius:20px;padding:3px 10px;font-weight:700;" onclick="event.stopPropagation();editarEntradaCerebro('${doc.id}')">+ Agregar foto</div>
                </div>`
             : `<div style="width:100%;height:150px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:48px;">${typeEmoji[d.type]||'📁'}</div>`;
+      // Pre-compute button values to avoid nested template literal issues
+      const btnLabel  = isSelected ? '✓ Sel.' : (isFotoMode && isFotoCard ? '☑ Usar' : '✏️ Ver');
+      const btnBg     = isSelected ? '#ec4899' : '#6366f1';
+      const btnOnclick = isFotoMode && isFotoCard
+        ? 'event.stopPropagation();_toggleFotoSelection(\'' + doc.id + '\',this.closest(\'[data-foto-id]\'))'
+        : 'event.stopPropagation();verEntradaById(\'' + doc.id + '\')';
       card.innerHTML = previewHtml
-        + `<div style="padding:9px 10px;">
-             <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>
-             <div style="font-size:9px;color:#9ca3af;margin-top:2px;">${(typeLabel[d.type]||d.type||'').toUpperCase()} · ${d.ts?.toDate ? d.ts.toDate().toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : ''}</div>
-             <div style="display:flex;gap:5px;margin-top:7px;">
-               <button onclick="event.stopPropagation();${isFotoMode&&isFotoCard?`_toggleFotoSelection('${doc.id}',this.closest('[data-foto-id]'))`:`verEntradaById('${doc.id}')`}" style="flex:1;background:${isSelected?'#ec4899':'#6366f1'};color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;">${isSelected?'✓ Seleccionada':'${isFotoMode&&isFotoCard?"☑ Seleccionar":"✏️ Detalles"}'}</button>
-               <button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;" title="Eliminar">🗑</button>
-             </div>
-           </div>`;
-      // Fix button label after innerHTML (avoid nested template literal complexity)
-      const actionBtn = card.querySelector('div > div:last-child > button:first-child');
-      if (actionBtn && isFotoMode && isFotoCard) {
-        actionBtn.textContent = isSelected ? '✓ Seleccionada' : '☑ Seleccionar';
-        actionBtn.style.background = isSelected ? '#ec4899' : '#6366f1';
-        actionBtn.onclick = (e) => { e.stopPropagation(); _toggleFotoSelection(doc.id, card); };
-      }
+        + '<div style="padding:9px 10px;">'
+        + '<div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">' + (d.title||'Sin título') + '</div>'
+        + '<div style="font-size:9px;color:#9ca3af;margin-top:2px;">' + (typeLabel[d.type]||d.type||'').toUpperCase() + ' · ' + (d.ts?.toDate ? d.ts.toDate().toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '') + '</div>'
+        + '<div style="display:flex;gap:5px;margin-top:7px;">'
+        + '<button onclick="' + btnOnclick + '" style="flex:1;background:' + btnBg + ';color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;">' + btnLabel + '</button>'
+        + '<button onclick="event.stopPropagation();eliminarEntradaCerebro(\'' + doc.id + '\',\'' + (d.title||'').replace(/'/g,'') + '\',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;" title="Eliminar">🗑</button>'
+        + '</div></div>';
       entriesList.appendChild(card);
       setTimeout(() => { card.style.opacity='1'; card.style.transition='opacity 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease'; }, Math.min(i*25, 500));
     });
