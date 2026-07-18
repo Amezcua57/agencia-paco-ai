@@ -2445,14 +2445,20 @@ function _renderCerebroList(snap, list) {
       card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;box-shadow:0 1px 4px rgba(0,0,0,0.06);';
       card.onmouseenter = () => { card.style.borderColor='#6366f1'; card.style.transform='translateY(-3px)'; card.style.boxShadow='0 8px 24px rgba(99,102,241,0.18)'; };
       card.onmouseleave = () => { card.style.borderColor='#e5e7eb'; card.style.transform=''; card.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'; };
-      card.onclick = () => isPhoto ? _abrirFotoLightbox(thumbUrl, d.title||'', doc.id) : verEntradaById(doc.id);
+      card.onclick = () => isPhoto ? _abrirFotoLightbox(thumbUrl, d.title||'', doc.id) : (d.type === 'foto' ? editarEntradaCerebro(doc.id) : verEntradaById(doc.id));
       const previewHtml = thumbUrl
         ? `<div style="width:100%;height:150px;overflow:hidden;background:#f9fafb;position:relative;">
              <img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"
                onerror="this.parentNode.style.background='${typeColor[d.type]||'#f3f4f6'}';this.style.display='none';this.parentNode.innerHTML+='<div style=\\'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;\\'>${typeEmoji[d.type]||'📁'}</div>'">
              <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.45);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;backdrop-filter:blur(4px);">🔍 Ver</div>
            </div>`
-        : `<div style="width:100%;height:150px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:48px;">${typeEmoji[d.type]||'📁'}</div>`;
+        : d.type === 'foto'
+            ? `<div style="width:100%;height:150px;background:#fce7f3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;">
+                 <div style="font-size:32px;">📷</div>
+                 <div style="font-size:10px;font-weight:700;color:#be185d;">Sin imagen</div>
+                 <div style="font-size:9px;color:#fff;background:#ec4899;border-radius:20px;padding:3px 10px;font-weight:700;">+ Agregar foto</div>
+               </div>`
+            : `<div style="width:100%;height:150px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:48px;">${typeEmoji[d.type]||'📁'}</div>`;
       card.innerHTML = previewHtml
         + `<div style="padding:9px 10px;">
              <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>
@@ -2517,6 +2523,13 @@ async function editarEntradaCerebro(docId) {
     if (!snap.exists) { modal.style.display='none'; return; }
     const d = snap.data();
     const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
+    // Pre-build photo-specific HTML (avoids nested template literals)
+    const fotoUploadHtml = d.type === 'foto'
+      ? '<div style="margin-top:8px;"><label style="display:inline-flex;align-items:center;gap:6px;background:#fce7f3;color:#be185d;border:1.5px solid #f9a8d4;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">📁 Subir foto desde mi computadora<input type="file" id="edit-foto-file-input" accept="image/*" style="display:none" onchange="uploadEditFoto(event)"></label> <span id="edit-foto-upload-status" style="font-size:11px;color:#9ca3af;"></span></div>'
+      : '';
+    const existingImgHtml = (d.link && /firebasestorage|data:image|\.(jpg|jpeg|png|gif|webp)/i.test(d.link))
+      ? '<div style="margin-top:8px;background:#f5f3ff;border-radius:8px;padding:8px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:6px;">📸 Imagen actual:</div><img src="' + (d.link||'').replace(/"/g,'&quot;') + '" style="max-width:100%;max-height:160px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.10);" onerror="this.parentElement.innerHTML=\'<div style=paddin:8px;color:#ef4444;font-size:11px;>No se pudo cargar la imagen guardada</div>\'"></div>'
+      : '';
     modal.innerHTML = `
       <div style="background:#fff;border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.35);">
         <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;z-index:1;">
@@ -2533,10 +2546,12 @@ async function editarEntradaCerebro(docId) {
               style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
           </div>
           <div>
-            <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px;">🔗 LINK / URL DE FOTOS (Google Drive, imagen directa, YouTube...)</label>
-            <input id="edit-link" value="${(d.link||'').replace(/"/g,'&quot;')}" placeholder="https://drive.google.com/drive/folders/... o URL de imagen"
+            <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px;">🔗 ${d.type==='foto'?'IMAGEN / URL':'LINK / URL'} (Google Drive, imagen directa, YouTube...)</label>
+            <input id="edit-link" value="${(d.link||'').replace(/"/g,'&quot;')}" placeholder="${d.type==='foto'?'URL directa de imagen (o sube con el botón de abajo)':'https://drive.google.com/drive/folders/... o URL'}"
               style="width:100%;border:1.5px solid #6366f1;border-radius:8px;padding:9px 12px;font-size:12px;outline:none;box-sizing:border-box;background:#f5f3ff;">
-            <div style="font-size:10px;color:#9ca3af;margin-top:4px;">💡 Para BANCO DE FOTOS: pega el link de tu carpeta de Google Drive con las fotos</div>
+            ${fotoUploadHtml}
+            ${existingImgHtml}
+            <div style="font-size:10px;color:#9ca3af;margin-top:4px;">💡 ${d.type==='foto'?'Sube una imagen desde tu computadora O pega la URL directa':'Para BANCO DE FOTOS: pega el link de tu carpeta de Google Drive'}</div>
           </div>
           <div>
             <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px;">📝 CONTENIDO / DESCRIPCIÓN</label>
@@ -4448,6 +4463,38 @@ async function uploadChatFotos(event) {
     // Auto-load into Reel Builder
     setTimeout(() => openReelBuilder(uploadedPhotos), 1200);
   }
+}
+
+async function uploadEditFoto(event) {
+  const file = event.target.files[0];
+  if (!file || !file.type.startsWith('image/')) { showToast('⚠️ Selecciona una imagen válida'); return; }
+  const status   = document.getElementById('edit-foto-upload-status');
+  const linkInput = document.getElementById('edit-link');
+  const preview  = document.getElementById('edit-link-preview');
+  if (status) status.textContent = '⏳ Subiendo...';
+  try {
+    let url = null;
+    if (fbStorage) {
+      const path = 'cerebro/' + (state.currentBiz || 'general') + '/' + Date.now() + '_' + file.name.replace(/\s+/g, '_');
+      const snap = await fbStorage.ref(path).put(file);
+      url = await snap.ref.getDownloadURL();
+      showToast('✅ Imagen subida — haz clic en "Guardar cambios"');
+    } else {
+      if (file.size > 900000) { showToast('⚠️ Imagen demasiado grande (máx 900 KB sin Storage)'); return; }
+      url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+      showToast('💾 Imagen lista — haz clic en "Guardar cambios"');
+    }
+    if (linkInput) linkInput.value = url;
+    if (preview) {
+      preview.style.display = 'block';
+      preview.innerHTML = '<div style="background:#fce7f3;border-radius:8px;padding:8px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#9d174d;margin-bottom:6px;">✅ Vista previa:</div><img src="' + url + '" style="max-width:100%;max-height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>';
+    }
+    if (status) { status.textContent = '✅ Lista'; status.style.color = '#16a34a'; }
+  } catch(e) {
+    if (status) { status.textContent = '❌ Error'; status.style.color = '#dc2626'; }
+    showToast('❌ Error al subir: ' + e.message);
+  }
+  event.target.value = '';
 }
 
 function _chatAddLink() {
