@@ -933,6 +933,7 @@
           <div><h2>🧠 Cerebro Vivo</h2><p id="cerebro-biz-desc">Conocimiento de Caracol Diamante</p></div>
           <div style="display:flex;gap:8px;align-items:center;">
             <button class="btn-sm" style="background:#fce7f3;color:#be185d;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;" onclick="_filtrarCerebroByType('foto');_cerebroViewMode='grid';">🖼️ Ver mis fotos</button>
+            <button class="btn-sm" style="background:#fce7f3;color:#be185d;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;" onclick="_filtrarCerebroByType('foto');_cerebroViewMode='grid';setTimeout(()=>{const inp=document.getElementById('_foto-multi-input');if(inp)inp.click();},400);">📤 Subir fotos</button>
             <button class="btn-primary" onclick="openAddKnowledge()">＋ Agregar conocimiento</button>
           </div>
         </div>
@@ -2332,6 +2333,7 @@ function listenCerebroAll() {
 }
 
 let _cerebroViewMode = 'grid'; // 'grid' or 'list' — grid is default so photos are visible
+let _cerebroSelectedPhotos = new Set(); // doc IDs of photos selected for AI use
 
 function _getThumbUrl(lnk) {
   if (!lnk) return null;
@@ -2358,8 +2360,9 @@ function _abrirFotoLightbox(url, title, docId) {
       </div>
     </div>
     <img src="${url}" style="max-width:92vw;max-height:82vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.6);" onerror="this.alt='No se pudo cargar la imagen'">
-    <div style="margin-top:12px;display:flex;gap:10px;">
-      <button onclick="event.stopPropagation();document.getElementById('_foto-lightbox').style.display='none';verEntradaById('${docId}')" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:11px;font-weight:700;cursor:pointer;">✏️ Ver detalles / Editar</button>
+    <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+      <button onclick="event.stopPropagation();document.getElementById('_foto-lightbox').style.display='none';_toggleFotoSelection('${docId}',null);_filtrarCerebroByType('foto')" style="background:#ec4899;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:11px;font-weight:700;cursor:pointer;">☑ Seleccionar para usar</button>
+      <button onclick="event.stopPropagation();document.getElementById('_foto-lightbox').style.display='none';verEntradaById('${docId}')" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:11px;font-weight:700;cursor:pointer;">✏️ Ver / Editar</button>
       <button onclick="event.stopPropagation();document.getElementById('_foto-lightbox').style.display='none';eliminarEntradaCerebro('${docId}','${title.replace(/'/g,'')}',null)" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:11px;cursor:pointer;">🗑️ Eliminar</button>
     </div>`;
   lb.style.display = 'flex';
@@ -2387,8 +2390,9 @@ function _filtrarCerebroByType(type) {
   const activeDocs = _cerebroActiveTypeFilter
     ? baseSnap.docs.filter(doc => doc.data().type === _cerebroActiveTypeFilter)
     : baseSnap.docs;
-  // Auto switch to grid when filtering for photos
+  // Auto switch to grid when filtering for photos; clear selection when leaving foto
   if (_cerebroActiveTypeFilter === 'foto') _cerebroViewMode = 'grid';
+  else { _cerebroSelectedPhotos.clear(); _updateFotoSelectionBar(); }
   _renderCerebroList({ docs: activeDocs, size: activeDocs.length, _fullSnap: baseSnap }, list);
   // Highlight active stat card
   ['foto','video','documento','all'].forEach(t => {
@@ -2424,8 +2428,36 @@ function _renderCerebroList(snap, list) {
   const typeColor = {texto:'#dbeafe',foto:'#fce7f3',video:'#fee2e2',documento:'#fef3c7',precio:'#d1fae5',objecion:'#f3e8ff',faq:'#e0e7ff',guion:'#ffedd5'};
   const typeLabel = {texto:'Texto',foto:'Foto',video:'Video',documento:'Doc',precio:'Precio',objecion:'Objeción',faq:'FAQ',guion:'Guión'};
   const searchId = 'cerebro-search-main';
+  const isFotoMode = _cerebroActiveTypeFilter === 'foto';
+
+  // Build drop zone HTML (only in foto mode)
+  const dropZoneHtml = isFotoMode ? `
+    <div id="_foto-dropzone"
+      ondragover="event.preventDefault();this.style.borderColor='#ec4899';this.style.background='#fdf2f8';"
+      ondragleave="this.style.borderColor='#f9a8d4';this.style.background='#fff0f7';"
+      ondrop="event.preventDefault();this.style.borderColor='#f9a8d4';this.style.background='#fff0f7';_bulkUploadFotos([...event.dataTransfer.files]);"
+      onclick="document.getElementById('_foto-multi-input').click()"
+      style="border:2.5px dashed #f9a8d4;border-radius:14px;padding:18px 20px;text-align:center;background:#fff0f7;margin-bottom:12px;cursor:pointer;transition:all 0.2s;position:relative;">
+      <div style="font-size:28px;margin-bottom:6px;">📸</div>
+      <div style="font-size:13px;font-weight:800;color:#be185d;">Arrastra tus fotos aquí</div>
+      <div style="font-size:11px;color:#f472b6;margin-top:3px;">o haz clic para seleccionar — puedes subir varias a la vez</div>
+      <input id="_foto-multi-input" type="file" accept="image/*" multiple style="display:none"
+        onchange="_bulkUploadFotos([...this.files]);this.value=''">
+    </div>` : '';
+
+  // Build selection toolbar (only in foto mode when photos selected)
+  const nSel = _cerebroSelectedPhotos.size;
+  const selBarHtml = (isFotoMode && nSel > 0) ? `
+    <div style="background:linear-gradient(90deg,#fce7f3,#ede9fe);border:1.5px solid #f9a8d4;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:12px;font-weight:800;color:#be185d;">📸 ${nSel} foto${nSel>1?'s':''} seleccionada${nSel>1?'s':''}</span>
+      <button onclick="_usarFotosSeleccionadas()" style="background:#ec4899;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;">✨ Usar estas fotos</button>
+      <button onclick="_seleccionarTodasFotos()" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">Seleccionar todas</button>
+      <button onclick="_cerebroSelectedPhotos.clear();_filtrarCerebroByType('foto')" style="background:#f3f4f6;color:#374151;border:none;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">✕ Ninguna</button>
+    </div>` : '';
 
   list.innerHTML = `
+    ${dropZoneHtml}
+    ${selBarHtml}
     <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input id="${searchId}" type="text" placeholder="🔍 Buscar en ${snap.size} archivos..."
         style="flex:1;min-width:160px;padding:7px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;"
@@ -2450,24 +2482,44 @@ function _renderCerebroList(snap, list) {
       const d = doc.data();
       const thumbUrl = _getThumbUrl(d.link||'');
       const isPhoto = thumbUrl !== null;
+      const isFotoCard = d.type === 'foto';
+      const isSelected = _cerebroSelectedPhotos.has(doc.id);
       const card = document.createElement('div');
       card.id = 'fb-' + doc.id;
       card.dataset.search = ((d.title||'') + ' ' + (d.type||'')).toLowerCase();
-      card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;box-shadow:0 1px 4px rgba(0,0,0,0.06);';
-      card.onmouseenter = () => { card.style.borderColor='#6366f1'; card.style.transform='translateY(-3px)'; card.style.boxShadow='0 8px 24px rgba(99,102,241,0.18)'; };
-      card.onmouseleave = () => { card.style.borderColor='#e5e7eb'; card.style.transform=''; card.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'; };
-      card.onclick = () => isPhoto ? _abrirFotoLightbox(thumbUrl, d.title||'', doc.id) : (d.type === 'foto' ? editarEntradaCerebro(doc.id) : verEntradaById(doc.id));
+      card.dataset.fotoId = doc.id;
+      const borderCol = isSelected ? '#ec4899' : '#e5e7eb';
+      card.style.cssText = `border:2px solid ${borderCol};border-radius:12px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;box-shadow:${isSelected?'0 0 0 3px rgba(236,72,153,0.2)':'0 1px 4px rgba(0,0,0,0.06)'};position:relative;`;
+      if (!isSelected) {
+        card.onmouseenter = () => { if (!_cerebroSelectedPhotos.has(doc.id)) { card.style.borderColor='#6366f1'; card.style.transform='translateY(-3px)'; card.style.boxShadow='0 8px 24px rgba(99,102,241,0.18)'; } };
+        card.onmouseleave = () => { if (!_cerebroSelectedPhotos.has(doc.id)) { card.style.borderColor='#e5e7eb'; card.style.transform=''; card.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'; } };
+      }
+      card.onclick = () => {
+        if (isFotoMode && isFotoCard) { _toggleFotoSelection(doc.id, card); return; }
+        isPhoto ? _abrirFotoLightbox(thumbUrl, d.title||'', doc.id) : (isFotoCard ? editarEntradaCerebro(doc.id) : verEntradaById(doc.id));
+      };
+
+      // Checkbox overlay (always visible in foto mode for foto cards)
+      const checkOverlay = isFotoMode && isFotoCard
+        ? `<div class="_foto-sel-check" onclick="event.stopPropagation();_toggleFotoSelection('${doc.id}',this.closest('[data-foto-id]')||this.parentElement.parentElement)"
+             style="position:absolute;top:7px;left:7px;width:24px;height:24px;border-radius:6px;border:2.5px solid ${isSelected?'#ec4899':'rgba(255,255,255,0.9)'};background:${isSelected?'#ec4899':'rgba(0,0,0,0.25)'};display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,0.3);">
+             ${isSelected?'<span style="color:white;font-size:13px;font-weight:900;">✓</span>':''}
+           </div>`
+        : '';
+
       const previewHtml = thumbUrl
         ? `<div style="width:100%;height:150px;overflow:hidden;background:#f9fafb;position:relative;">
              <img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"
                onerror="this.parentNode.style.background='${typeColor[d.type]||'#f3f4f6'}';this.style.display='none';this.parentNode.innerHTML+='<div style=\\'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;\\'>${typeEmoji[d.type]||'📁'}</div>'">
-             <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.45);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;backdrop-filter:blur(4px);">🔍 Ver</div>
+             ${checkOverlay}
+             <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.45);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;backdrop-filter:blur(4px);">${isFotoMode?'☑ Selec':'🔍 Ver'}</div>
            </div>`
-        : d.type === 'foto'
-            ? `<div style="width:100%;height:150px;background:#fce7f3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;">
+        : isFotoCard
+            ? `<div style="width:100%;height:150px;background:#fce7f3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;position:relative;">
+                 ${checkOverlay}
                  <div style="font-size:32px;">📷</div>
                  <div style="font-size:10px;font-weight:700;color:#be185d;">Sin imagen</div>
-                 <div style="font-size:9px;color:#fff;background:#ec4899;border-radius:20px;padding:3px 10px;font-weight:700;">+ Agregar foto</div>
+                 <div style="font-size:9px;color:#fff;background:#ec4899;border-radius:20px;padding:3px 10px;font-weight:700;" onclick="event.stopPropagation();editarEntradaCerebro('${doc.id}')">+ Agregar foto</div>
                </div>`
             : `<div style="width:100%;height:150px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:48px;">${typeEmoji[d.type]||'📁'}</div>`;
       card.innerHTML = previewHtml
@@ -2475,10 +2527,17 @@ function _renderCerebroList(snap, list) {
              <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">${d.title||'Sin título'}</div>
              <div style="font-size:9px;color:#9ca3af;margin-top:2px;">${(typeLabel[d.type]||d.type||'').toUpperCase()} · ${d.ts?.toDate ? d.ts.toDate().toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : ''}</div>
              <div style="display:flex;gap:5px;margin-top:7px;">
-               <button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="flex:1;background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;">✏️ Detalles</button>
+               <button onclick="event.stopPropagation();${isFotoMode&&isFotoCard?`_toggleFotoSelection('${doc.id}',this.closest('[data-foto-id]'))`:`verEntradaById('${doc.id}')`}" style="flex:1;background:${isSelected?'#ec4899':'#6366f1'};color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;">${isSelected?'✓ Seleccionada':'${isFotoMode&&isFotoCard?"☑ Seleccionar":"✏️ Detalles"}'}</button>
                <button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;" title="Eliminar">🗑</button>
              </div>
            </div>`;
+      // Fix button label after innerHTML (avoid nested template literal complexity)
+      const actionBtn = card.querySelector('div > div:last-child > button:first-child');
+      if (actionBtn && isFotoMode && isFotoCard) {
+        actionBtn.textContent = isSelected ? '✓ Seleccionada' : '☑ Seleccionar';
+        actionBtn.style.background = isSelected ? '#ec4899' : '#6366f1';
+        actionBtn.onclick = (e) => { e.stopPropagation(); _toggleFotoSelection(doc.id, card); };
+      }
       entriesList.appendChild(card);
       setTimeout(() => { card.style.opacity='1'; card.style.transition='opacity 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease'; }, Math.min(i*25, 500));
     });
@@ -2524,6 +2583,203 @@ function _renderCerebroList(snap, list) {
     });
   }
 }
+
+// ── FOTO SELECTION & BULK UPLOAD ──────────────────────────────────────────────
+
+function _toggleFotoSelection(docId, card) {
+  if (!card) card = document.querySelector('[data-foto-id="' + docId + '"]') || document.getElementById('fb-' + docId);
+  if (_cerebroSelectedPhotos.has(docId)) {
+    _cerebroSelectedPhotos.delete(docId);
+    if (card) { card.style.borderColor = '#e5e7eb'; card.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'; }
+  } else {
+    _cerebroSelectedPhotos.add(docId);
+    if (card) { card.style.borderColor = '#ec4899'; card.style.boxShadow = '0 0 0 3px rgba(236,72,153,0.2)'; }
+  }
+  // Update checkbox overlay
+  if (card) {
+    const chk = card.querySelector('._foto-sel-check');
+    const sel = _cerebroSelectedPhotos.has(docId);
+    if (chk) {
+      chk.style.background = sel ? '#ec4899' : 'rgba(0,0,0,0.25)';
+      chk.style.borderColor = sel ? '#ec4899' : 'rgba(255,255,255,0.9)';
+      chk.innerHTML = sel ? '<span style="color:white;font-size:13px;font-weight:900;">✓</span>' : '';
+    }
+    // Update action button text
+    const actionBtn = card.querySelector('div:last-child button:first-child');
+    if (actionBtn && _cerebroActiveTypeFilter === 'foto') {
+      actionBtn.textContent = sel ? '✓ Seleccionada' : '☑ Seleccionar';
+      actionBtn.style.background = sel ? '#ec4899' : '#6366f1';
+    }
+  }
+  // Refresh top selection bar and floating bar
+  _updateFotoSelectionBar();
+}
+
+function _updateFotoSelectionBar() {
+  // Update inline selection bar by re-rendering the header section
+  const selBar = document.getElementById('_cerebro-sel-bar');
+  const n = _cerebroSelectedPhotos.size;
+  if (selBar) {
+    if (n === 0) { selBar.style.display = 'none'; }
+    else {
+      selBar.style.display = 'flex';
+      const countEl = selBar.querySelector('._sel-count');
+      if (countEl) countEl.textContent = '📸 ' + n + ' foto' + (n > 1 ? 's' : '') + ' seleccionada' + (n > 1 ? 's' : '');
+    }
+    return;
+  }
+  // No inline bar — just update the title bar if any
+  const n2 = _cerebroSelectedPhotos.size;
+  // Re-render to update count display (lightweight)
+  if (n2 > 0 && _cerebroActiveTypeFilter === 'foto') {
+    // Update any existing count badge
+    const badge = document.getElementById('_foto-sel-count');
+    if (badge) badge.textContent = n2 + ' seleccionada' + (n2>1?'s':'');
+  }
+}
+
+function _seleccionarTodasFotos() {
+  const list = document.getElementById('cerebro-items-list');
+  const snap = list?._snap;
+  if (!snap) return;
+  const fotos = snap.docs.filter(d => d.data().type === 'foto');
+  fotos.forEach(doc => {
+    _cerebroSelectedPhotos.add(doc.id);
+    const card = document.getElementById('fb-' + doc.id);
+    if (card) {
+      card.style.borderColor = '#ec4899';
+      card.style.boxShadow = '0 0 0 3px rgba(236,72,153,0.2)';
+      const chk = card.querySelector('._foto-sel-check');
+      if (chk) { chk.style.background = '#ec4899'; chk.style.borderColor = '#ec4899'; chk.innerHTML = '<span style="color:white;font-size:13px;font-weight:900;">✓</span>'; }
+      const btn = card.querySelector('div:last-child button:first-child');
+      if (btn) { btn.textContent = '✓ Seleccionada'; btn.style.background = '#ec4899'; }
+    }
+  });
+  // Refresh header bar
+  _filtrarCerebroByType('foto');
+}
+
+async function _bulkUploadFotos(files) {
+  if (!files || files.length === 0) return;
+  const imgFiles = [...files].filter(f => f.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|avif|bmp)$/i.test(f.name));
+  if (imgFiles.length === 0) { showToast('⚠️ Solo se aceptan imágenes (JPG, PNG, WEBP...)'); return; }
+  const biz = state.currentBiz || 'general';
+  const dropzone = document.getElementById('_foto-dropzone');
+  if (dropzone) {
+    dropzone.innerHTML = '<div style="font-size:22px;">⏳</div><div style="font-size:13px;font-weight:800;color:#be185d;margin-top:4px;">Subiendo ' + imgFiles.length + ' foto' + (imgFiles.length > 1 ? 's' : '') + '...</div><div id="_bulk-progress" style="font-size:11px;color:#9ca3af;margin-top:4px;"></div>';
+  }
+  showToast('⏳ Preparando ' + imgFiles.length + ' foto' + (imgFiles.length > 1 ? 's' : '') + '...');
+  let uploaded = 0; const errors = [];
+  for (const file of imgFiles) {
+    const prog = document.getElementById('_bulk-progress');
+    try {
+      if (prog) prog.textContent = (uploaded + 1) + ' de ' + imgFiles.length + ': comprimiendo ' + file.name + '...';
+      const compressed = await _compressImage(file);
+      if (prog) prog.textContent = (uploaded + 1) + ' de ' + imgFiles.length + ': subiendo ' + file.name + '...';
+      let url = '';
+      if (fbStorage) {
+        const safeName = file.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9._-]/g,'');
+        const path = 'cerebro/' + biz + '/' + Date.now() + '_' + safeName;
+        const uploadSnap = await fbStorage.ref(path).put(compressed, { contentType: 'image/jpeg' });
+        url = await uploadSnap.ref.getDownloadURL();
+      } else {
+        url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(compressed); });
+      }
+      const title = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+      await db.collection('cerebro').add({ type:'foto', title, link:url, content:'', biz, ts: firebase.firestore.FieldValue.serverTimestamp() });
+      uploaded++;
+    } catch(e) { console.error('bulkUpload', file.name, e); errors.push(file.name); }
+  }
+  if (errors.length > 0) showToast('⚠️ ' + uploaded + '/' + imgFiles.length + ' fotos subidas. Error en: ' + errors.join(', '));
+  else showToast('✅ ' + uploaded + ' foto' + (uploaded > 1 ? 's subidas!' : ' subida!'));
+  setTimeout(() => { listenCerebro(biz); setTimeout(() => _filtrarCerebroByType('foto'), 600); }, 400);
+}
+
+async function _usarFotosSeleccionadas() {
+  if (_cerebroSelectedPhotos.size === 0) { showToast('⚠️ Selecciona al menos una foto primero'); return; }
+  const docIds = [..._cerebroSelectedPhotos];
+  const list = document.getElementById('cerebro-items-list');
+  const snap = list?._snap;
+  const fotos = snap ? snap.docs.filter(d => docIds.includes(d.id)).map(d => ({id:d.id, ...d.data()})) : [];
+  let modal = document.getElementById('_usar-fotos-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = '_usar-fotos-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:16px;';
+    document.body.appendChild(modal);
+  }
+  const thumbsHtml = fotos.slice(0,8).map(f => {
+    const url = _getThumbUrl(f.link||'');
+    return url
+      ? '<img src="' + url + '" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:2.5px solid #ec4899;flex-shrink:0;">'
+      : '<div style="width:52px;height:52px;background:#fce7f3;border-radius:8px;border:2.5px solid #ec4899;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📷</div>';
+  }).join('');
+  const n = fotos.length;
+  const bizName = (state.businesses && state.businesses[state.currentBiz]?.nombre) || state.currentBiz || 'mi negocio';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:24px;width:100%;max-width:460px;box-shadow:0 25px 80px rgba(0,0,0,0.45);max-height:90vh;overflow-y:auto;">
+      <div style="font-size:17px;font-weight:800;margin-bottom:6px;">✨ ¿Qué hago con estas ${n} foto${n>1?'s':''}?</div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:12px;">La IA creará el contenido perfecto</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;">${thumbsHtml}${n > 8 ? '<div style="width:52px;height:52px;background:#f3f4f6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#6b7280;">+' + (n-8) + '</div>' : ''}</div>
+      <div style="display:grid;gap:8px;margin-bottom:14px;">
+        <button onclick="document.getElementById('_usar-fotos-modal').style.display='none';_crearContenidoConFotos(JSON.parse(this.dataset.ids),'reel')" data-ids="${JSON.stringify(docIds).replace(/"/g,'&quot;')}"
+          style="background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;border:none;border-radius:12px;padding:14px 16px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;">
+          🎬 Crear Reel para Instagram / Facebook<br><span style="font-size:10px;font-weight:400;opacity:0.85;">Guión completo: orden de fotos, texto en pantalla, caption</span>
+        </button>
+        <button onclick="document.getElementById('_usar-fotos-modal').style.display='none';_crearContenidoConFotos(JSON.parse(this.dataset.ids),'post')" data-ids="${JSON.stringify(docIds).replace(/"/g,'&quot;')}"
+          style="background:linear-gradient(135deg,#6366f1,#0ea5e9);color:#fff;border:none;border-radius:12px;padding:14px 16px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;">
+          📸 Carrusel de Instagram con copy<br><span style="font-size:10px;font-weight:400;opacity:0.85;">Texto por slide + caption completo + hashtags</span>
+        </button>
+        <button onclick="document.getElementById('_usar-fotos-modal').style.display='none';_crearContenidoConFotos(JSON.parse(this.dataset.ids),'whatsapp')" data-ids="${JSON.stringify(docIds).replace(/"/g,'&quot;')}"
+          style="background:linear-gradient(135deg,#16a34a,#059669);color:#fff;border:none;border-radius:12px;padding:14px 16px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;">
+          💬 Mensaje de WhatsApp de venta<br><span style="font-size:10px;font-weight:400;opacity:0.85;">Copy persuasivo para enviar junto con estas fotos</span>
+        </button>
+        <button onclick="document.getElementById('_usar-fotos-modal').style.display='none';_crearContenidoConFotos(JSON.parse(this.dataset.ids),'escoge')" data-ids="${JSON.stringify(docIds).replace(/"/g,'&quot;')}"
+          style="background:linear-gradient(135deg,#d97706,#dc2626);color:#fff;border:none;border-radius:12px;padding:14px 16px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;">
+          🤖 La IA escoge las mejores fotos<br><span style="font-size:10px;font-weight:400;opacity:0.85;">Analiza y recomienda cuáles usar para cada propósito</span>
+        </button>
+      </div>
+      <button onclick="document.getElementById('_usar-fotos-modal').style.display='none'" style="width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:10px;font-size:12px;cursor:pointer;color:#64748b;">Cancelar</button>
+    </div>`;
+  modal.style.display = 'flex';
+  modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+}
+
+async function _crearContenidoConFotos(docIds, mode) {
+  const list = document.getElementById('cerebro-items-list');
+  const snap = list?._snap || list?._fullSnap;
+  let fotos = [];
+  if (snap) {
+    fotos = snap.docs.filter(d => docIds.includes(d.id)).map(d => ({id:d.id, ...d.data()}));
+  }
+  if (fotos.length === 0) { showToast('No se encontraron las fotos'); return; }
+  const biz = state.currentBiz || '';
+  const bizName = (state.businesses && state.businesses[biz]?.nombre) || biz || 'mi negocio';
+  const tono = (state.businesses && state.businesses[biz]?.tono) || 'premium, aspiracional';
+  const fotosList = fotos.map((f, i) => (i+1) + '. ' + (f.title || 'foto ' + (i+1)) + (f.content ? ' — ' + f.content.substring(0, 80) : '')).join('\n');
+  const prompts = {
+    reel: 'Tengo ' + fotos.length + ' fotos de ' + bizName + ' y quiero crear un Reel.\n\nFotos disponibles:\n' + fotosList + '\n\nCrea un guión completo para Reel de 15-30 segundos:\n1. Orden recomendado de las fotos (explica por qué)\n2. Texto en pantalla para cada foto (máx 5 palabras)\n3. Música / audio sugerido\n4. Caption para publicar (con emojis y hashtags)\nTono: ' + tono,
+    post: 'Tengo ' + fotos.length + ' fotos de ' + bizName + ' para un carrusel de Instagram.\n\nFotos:\n' + fotosList + '\n\nCrea:\n1. Orden recomendado para el carrusel\n2. Texto de cada slide (conciso, impactante)\n3. Caption completo para el post\n4. Hashtags más efectivos\nTono: ' + tono,
+    whatsapp: 'Tengo ' + fotos.length + ' fotos de ' + bizName + ' para enviar por WhatsApp.\n\nFotos:\n' + fotosList + '\n\nEscribe un mensaje de WhatsApp que:\n- Presente las fotos de forma atractiva\n- Despierte interés/curiosidad\n- Tenga una llamada a acción clara\n- Sea cálido y conversacional\nTono: ' + tono,
+    escoge: 'Analiza estas ' + fotos.length + ' fotos de ' + bizName + ' y ayúdame a usarlas estratégicamente.\n\nFotos:\n' + fotosList + '\n\nPara cada foto dime:\n1. Para qué propósito de marketing es mejor (reel, post, WhatsApp, anuncio...)\n2. Qué emoción transmite\n3. Cómo describirla en el caption\n\nAl final, recomienda la combinación ideal si quisiera crear un reel.'
+  };
+  // Switch to chat and send
+  showPage('chat', null);
+  setTimeout(() => {
+    const chatInput = document.getElementById('chat-input') || document.querySelector('textarea[id*="input"]');
+    if (chatInput) {
+      chatInput.value = prompts[mode] || prompts.reel;
+      chatInput.dispatchEvent(new Event('input', {bubbles:true}));
+      chatInput.focus();
+      setTimeout(() => {
+        const sendBtn = document.querySelector('[onclick="sendMessage()"]') || document.querySelector('button[onclick*="send"]');
+        if (sendBtn) sendBtn.click();
+      }, 200);
+    }
+  }, 600);
+}
+
+// ── END FOTO SELECTION & BULK UPLOAD ──────────────────────────────────────────
 
 async function editarEntradaCerebro(docId) {
   const modal = _getCerebroModal();
@@ -4411,12 +4667,12 @@ async function uploadChatFotos(event) {
     try {
       let finalLink = null;
 
-      // Try Firebase Storage first
+      // Try Firebase Storage first (compress images before upload)
       if (fbStorage) {
-        const ext = file.name.split('.').pop() || 'jpg';
+        const fileToUpload = isImage ? await _compressImage(file) : file;
         const path = `cerebro/${state.currentBiz}/${Date.now()}_${file.name.replace(/\s+/g,'_')}`;
         const ref = fbStorage.ref(path);
-        const snap = await ref.put(file);
+        const snap = await ref.put(fileToUpload, isImage ? { contentType: 'image/jpeg' } : {});
         finalLink = await snap.ref.getDownloadURL();
       } else {
         // Fallback: base64 (only for images < 800KB)
@@ -4476,23 +4732,48 @@ async function uploadChatFotos(event) {
   }
 }
 
+// Compress image to max 1200px wide, JPEG 0.78 quality — keeps file under ~300KB
+function _compressImage(file, maxW = 1200, quality = 0.78) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => resolve(blob || file), 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadEditFoto(event) {
   const file = event.target.files[0];
   if (!file || !file.type.startsWith('image/')) { showToast('⚠️ Selecciona una imagen válida'); return; }
-  const status   = document.getElementById('edit-foto-upload-status');
+  const status    = document.getElementById('edit-foto-upload-status');
   const linkInput = document.getElementById('edit-link');
-  const preview  = document.getElementById('edit-link-preview');
-  if (status) status.textContent = '⏳ Subiendo...';
+  const preview   = document.getElementById('edit-link-preview');
+  if (status) { status.textContent = '🗜️ Comprimiendo...'; status.style.color = '#6366f1'; }
   try {
+    // Compress first — avoids timeouts on large phone photos
+    const toUpload = await _compressImage(file);
+    const sizeMB = (toUpload.size / 1048576).toFixed(1);
+    if (status) status.textContent = '📤 Subiendo ' + sizeMB + ' MB...';
     let url = null;
     if (fbStorage) {
-      const path = 'cerebro/' + (state.currentBiz || 'general') + '/' + Date.now() + '_' + file.name.replace(/\s+/g, '_');
-      const snap = await fbStorage.ref(path).put(file);
+      const path = 'cerebro/' + (state.currentBiz || 'general') + '/' + Date.now() + '_' + file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+      const snap = await fbStorage.ref(path).put(toUpload, { contentType: 'image/jpeg' });
       url = await snap.ref.getDownloadURL();
       showToast('✅ Imagen subida — haz clic en "Guardar cambios"');
     } else {
-      if (file.size > 900000) { showToast('⚠️ Imagen demasiado grande (máx 900 KB sin Storage)'); return; }
-      url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+      url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(toUpload); });
       showToast('💾 Imagen lista — haz clic en "Guardar cambios"');
     }
     if (linkInput) linkInput.value = url;
@@ -4502,7 +4783,7 @@ async function uploadEditFoto(event) {
     }
     if (status) { status.textContent = '✅ Lista'; status.style.color = '#16a34a'; }
   } catch(e) {
-    if (status) { status.textContent = '❌ Error'; status.style.color = '#dc2626'; }
+    if (status) { status.textContent = '❌ Error: ' + e.message; status.style.color = '#dc2626'; }
     showToast('❌ Error al subir: ' + e.message);
   }
   event.target.value = '';
