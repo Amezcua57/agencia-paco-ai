@@ -5574,7 +5574,7 @@ function _procesarArchivoImagen(blob, fuente) {
   reader.readAsDataURL(blob);
 }
 
-function _procesarArchivoDropped(file) {
+async function _procesarArchivoDropped(file) {
   if (!file) return;
   const ext = file.name.split('.').pop().toLowerCase();
   const sizeKB = Math.round(file.size / 1024);
@@ -5586,8 +5586,31 @@ function _procesarArchivoDropped(file) {
     showPastePreview('📄 Documento detectado', `${file.name} · ${sizeKB} KB`);
     selectKnowTypeByKey('documento');
     setFieldValue('know-title', file.name.replace(/\.[^.]+$/, ''));
-    setFieldValue('know-content', `Archivo: ${file.name} (${sizeKB} KB) — sube a Google Drive y pega el link aquí`);
-    showToast('📄 Para guardar el archivo, súbelo a Google Drive y pega el link');
+    window._knowPendingFile = file;
+    if (ext === 'txt' || ext === 'csv') {
+      try {
+        const text = await file.text();
+        setFieldValue('know-content', text.slice(0, 12000));
+        showPastePreview('📄 Texto extraído', `${file.name} · ${text.length} caracteres listos para guardar`);
+        showToast('✅ Texto leído — revisa y guarda');
+      } catch(e) {
+        setFieldValue('know-content', `Archivo: ${file.name} (${sizeKB} KB)`);
+      }
+    } else if (ext === 'pdf') {
+      showToast('📄 Leyendo PDF... un momento');
+      const extracted = await _extractPdfText(file);
+      if (extracted && extracted.length > 50) {
+        setFieldValue('know-content', extracted);
+        showPastePreview('📄 PDF leído exitosamente', `${file.name} · ${extracted.length} caracteres extraídos`);
+        showToast('✅ PDF leído — revisa el contenido y guarda');
+      } else {
+        setFieldValue('know-content', `PDF: ${file.name} (${sizeKB} KB) — describe el contenido manualmente aquí`);
+        showToast('⚠️ PDF escaneado sin texto — escribe el contenido a mano');
+      }
+    } else {
+      setFieldValue('know-content', `Archivo: ${file.name} (${sizeKB} KB) — describe el contenido aquí para que la IA lo aprenda`);
+      showToast('📄 Describe el contenido del archivo en el campo de texto');
+    }
     return;
   }
   if (file.type.startsWith('video/') || ['mp4','mov','avi','mkv'].includes(ext)) {
@@ -5881,792 +5904,209 @@ function verSecuencia(tipo) {
     fria: ['Msg 1: Hola [nombre], te escribo porque hace tiempo platicamos sobre [negocio]. ¿Sigues interesado/a? Han habido cambios que podrían interesarte 👀', 'Msg 2: [nombre], quería compartirte algo nuevo: [beneficio/novedad del negocio]. Creo que podría ser justo lo que buscabas.', 'Msg 3: [nombre], esta es mi última comunicación por ahora. Si en algún momento reconsideras, aquí estaré. ¡Mucho éxito! 🤝']
   };
   const list = msgs[tipo] || [];
-  showToast('Ver secuencia en consola — próximamente modal');
+  showToast('Secuencia de WhatsApp lista');
   alert('📱 Secuencia "' + tipo + '":\n\n' + list.join('\n\n'));
 }
 
 async function enviarSecuenciaLead() {
   const phone = prompt('Número de WhatsApp del lead (+52 55 XXXX XXXX):');
   if (!phone) return;
-  const num = phone.replace(/\D/g,'');
-  const msg = '¡Hola! Te escribo de parte de ' + (document.querySelector('#biz-name-display')?.textContent || 'la agencia') + '. ¿Tienes un momento para platicar? 😊';
-  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+  const num = phone.replace(/\D/g, '');
+  const biz = document.querySelector('#biz-name-display')?.textContent || 'la agencia';
+  const msg = '¡Hola! Te escribo de parte de ' + biz + '. ¿Tienes un momento para platicar? 😊';
+  window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(msg), '_blank');
   showToast('📱 WhatsApp abierto para enviar primer mensaje');
 }
 
 function cargarLeadsWA(temp) {
   const lista = document.getElementById('wa-leads-list');
-  const leads = state.leads?.filter(l => temp === 'all' || l.temp === temp) || [];
-  const colors = { hot:'#ef4444', warm:'#f59e0b', cold:'#3b82f6' };
-  const icons  = { hot:'🔴', warm:'🟡', cold:'🔵' };
+  const leads = (state.leads || []).filter(l => temp === 'all' || l.temp === temp);
   if (!leads.length) {
     lista.innerHTML = '<div style="color:#9ca3af;font-size:12px;padding:10px;">No hay leads de este tipo en el CRM todavía</div>';
     return;
   }
-  lista.innerHTML = leads.map(l => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;">
-      <div>
-        <div style="font-size:12px;font-weight:700;">${icons[l.temp]||'●'} ${l.name}</div>
-        <div style="font-size:10px;color:#9ca3af;">${l.phone||'Sin teléfono'} · ${l.biz||''}</div>
-      </div>
-      <button onclick="enviarWALead('${(l.phone||'').replace(/\D/g,'')}','${l.name}')" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">📱 Enviar</button>
-    </div>`).join('');
+  const icons = { hot: '🔴', warm: '🟡', cold: '🔵' };
+  const colors = { hot: '#fee2e2', warm: '#fef3c7', cold: '#eff6ff' };
+  lista.innerHTML = leads.map(function(l) {
+    var ic = icons[l.temp] || '⚪';
+    var bg = colors[l.temp] || '#f9fafb';
+    var ts = l.ts && l.ts.toDate ? l.ts.toDate().toLocaleDateString('es-MX') : '';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:' + bg + ';border-radius:8px;margin-bottom:6px;">'
+      + '<span style="font-size:18px;">' + ic + '</span>'
+      + '<div style="flex:1;">'
+      + '<div style="font-size:12px;font-weight:700;color:#111827;">' + (l.name || 'Sin nombre') + '</div>'
+      + '<div style="font-size:11px;color:#6b7280;">' + (l.phone || '') + (ts ? ' · ' + ts : '') + '</div>'
+      + '</div>'
+      + '<button onclick="document.getElementById(\'wa-to-phone\').value=\'' + (l.phone || '') + '\';document.getElementById(\'wa-to-name\').value=\'' + (l.name || '').replace(/'/g, '') + '\';openWACompose();" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;font-weight:700;">Contactar</button>'
+      + '</div>';
+  }).join('');
 }
 
-function enviarWALead(phone, name) {
-  if (!phone) { showToast('⚠️ Este lead no tiene teléfono'); return; }
-  const msg = `Hola ${name}, te escribo de parte de la agencia. ¿Tienes un momento para platicar? 😊`;
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-}
+// ════════════════════════════════════════════════════════════════════
+// CEREBRO VIVO — AGREGAR CONOCIMIENTO (funciones requeridas por el HTML)
+// ════════════════════════════════════════════════════════════════════
 
-function saveWAApiConfig() {
-  const token = document.getElementById('wa-token').value.trim();
-  const phoneId = document.getElementById('wa-phone-id').value.trim();
-  if (!token || !phoneId) { showToast('⚠️ Completa ambos campos'); return; }
-  localStorage.setItem('wa_api_token', token);
-  localStorage.setItem('wa_phone_id', phoneId);
-  if (fbReady && isAdmin) {
-    db.collection('config').doc('global').set({ waToken: token, waPhoneId: phoneId }, { merge: true });
-  }
-  document.getElementById('wa-api-status').innerHTML = '<span style="color:#10b981;font-weight:700;">✅ Modo automático activado — los mensajes se enviarán sin abrir WhatsApp</span>';
-  document.getElementById('wa-status-text').textContent = '🚀 Modo API activo — envío automático habilitado';
-  document.getElementById('wa-status-dot').style.background = '#6366f1';
-  showToast('✅ Meta Cloud API configurada');
-}
-
-// Cargar número guardado al entrar a WhatsApp
-function initWAPage() {
-  // Load credentials from Firebase for the current business
-  loadWACreds(state.currentBiz || currentBizId);
-}
-
-// ─── CANAL CLAUDE ───
-async function enviarSolicitudClaude() {
-  if (!fbReady || !isAdmin) return;
-  const input = document.getElementById('canal-input');
-  const msg = (input?.value || '').trim();
-  if (!msg) { showToast('⚠️ Escribe tu solicitud primero'); return; }
-  try {
-    await db.collection('claudeRequests').add({
-      message: msg,
-      status: 'pending',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      createdBy: currentUser?.email || 'admin'
-    });
-    input.value = '';
-    showToast('📨 Solicitud enviada — Claude la atenderá en la próxima sesión');
-    loadCanalClaude();
-  } catch(e) { showToast('Error: ' + e.message); }
-}
-
-async function loadCanalClaude() {
-  if (!fbReady || !isAdmin) return;
-  const lista = document.getElementById('canal-lista');
-  const countEl = document.getElementById('canal-pendientes-count');
-  const badge = document.getElementById('canal-badge');
-  if (!lista) return;
-  lista.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;">Cargando...</div>';
-  try {
-    const snap = await db.collection('claudeRequests').orderBy('createdAt', 'desc').limit(30).get();
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const pending = items.filter(i => i.status === 'pending').length;
-    if (countEl) countEl.textContent = pending > 0 ? `${pending} pendiente${pending>1?'s':''}` : 'Todo atendido ✅';
-    if (badge) { badge.textContent = pending; badge.style.display = pending > 0 ? '' : 'none'; }
-    if (items.length === 0) {
-      lista.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;">📭 Aún no hay solicitudes. ¡Escribe la primera!</div>';
-      return;
-    }
-    const statusColors = { pending: { bg:'#fef3c7', color:'#d97706', label:'⏳ Pendiente' }, in_progress: { bg:'#e0f2fe', color:'#0284c7', label:'🔄 En proceso' }, done: { bg:'#d1fae5', color:'#059669', label:'✅ Hecho' } };
-    lista.innerHTML = items.map(item => {
-      const st = statusColors[item.status] || statusColors.pending;
-      const date = item.createdAt?.toDate ? item.createdAt.toDate().toLocaleString('es-MX', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Hace un momento';
-      return `<div style="background:#fafafa;border:1.5px solid ${item.status==='pending'?'#fde68a':item.status==='done'?'#a7f3d0':'#bae6fd'};border-radius:12px;padding:14px;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;">
-          <div style="font-size:13px;color:#1a1a2e;line-height:1.5;flex:1;">${item.message}</div>
-          <span style="flex-shrink:0;font-size:10px;background:${st.bg};color:${st.color};padding:3px 10px;border-radius:20px;font-weight:800;white-space:nowrap;">${st.label}</span>
-        </div>
-        ${item.response ? `<div style="background:#f0fdf4;border-left:3px solid #10b981;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#065f46;margin-top:8px;">🤖 <strong>Claude:</strong> ${item.response}</div>` : ''}
-        <div style="font-size:10px;color:#9ca3af;margin-top:6px;">📅 ${date}</div>
-      </div>`;
-    }).join('');
-  } catch(e) { lista.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`; }
-}
-
-async function toggleUserStatus(userEmailKey, currentStatus) {
-  if (!fbReady || !isAdmin) return;
-  const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
-  const action = newStatus === 'suspended' ? 'suspender' : 'activar';
-  if (!confirm(`¿Confirmas ${action} este usuario?`)) return;
-  try {
-    await db.collection('users').doc(userEmailKey).update({ status: newStatus });
-    showToast(newStatus === 'suspended' ? '🚫 Usuario suspendido — ya no puede entrar' : '✅ Usuario reactivado — ya puede entrar');
-    renderUsersTab();
-  } catch(e) { showToast('Error: ' + e.message); }
-}
-
-const integrations = [
-  { id:'gdrive',    icon:'☁️',  name:'Google Drive',   bg:'#e8f5e9', connected:true,  desc:'Archivos y documentos' },
-  { id:'gmail',     icon:'📧',  name:'Gmail',          bg:'#fce4ec', connected:true,  desc:'Correo y comunicaciones' },
-  { id:'gcal',      icon:'📅',  name:'Google Calendar',bg:'#e3f2fd', connected:true,  desc:'Agenda y eventos' },
-  { id:'canva',     icon:'🎨',  name:'Canva',          bg:'#fff3e0', connected:true,  desc:'Diseño de contenidos' },
-  { id:'granola',   icon:'📝',  name:'Granola',        bg:'#f3e5f5', connected:true,  desc:'Notas de reuniones' },
-  { id:'gamma',     icon:'⚡',  name:'Gamma',          bg:'#ede9fe', connected:true,  desc:'Presentaciones IA' },
-  { id:'wix',       icon:'🌐',  name:'Wix',            bg:'#e0f7fa', connected:false, desc:'Landing pages y web' },
-  { id:'whatsapp',  icon:'💬',  name:'WhatsApp Business',bg:'#e8f5e9', connected:false, desc:'Mensajes masivos' },
-  { id:'heygen',    icon:'🎬',  name:'HeyGen',         bg:'#fce4ec', connected:false, desc:'Videos IA con avatar' },
-  { id:'metaads',   icon:'📊',  name:'Meta Ads',       bg:'#e3f2fd', connected:false, desc:'Campañas en Facebook/Instagram' },
-  { id:'supermetrics',icon:'📈',name:'Supermetrics',   bg:'#fff8e1', connected:false, desc:'Análisis de campañas' },
-  { id:'n8n',       icon:'⚙️',  name:'n8n Automations',bg:'#f3e5f5', connected:false, desc:'Flujos de automatización' },
-];
-
-function renderIntegrations() {
-  const el = document.getElementById('integrations-list');
-  if (!el) return;
-  const connected = integrations.filter(i => i.connected);
-  const available = integrations.filter(i => !i.connected);
-  el.innerHTML = `
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin-bottom:10px;">✅ Conectadas (${connected.length})</div>
-    ${connected.map(i => `
-    <div class="int-card">
-      <div class="int-icon" style="background:${i.bg};">${i.icon}</div>
-      <div><div style="font-size:13px;font-weight:700;">${i.name}</div><div style="font-size:11px;color:#9ca3af;">${i.desc}</div></div>
-      <span class="int-connected-badge">✓ Conectado</span>
-    </div>`).join('')}
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;margin:18px 0 10px;">🔌 Disponibles para conectar (${available.length})</div>
-    ${available.map(i => `
-    <div class="int-card">
-      <div class="int-icon" style="background:${i.bg};">${i.icon}</div>
-      <div><div style="font-size:13px;font-weight:700;">${i.name}</div><div style="font-size:11px;color:#9ca3af;">${i.desc}</div></div>
-      <button class="int-connect-btn" onclick="conectarIntegracion('${i.id}','${i.name}')">Conectar →</button>
-    </div>`).join('')}`;
-}
-
-// ═══════════════════ INTEGRACIONES — WIZARD DE CONEXIÓN ═══════════════════
-function conectarIntegracion(id, nombre) {
-  const configs = {
-    whatsapp: {
-      title: '💬 WhatsApp Business — ' + (state?.businesses?.[state?.currentBiz]?.name || 'Negocio activo'),
-      subtitle: 'Cada negocio tiene su propio número. API oficial de Meta (gratis hasta 1,000 conv/mes)',
-      fields: [
-        { id:'wa_token',    label:'Token de acceso permanente',  type:'password', placeholder:'EAAxxxxx... (Meta Business → API → Token)' },
-        { id:'wa_phone_id', label:'Phone Number ID',             type:'text',     placeholder:'107xxx... (Meta Business → WhatsApp → Config)' },
-        { id:'wa_number',   label:'Número en formato +52...',    type:'tel',      placeholder:'+521XXXXXXXXXX' }
-      ],
-      helpUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api/get-started',
-      helpText: '📖 Cómo obtener tu token de Meta →',
-      saveKey: 'whatsapp'
-    },
-    wix: {
-      title: '🌐 Conectar Wix',
-      subtitle: 'Conecta tu sitio Wix para publicar landing pages directamente desde la agencia',
-      fields: [
-        { id:'wix_api_key', label:'API Key de Wix',  type:'password', placeholder:'Wix → Configuración → API Keys' },
-        { id:'wix_site_id', label:'Site ID',          type:'text',     placeholder:'Tu Site ID de Wix' }
-      ],
-      helpUrl: 'https://support.wix.com/es/article/wix-api-keys',
-      helpText: '📖 Cómo obtener tu API Key de Wix →',
-      saveKey: 'wix'
-    },
-    metaads: {
-      title: '📊 Conectar Meta Ads',
-      subtitle: 'Conecta tu cuenta de anuncios de Facebook/Instagram',
-      fields: [
-        { id:'meta_token',   label:'Token de acceso de Meta Ads', type:'password', placeholder:'Meta Business → API → Token de usuario' },
-        { id:'meta_ad_account', label:'ID de cuenta publicitaria', type:'text',   placeholder:'act_XXXXXXXXXX' }
-      ],
-      helpUrl: 'https://developers.facebook.com/docs/marketing-api/get-started',
-      helpText: '📖 Cómo obtener tu token de Meta Ads →',
-      saveKey: 'metaads'
-    },
-    heygen: {
-      title: '🎬 Conectar HeyGen',
-      subtitle: 'Genera videos con avatar IA para tus clientes',
-      fields: [
-        { id:'heygen_key', label:'API Key de HeyGen', type:'password', placeholder:'HeyGen → Account → API Key' }
-      ],
-      helpUrl: 'https://docs.heygen.com/reference/authentication',
-      helpText: '📖 Cómo obtener tu API Key de HeyGen →',
-      saveKey: 'heygen'
-    },
-    n8n: {
-      title: '⚙️ Conectar n8n Automations',
-      subtitle: 'Flujos de automatización para conectar tus herramientas',
-      fields: [
-        { id:'n8n_url',     label:'URL de tu instancia n8n', type:'url',      placeholder:'https://tu-n8n.onrender.com' },
-        { id:'n8n_webhook', label:'Webhook key',             type:'password', placeholder:'Tu webhook API key de n8n' }
-      ],
-      helpUrl: 'https://docs.n8n.io/hosting/',
-      helpText: '📖 Cómo configurar n8n →',
-      saveKey: 'n8n'
-    },
-    supermetrics: {
-      title: '📈 Conectar Supermetrics',
-      subtitle: 'Análisis unificado de campañas Meta, Google y más',
-      fields: [
-        { id:'supermetrics_key', label:'API Key de Supermetrics', type:'password', placeholder:'Supermetrics → Settings → API Keys' }
-      ],
-      helpUrl: 'https://supermetrics.com/docs/api',
-      helpText: '📖 Docs de Supermetrics API →',
-      saveKey: 'supermetrics'
-    }
-  };
-  const cfg = configs[id];
-  if (!cfg) { showToast('Integración ' + nombre + ' — próximamente'); return; }
-
-  // Build modal HTML
-  const fieldsHtml = cfg.fields.map(f => `
-    <div style="margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px;">${f.label}</label>
-      <input id="int-field-${f.id}" type="${f.type}" placeholder="${f.placeholder}"
-        style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-size:12px;outline:none;box-sizing:border-box;">
-    </div>`).join('');
-
-  const modal = _getCerebroModal();
-  modal.innerHTML = `
-    <div style="background:#fff;border-radius:16px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-      <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-size:17px;font-weight:800;">${cfg.title}</div>
-          <div style="font-size:11px;color:#9ca3af;margin-top:2px;">${cfg.subtitle}</div>
-        </div>
-        <button onclick="document.getElementById('cerebro-ver-modal').style.display='none'" style="background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;">✕</button>
-      </div>
-      <div style="padding:18px 20px;">
-        ${fieldsHtml}
-        <a href="${cfg.helpUrl}" target="_blank" style="font-size:11px;color:#6366f1;display:block;margin-bottom:16px;">${cfg.helpText}</a>
-        <div id="int-save-msg" style="font-size:11px;margin-bottom:10px;min-height:16px;"></div>
-        <div style="display:flex;gap:8px;">
-          <button onclick="guardarIntegracion('${id}','${nombre}')" style="flex:1;background:#6366f1;color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar y conectar</button>
-          <button onclick="document.getElementById('cerebro-ver-modal').style.display='none'" style="background:#f3f4f6;color:#374151;border:none;border-radius:10px;padding:10px 16px;font-size:13px;cursor:pointer;">Cancelar</button>
-        </div>
-      </div>
-    </div>`;
-  modal.style.display = 'flex';
-
-  // Load existing values from Firebase
-  if (fbReady) {
-    if (id === 'whatsapp' && state.currentBiz) {
-      // WhatsApp: load per-business
-      db.collection('businesses').doc(state.currentBiz).get().then(snap => {
-        const d = snap.exists ? snap.data() : {};
-        const map = { wa_token: d.waToken, wa_phone_id: d.waPhoneId, wa_number: d.waNumber };
-        cfg.fields.forEach(f => {
-          const el = document.getElementById('int-field-' + f.id);
-          if (el && map[f.id]) el.value = map[f.id];
-        });
-      }).catch(() => {});
-    } else {
-      db.collection('config').doc('global').get().then(snap => {
-        const saved = snap.exists ? (snap.data().integrations || {}) : {};
-        const vals = saved[id] || {};
-        cfg.fields.forEach(f => {
-          const el = document.getElementById('int-field-' + f.id);
-          if (el && vals[f.id]) el.value = vals[f.id];
-        });
-      }).catch(() => {});
-    }
-  }
-}
-
-async function guardarIntegracion(id, nombre) {
-  const configs = {
-    whatsapp:     ['wa_token','wa_phone_id','wa_number'],
-    wix:          ['wix_api_key','wix_site_id'],
-    metaads:      ['meta_token','meta_ad_account'],
-    heygen:       ['heygen_key'],
-    n8n:          ['n8n_url','n8n_webhook'],
-    supermetrics: ['supermetrics_key']
-  };
-  const fields = configs[id] || [];
-  const data = {};
-  let empty = false;
-  fields.forEach(f => {
-    const val = (document.getElementById('int-field-' + f) || {}).value || '';
-    if (!val.trim()) empty = true;
-    data[f] = val.trim();
+// --- PDF.js lazy-loader ---
+var _pdfJsReady = false;
+function _loadPdfJs() {
+  if (_pdfJsReady || window.pdfjsLib) { _pdfJsReady = true; return Promise.resolve(true); }
+  return new Promise(function(resolve) {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = function() {
+      try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch(e) {}
+      _pdfJsReady = true;
+      resolve(true);
+    };
+    s.onerror = function() { resolve(false); };
+    document.head.appendChild(s);
   });
-  if (empty) {
-    const msg = document.getElementById('int-save-msg');
-    if (msg) msg.innerHTML = '<span style="color:#ef4444;">⚠️ Completa todos los campos para conectar</span>';
-    return;
-  }
-
-  // Special: test WhatsApp token before saving
-  if (id === 'whatsapp') {
-    const msg = document.getElementById('int-save-msg');
-    if (msg) msg.innerHTML = '<span style="color:#9ca3af;">🔄 Verificando token con Meta...</span>';
-    try {
-      const res = await fetch(`https://graph.facebook.com/v19.0/${data.wa_phone_id}`, {
-        headers: { Authorization: 'Bearer ' + data.wa_token }
-      });
-      if (!res.ok) throw new Error('Token inválido (status ' + res.status + ')');
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message);
-      if (msg) msg.innerHTML = '<span style="color:#10b981;">✅ Token verificado: ' + (json.display_phone_number || json.id) + '</span>';
-    } catch(e) {
-      const msg = document.getElementById('int-save-msg');
-      if (msg) msg.innerHTML = `<span style="color:#ef4444;">❌ ${e.message}</span>`;
-      return;
-    }
-  }
-
-  // Save to Firebase
-  try {
-    const saveMsg = document.getElementById('int-save-msg');
-    if (saveMsg) saveMsg.innerHTML = '<span style="color:#9ca3af;">💾 Guardando...</span>';
-    // WhatsApp: save per-business in businesses/{bizId}
-    if (id === 'whatsapp') {
-      const bizId = state.currentBiz;
-      if (!bizId) throw new Error('Selecciona un negocio primero');
-      await db.collection('businesses').doc(bizId).set(
-        { waToken: data.wa_token, waPhoneId: data.wa_phone_id, waNumber: data.wa_number },
-        { merge: true }
-      );
-      window._waToken   = data.wa_token;
-      window._waPhoneId = data.wa_phone_id;
-      window._waNumber  = data.wa_number;
-      const numEl = document.getElementById('wa-biz-number');
-      if (numEl) numEl.value = data.wa_number;
-      await loadWACreds(bizId); // refresh status bar
-    } else {
-      // Other integrations: save to global config
-      await db.collection('config').doc('global').set(
-        { integrations: { [id]: data } },
-        { merge: true }
-      );
-    }
-    // Update local integrations array
-    const intObj = integrations.find(i => i.id === id);
-    if (intObj) intObj.connected = true;
-    document.getElementById('cerebro-ver-modal').style.display = 'none';
-    showToast('✅ ' + nombre + ' conectado para ' + (state?.businesses?.[state?.currentBiz]?.name || 'este negocio'));
-    // Re-render integrations panel if open
-    if (document.getElementById('cfg-integraciones')?.classList.contains('active')) {
-      renderIntegrations();
-    }
-  } catch(e) {
-    showToast('⚠️ Error guardando: ' + e.message);
-  }
 }
 
-// ═══════════════════ CEREBRO VIVO — AGREGAR CONOCIMIENTO ═══════════════════
-let knowType = 'texto';
-let knowConfidence = 5;
+async function _extractPdfText(file) {
+  try {
+    var ok = await _loadPdfJs();
+    if (!ok || !window.pdfjsLib) return null;
+    var buf = await file.arrayBuffer();
+    var pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    var text = '';
+    var maxPages = Math.min(pdf.numPages, 30);
+    for (var i = 1; i <= maxPages; i++) {
+      var page = await pdf.getPage(i);
+      var content = await page.getTextContent();
+      text += content.items.map(function(it) { return it.str; }).join(' ') + '\n';
+    }
+    return text.trim().slice(0, 15000);
+  } catch(e) {
+    console.warn('PDF extract error:', e);
+    return null;
+  }
+}
 
 function openAddKnowledge() {
-  const biz = state.businesses[state.currentBiz];
-  document.getElementById('know-biz-label').textContent = 'Negocio: ' + biz.name;
-  const overlay = document.getElementById('knowledge-overlay');
-  overlay.style.display = 'flex';
+  var biz = state.businesses[state.currentBiz];
+  var bizLabel = document.getElementById('know-biz-label');
+  if (bizLabel) bizLabel.textContent = 'Negocio: ' + (biz ? biz.name : 'Principal');
   // Reset form
-  knowType = 'texto';
-  knowConfidence = 5;
-  document.getElementById('know-title').value = '';
-  document.getElementById('know-content').value = '';
-  document.getElementById('know-link').value = '';
-  document.getElementById('know-file-info').style.display = 'none';
-  document.getElementById('know-upload-zone').style.display = 'none';
-  document.getElementById('know-file-input').value = '';
+  ['know-title','know-content','know-link'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  var prev = document.getElementById('know-paste-preview');
+  if (prev) prev.style.display = 'none';
+  var imgPrev = document.getElementById('know-paste-img-preview');
+  if (imgPrev) { imgPrev.src = ''; imgPrev.style.display = 'none'; }
+  var fileInfo = document.getElementById('know-file-info');
+  if (fileInfo) fileInfo.style.display = 'none';
+  var uploadZone = document.getElementById('know-upload-zone');
+  if (uploadZone) uploadZone.style.display = 'none';
+  document.querySelectorAll('#know-type-grid .wiz-option').forEach(function(el) { el.classList.remove('selected'); });
+  var first = document.querySelector('#know-type-grid .wiz-option');
+  if (first) first.classList.add('selected');
   window._knowPendingFile = null;
   window._knowPastedImage = null;
-  document.querySelectorAll('#know-type-grid .wiz-option').forEach(o => o.classList.remove('selected'));
-  document.querySelector('#know-type-grid .wiz-option').classList.add('selected');
-  selectKnowType(document.querySelector('#know-type-grid .wiz-option'), 'texto');
+  window._knowSelectedType = 'texto';
+  window._knowConfidence = 'alta';
+  var overlay = document.getElementById('knowledge-overlay');
+  if (overlay) overlay.style.display = 'flex';
 }
 
 function closeAddKnowledge() {
-  document.getElementById('knowledge-overlay').style.display = 'none';
-}
-
-function selectKnowType(el, type) {
-  knowType = type;
-  document.querySelectorAll('#know-type-grid .wiz-option').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-
-  // Adapt form to type
-  const uploadZone = document.getElementById('know-upload-zone');
-  const contentEl = document.getElementById('know-content');
-  const fileLabel = document.getElementById('know-file-label');
-  const linkInput = document.getElementById('know-link');
-
-  const placeholders = {
-    texto:    'Escribe o pega el texto que quieres que el equipo y la IA conozcan...',
-    foto:     'Describe la foto o lo que muestra. Pega el link de Drive/URL abajo.',
-    video:    'Describe de qué trata el video. Pega el link de YouTube abajo.',
-    documento:'Pega aquí el contenido del documento, o ábrelo con el botón de abajo.',
-    precio:   'Ej: Depa 1 rec $2.5M, Depa 2 rec $2.8M. Patio extra $300k...',
-    objecion: 'Ej:\nObjeción: "Está muy caro"\nRespuesta: "El precio incluye..."',
-    faq:      'Ej:\nP: ¿Cuánto tarda la entrega?\nR: Entre 3 y 5 días hábiles...',
-    guion:    'Escribe el guión paso a paso:\n1. Saludo: "Hola [nombre], le llamo de..."\n2. Presentación...'
-  };
-  const urlPlaceholders = {
-    foto: 'Pega el link de la foto (Google Drive, Dropbox, URL...)',
-    video: 'Pega el link de YouTube o Vimeo...',
-    documento: 'O pega un link de Google Drive / Dropbox...'
-  };
-
-  contentEl.placeholder = placeholders[type] || placeholders.texto;
-  linkInput.placeholder = urlPlaceholders[type] || 'Pega un link de Google Drive / URL (opcional)';
-
-  // Show upload zone only for documento and foto
-  uploadZone.style.display = (type === 'documento' || type === 'foto') ? 'block' : 'none';
-  fileLabel.textContent = type === 'documento' ? 'Abrir archivo de tu computadora' :
-                          type === 'video'      ? 'Link del video' :
-                          type === 'foto'       ? 'Imagen o archivo' : 'Archivo o link (opcional)';
+  var overlay = document.getElementById('knowledge-overlay');
+  if (overlay) overlay.style.display = 'none';
+  window._knowPendingFile = null;
+  window._knowPastedImage = null;
 }
 
 function handleKnowFile(input) {
-  const file = input.files[0];
+  var file = input && input.files && input.files[0];
   if (!file) return;
-  const infoBox = document.getElementById('know-file-info');
-  const fileName = document.getElementById('know-file-name');
-  const fileMsg  = document.getElementById('know-file-msg');
-  const contentEl = document.getElementById('know-content');
-  const titleEl   = document.getElementById('know-title');
-
-  fileName.textContent = '📄 ' + file.name;
-  infoBox.style.display = 'block';
-
-  // Auto-fill title if empty
-  if (!titleEl.value) {
-    titleEl.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
-  }
-
-  // ── IMAGE FILES: store for upload in saveKnowledge ──
-  const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)$/i.test(file.name);
-  if (isImage) {
-    window._knowPendingFile = file;
-    fileName.textContent = '🖼️ ' + file.name;
-    const reader = new FileReader();
-    reader.onload = e => {
-      window._knowPastedImage = e.target.result; // base64 fallback
-      fileMsg.innerHTML = '<div style="margin-top:6px;"><img src="' + e.target.result + '" style="max-width:100%;max-height:120px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.12);"><div style="font-size:10px;color:#16a34a;font-weight:700;margin-top:4px;">✅ Imagen lista — se subirá a Firebase al guardar</div></div>';
-    };
-    reader.readAsDataURL(file);
-    input.value = '';
-    return;
-  }
-
-  // Read text-based files
-  const readable = /\.(txt|csv|md|html|json|xml)$/i.test(file.name);
-  if (readable) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      contentEl.value = e.target.result.substring(0, 8000); // max 8000 chars
-      fileMsg.textContent = '✅ Contenido leído automáticamente (' + Math.round(file.size/1024) + ' KB)';
-      showToast('✅ Archivo leído — revisa el contenido');
-    };
-    reader.readAsText(file, 'UTF-8');
-  } else {
-    // PDF, Word, etc. — can't read content directly in browser
-    fileMsg.textContent = '📎 Archivo adjunto. Pega el texto del documento en el campo "Contenido" de arriba.';
-    showToast('📎 Archivo adjunto: ' + file.name + ' — pega el contenido abajo');
-    if (!contentEl.value) {
-      contentEl.placeholder = 'Pega aquí el texto del documento: copia el contenido de tu ' + file.name.split('.').pop().toUpperCase() + ' y pégalo aquí...';
-      contentEl.focus();
-    }
-  }
-  // Reset for re-use
   input.value = '';
+  _procesarArchivoDropped(file);
+}
+
+function selectKnowType(el, type) {
+  document.querySelectorAll('#know-type-grid .wiz-option').forEach(function(e) { e.classList.remove('selected'); });
+  if (el) el.classList.add('selected');
+  window._knowSelectedType = type;
+  var uploadZone = document.getElementById('know-upload-zone');
+  if (uploadZone) uploadZone.style.display = (type === 'documento') ? 'block' : 'none';
 }
 
 function setConfidence(el, level) {
-  knowConfidence = level;
-  document.querySelectorAll('#knowledge-overlay .selected-conf').forEach(b => {
+  document.querySelectorAll('[onclick*="setConfidence"]').forEach(function(b) {
     b.classList.remove('selected-conf');
-    b.style.background = 'white';
     b.style.borderColor = '#e5e7eb';
-    b.style.color = '#374151';
-    b.style.fontWeight = '600';
+    b.style.background = 'white';
+    b.style.color = '';
   });
-  el.classList.add('selected-conf');
-  el.style.background = '#ede9fe';
-  el.style.borderColor = '#6366f1';
-  el.style.color = '#6366f1';
-  el.style.fontWeight = '700';
+  if (el) {
+    el.classList.add('selected-conf');
+    el.style.borderColor = '#6366f1';
+    el.style.background = '#ede9fe';
+    el.style.color = '#6366f1';
+  }
+  var map = { 1: 'tentativo', 3: 'confiable', 5: 'alta' };
+  window._knowConfidence = map[level] || 'alta';
 }
 
 async function saveKnowledge() {
-  const title   = document.getElementById('know-title').value.trim();
-  const content = document.getElementById('know-content').value.trim();
-  const linkVal = (document.getElementById('know-link')?.value || '').trim();
-  if (!title && !content && !linkVal && !window._knowPendingFile) {
-    showToast('⚠️ Agrega un título, contenido o imagen'); return;
+  if (!fbReady) { showToast('Espera — Firebase cargando...'); return; }
+  var type = window._knowSelectedType || 'texto';
+  var title   = (document.getElementById('know-title') ? document.getElementById('know-title').value : '').trim();
+  var content = (document.getElementById('know-content') ? document.getElementById('know-content').value : '').trim();
+  var link    = (document.getElementById('know-link') ? document.getElementById('know-link').value : '').trim();
+  var confidence = window._knowConfidence || 'alta';
+
+  if (!title && !content && !link && !window._knowPendingFile) {
+    showToast('Escribe al menos un título o contenido'); return;
   }
-  const biz = state.businesses[state.currentBiz];
-  const saveBtn = document.querySelector('[onclick="saveKnowledge()"]');
+
+  var saveBtn = document.querySelector('#knowledge-overlay .btn-primary');
   if (saveBtn) { saveBtn.textContent = '⏳ Guardando...'; saveBtn.disabled = true; }
 
-  let finalLink = linkVal;
-
-  // Upload image to Firebase Storage if there's a pending file
-  if (window._knowPendingFile && fbStorage) {
-    try {
-      const file = window._knowPendingFile;
-      const ext  = file.name.split('.').pop() || 'jpg';
-      const path = `cerebro/${state.currentBiz}/${Date.now()}_${file.name.replace(/\s+/g,'_')}`;
-      const ref  = fbStorage.ref(path);
-      showToast('📤 Subiendo imagen a Firebase...');
-      const snap = await ref.put(file);
-      finalLink  = await snap.ref.getDownloadURL();
-      showToast('✅ Imagen subida correctamente');
-    } catch(e) {
-      console.warn('Storage upload error:', e);
-      // Fallback: save as base64 if < 500KB
-      if (window._knowPastedImage && window._knowPendingFile.size < 500000) {
+  try {
+    var finalLink = link;
+    if (window._knowPendingFile && type === 'foto') {
+      if (window.fbStorage) {
+        var path = 'cerebro/' + state.currentBiz + '/' + Date.now() + '_' + (window._knowPendingFile.name || 'foto').replace(/\s+/g, '_');
+        var snap = await fbStorage.ref(path).put(window._knowPendingFile);
+        finalLink = await snap.ref.getDownloadURL();
+      } else if (window._knowPastedImage) {
         finalLink = window._knowPastedImage;
-        showToast('💾 Imagen guardada en base64 (sin Storage)');
-      } else {
-        showToast('⚠️ No se pudo subir la imagen: ' + e.message);
       }
     }
+
+    await db.collection('cerebro').add({
+      type: type,
+      title: title || '(Sin título)',
+      content: content || '',
+      link: finalLink || '',
+      biz: state.currentBiz,
+      confidence: confidence,
+      uploadedBy: currentUser ? currentUser.email : 'admin',
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    showToast('✅ Guardado en Cerebro Vivo — los agentes ya lo saben');
+    closeAddKnowledge();
+    setTimeout(function() {
+      if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz);
+    }, 500);
+  } catch(e) {
+    showToast('Error guardando: ' + e.message);
+    console.error('saveKnowledge error:', e);
+  } finally {
+    if (saveBtn) { saveBtn.textContent = 'Guardar en Cerebro Vivo →'; saveBtn.disabled = false; }
   }
-
-  window._knowPendingFile = null;
-  window._knowPastedImage = null;
-
-  closeAddKnowledge();
-  if (saveBtn) { saveBtn.textContent = 'Guardar en Cerebro Vivo →'; saveBtn.disabled = false; }
-
-  const doc = {
-    title:      title || (content.substring(0,60)) || 'Foto',
-    content,
-    link:       finalLink,
-    type:       knowType,
-    confidence: knowConfidence,
-    biz:        state.currentBiz,
-    bizName:    biz.name,
-    uploadedBy: currentUser?.email || 'admin'
-  };
-  fbSave('cerebro', doc);
-  showToast('🧠 Guardado en Cerebro Vivo de ' + biz.name + ' ☁️');
-  // Refresh listener so new entry appears immediately in the list
-  setTimeout(() => { if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz); }, 500);
 }
 
 function showGDriveHelp() {
-  closeAddKnowledge();
-  const el = document.getElementById('gdrive-overlay');
-  el.style.display = 'flex';
-}
-function closeGDriveHelp() {
-  document.getElementById('gdrive-overlay').style.display = 'none';
-  openAddKnowledge();
+  var overlay = document.getElementById('gdrive-overlay');
+  if (overlay) overlay.style.display = 'flex';
 }
 
-// Init config page on first load
-document.addEventListener('DOMContentLoaded', () => {
-  const firstTab = document.querySelector('.cfg-tab');
-  if (firstTab) showCfg('negocios', firstTab);
-  // Show saved key status on load
-  if (claudeApiKey) {
-    const s = document.getElementById('api-key-status');
-    if (s) s.innerHTML = '<span style="color:#10b981;font-weight:700;">✅ API Key guardada — los agentes usan Claude real</span>';
-  }
-});
-
-// ─── COMPETENCIA ───
-async function buscarCompetencia() {
-  const btn = document.getElementById('comp-search-btn');
-  btn.textContent = '⏳ Buscando...';
-  btn.disabled = true;
-  const result = await callClaude([{role:'user', content:'Investiga qué tipo de anuncios están corriendo los competidores de departamentos de playa en Acapulco y Guerrero en Facebook e Instagram ahora mismo. Dame un resumen de las estrategias más comunes, los ángulos de venta que están usando y 3 recomendaciones específicas para que Caracol Diamante se diferencie. Sé concreto y accionable.'}],
-    getBizContext(false) + '\nEres el Agente de Inteligencia Competitiva. Tu trabajo es analizar el mercado y dar ventaja estratégica a Paco.');
-  const el = document.getElementById('comp-ai-result');
-  el.innerHTML = '<div style="font-size:12px;line-height:1.7;background:var(--primary-light);border-radius:8px;padding:14px;">' +
-    result.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') + '</div>';
-  document.getElementById('comp-last-update').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
-  btn.textContent = '🔍 Buscar anuncios hoy';
-  btn.disabled = false;
-}
-
-async function analizarCompetencia() {
-  const el = document.getElementById('comp-ai-result');
-  el.innerHTML = '<div style="font-size:12px;color:#6b7280;padding:10px;"><div class="typing"><span></span><span></span><span></span></div> Analizando competencia...</div>';
-  await buscarCompetencia();
-}
-
-// ─── PRE-AUTORIZADOR ───
-function openPreAuthEval() {
-  const card = document.getElementById('preauth-eval-card');
-  card.style.display = 'block';
-  card.scrollIntoView({behavior:'smooth',block:'start'});
-  document.getElementById('preauth-content-input').focus();
-}
-
-async function ejecutarPreAuth() {
-  const content = document.getElementById('preauth-content-input').value.trim();
-  const type = document.getElementById('preauth-type-select').value;
-  const resultEl = document.getElementById('preauth-eval-result');
-  if (!content) { showToast('⚠️ Pega el contenido a evaluar primero'); return; }
-  const isAd = type === 'anuncio';
-  resultEl.innerHTML = `<div style="font-size:12px;color:#6b7280;padding:10px;"><div class="typing"><span></span><span></span><span></span></div> ${isAd ? 'Evaluando calidad y políticas de Meta...' : 'Evaluando calidad...'}</div>`;
-  const typeLabels = {anuncio:'Anuncio Meta Ads', whatsapp:'Mensaje WhatsApp', landing:'Landing Page', email:'Email', reel:'Guión de Reel'};
-
-  const qualityPrompt = getBizContext(false) + `\nEres el Pre-Autorizador de calidad de Agencia Marketing AMEZ. Tu trabajo es evaluar contenido ANTES de que se publique.
-Evalúa el siguiente ${typeLabels[type]} y responde con:
-1. **Score total: X/100** (0=pésimo, 100=perfecto)
-2. **Veredicto:** APROBAR ✅ / RECHAZAR ❌ / REVISAR ⚠️ (si score < 60 rechaza, 60-75 revisa, 76+ aprueba)
-3. **Fortalezas** (2-3 puntos)
-4. **Problemas** (si los hay)
-5. **Mejora sugerida** (una línea concreta)
-Sé directo, como un director de marketing exigente.`;
-
-  const metaPrompt = `Eres un experto certificado en políticas publicitarias de Meta (Facebook e Instagram). Analiza el siguiente anuncio contra las Políticas de Publicidad de Meta y responde ÚNICAMENTE con este JSON (sin texto antes ni después):
-{
-  "semaforo": "verde | amarillo | rojo",
-  "resumen": "una línea clara: CUMPLE POLÍTICAS / PRECAUCIÓN — revisar antes de publicar / VIOLACIÓN — no publicar",
-  "violaciones": [
-    {
-      "politica": "nombre exacto de la política de Meta",
-      "frase_problema": "copia textual del fragmento del anuncio que viola la política",
-      "porque": "explicación clara de por qué esa frase viola esa política específica",
-      "que_cambiar": "texto alternativo concreto o instrucción exacta de qué eliminar/sustituir"
-    }
-  ],
-  "advertencias": [
-    {
-      "punto": "descripción del riesgo menor",
-      "porque": "por qué podría causar problemas o bajo alcance",
-      "sugerencia": "qué ajustar para estar más seguro"
-    }
-  ],
-  "version_corregida": "si hay violaciones, escribe aquí una versión corregida del anuncio que cumple todas las políticas"
-}
-
-Políticas de Meta a verificar (aplica todas las que sean relevantes):
-1. Contenido engañoso: frases no verificables como "el mejor", "garantizado", "#1 en México", "100% seguro" sin respaldo documental
-2. Urgencia artificial: "solo hoy", "últimas 3 unidades", "oferta caduca mañana" cuando no hay evidencia real
-3. Vivienda — discriminación (Housing Ads Policy): no se puede excluir ni preferir compradores por raza, religión, origen nacional, sexo, discapacidad o estado familiar. Frases como "ideal para familias jóvenes", "perfecta para parejas", "exclusivo para profesionistas" activan esta política
-4. Atributos personales implícitos: frases que asumen estado económico, salud, situación legal o personal del lector ("¿Cansado de pagar renta?", "Si estás endeudado...", "Para los que perdieron su casa")
-5. Promesas financieras sin disclaimer: "renta garantizada", "retorno asegurado del X%", "inversión sin riesgo" — requieren aclaración legal
-6. Precios engañosos: precio ancla falso, condicionado sin aclaración, o "desde $X" sin especificar qué incluye
-7. Superlativos sin sustento: "la mejor vista", "el único", "incomparable" sin evidencia
-8. CTA agresivas o insultantes: "No seas tonto", "Solo los listos aprovechan esto"
-9. Contenido sensacionalista: lenguaje alarmista o que crea miedo innecesario
-
-Si no hay violaciones ni advertencias, los arrays deben estar vacíos []. Si el anuncio cumple todo, version_corregida debe ser "".`;
-
-  try {
-    const promises = [callClaude([{role:'user', content}], qualityPrompt)];
-    if (isAd) promises.push(callClaude([{role:'user', content}], metaPrompt));
-    const [result, metaRaw] = await Promise.all(promises);
-
-    // ── Quality block ──
-    const score = result.match(/Score total:\s*(\d+)/i)?.[1] || '—';
-    const isApproved = result.includes('APROBAR') || result.includes('✅');
-    const isRejected = result.includes('RECHAZAR') || result.includes('❌');
-    const qColor = isApproved ? '#10b981' : isRejected ? '#ef4444' : '#f59e0b';
-
-    // ── Meta policy block ──
-    let metaHtml = '';
-    if (isAd && metaRaw) {
-      let meta = {};
-      try {
-        const jsonStr = metaRaw.match(/\{[\s\S]*\}/)?.[0] || '{}';
-        meta = JSON.parse(jsonStr);
-      } catch(e) { meta = { semaforo:'amarillo', resumen:'No se pudo analizar la respuesta de Meta', violaciones:[], advertencias:[], version_corregida:'' }; }
-      const semaforoEmoji = meta.semaforo === 'verde' ? '🟢' : meta.semaforo === 'rojo' ? '🔴' : '🟡';
-      const semaforoColor = meta.semaforo === 'verde' ? '#10b981' : meta.semaforo === 'rojo' ? '#ef4444' : '#f59e0b';
-      const semaforoBg = meta.semaforo === 'verde' ? '#d1fae5' : meta.semaforo === 'rojo' ? '#fee2e2' : '#fef3c7';
-
-      // Render violaciones con detalle completo
-      const violacionesHtml = (meta.violaciones || []).map(v => `
-        <div style="background:#fff;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
-          <div style="font-size:11px;font-weight:800;color:#ef4444;margin-bottom:4px;">❌ ${v.politica || 'Violación de política'}</div>
-          ${v.frase_problema ? `<div style="font-size:11px;background:#fee2e2;border-radius:4px;padding:4px 8px;margin-bottom:4px;font-style:italic;color:#7f1d1d;">"${v.frase_problema}"</div>` : ''}
-          <div style="font-size:11px;color:#374151;margin-bottom:4px;"><strong>Por qué:</strong> ${v.porque || ''}</div>
-          <div style="font-size:11px;background:#dcfce7;border-radius:4px;padding:4px 8px;color:#14532d;"><strong>✏️ Cambiar a:</strong> ${v.que_cambiar || ''}</div>
-        </div>`).join('');
-
-      // Render advertencias con detalle
-      const advertenciasHtml = (meta.advertencias || []).map(a => `
-        <div style="background:#fff;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
-          <div style="font-size:11px;font-weight:800;color:#d97706;margin-bottom:4px;">⚠️ ${a.punto || 'Precaución'}</div>
-          ${a.porque ? `<div style="font-size:11px;color:#374151;margin-bottom:3px;"><strong>Por qué:</strong> ${a.porque}</div>` : ''}
-          ${a.sugerencia ? `<div style="font-size:11px;color:#92400e;"><strong>Sugerencia:</strong> ${a.sugerencia}</div>` : ''}
-        </div>`).join('');
-
-      const estampilla = meta.semaforo === 'verde'
-        ? `<div style="display:inline-block;border:2px solid #10b981;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#10b981;margin-top:6px;">✅ REVISADO ANTE META · ${new Date().toLocaleDateString('es-MX')}</div>`
-        : meta.semaforo === 'rojo'
-        ? `<div style="display:inline-block;border:2px solid #ef4444;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#ef4444;margin-top:6px;">🚫 NO PUBLICAR · POSIBLE VIOLACIÓN META</div>`
-        : `<div style="display:inline-block;border:2px solid #f59e0b;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;color:#d97706;margin-top:6px;">⚠️ REVISAR ANTES DE PUBLICAR EN META</div>`;
-
-      metaHtml = `
-        <div style="margin-top:12px;border:1.5px solid ${semaforoColor};border-radius:10px;padding:14px;background:${semaforoBg}20;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <span style="font-size:28px;">${semaforoEmoji}</span>
-            <div>
-              <div style="font-size:13px;font-weight:800;color:${semaforoColor};">Revisión Políticas Meta / Facebook</div>
-              <div style="font-size:11px;color:#374151;">${meta.resumen || ''}</div>
-            </div>
-          </div>
-          ${violacionesHtml ? `<div style="margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;">VIOLACIONES DETECTADAS:</div>${violacionesHtml}</div>` : ''}
-          ${advertenciasHtml ? `<div style="margin-bottom:6px;"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px;">PRECAUCIONES:</div>${advertenciasHtml}</div>` : ''}
-          ${meta.version_corregida ? `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;margin-top:4px;"><div style="font-size:11px;font-weight:800;color:#15803d;margin-bottom:4px;">✅ Versión corregida lista para publicar:</div><div style="font-size:11px;color:#374151;line-height:1.6;">${meta.version_corregida}</div></div>` : ''}
-          ${estampilla}
-        </div>`;
-    }
-
-    resultEl.innerHTML = `
-      <div style="border:1.5px solid ${qColor};border-radius:10px;padding:14px;">
-        <div style="font-size:18px;font-weight:800;color:${qColor};margin-bottom:8px;">Score calidad: ${score}/100</div>
-        <div style="font-size:12px;line-height:1.7;">${result.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div>
-        ${isApproved ? `<button class="btn-sm btn-approve" style="margin-top:10px;" onclick="addToAuthHistory('${typeLabels[type]}',${score})">✅ Agregar a aprobados</button>` : ''}
-      </div>
-      ${metaHtml}`;
-  } catch(e) {
-    resultEl.innerHTML = `<div style="color:#ef4444;font-size:12px;padding:10px;">Error al evaluar: ${e.message}</div>`;
-  }
-}
-
-async function preAuthEvaluar(itemId, btn) {
-  const item = document.getElementById(itemId);
-  const desc = item.querySelector('.auth-name').textContent;
-  const preview = item.querySelector('div[style*="font-style"]')?.textContent || '';
-  btn.textContent = '⏳';
-  const systemPrompt = getBizContext(false) + '\nEres el Pre-Autorizador. Evalúa este contenido: dame Score/100, veredicto APROBAR/RECHAZAR/REVISAR, y 1 mejora concreta. Sé muy breve (3 líneas máximo).';
-  const result = await callClaude([{role:'user', content:desc + ': ' + preview}], systemPrompt);
-  const scoreEl = item.querySelector('.auth-desc strong');
-  if (scoreEl) scoreEl.textContent = result.slice(0,80) + '...';
-  showToast('🤖 Re-evaluación lista');
-  btn.textContent = '🤖 Re-evaluar';
-}
-
-function aprobarContenido(itemId, msg) {
-  const item = document.getElementById(itemId);
-  if (item) {
-    const name = item.querySelector('.auth-name').textContent;
-    addToAuthHistory(name, null);
-    item.style.opacity = '0.4';
-    item.style.pointerEvents = 'none';
-    const badge = document.getElementById('auth-badge');
-    const count = document.getElementById('auth-pending-count');
-    const n = Math.max(0, parseInt(badge?.textContent||'0') - 1);
-    if (badge) badge.textContent = n;
-    if (count) count.textContent = n;
-  }
-  showToast('✅ ' + (msg || 'Contenido aprobado y listo para publicar'));
-}
-
-function rechazarContenido(itemId) {
-  const item = document.getElementById(itemId);
-  if (item) {
-    item.style.opacity = '0.4';
-    item.style.pointerEvents = 'none';
-  }
-  showToast('❌ Rechazado — el agente recibirá el feedback');
-}
-
-function addToAuthHistory(name, score) {
-  const list = document.getElementById('auth-history-list');
-  if (!list) return;
-  const div = document.createElement('div');
-  div.className = 'auth-item';
-  div.innerHTML = `<div style="font-size:18px;">✅</div><div class="auth-info"><div class="auth-name">${name}</div><div class="auth-desc">${score ? 'Score: ' + score + '/100 · ' : ''}Aprobado por Paco · ahora</div></div>`;
-  list.insertBefore(div, list.firstChild);
-}
+// ════════════════════════════════════════════════════════════════════
 </script>
 </body>
 </html>
