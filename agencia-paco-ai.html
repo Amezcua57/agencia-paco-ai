@@ -1514,7 +1514,7 @@
       </div>
 
       <!-- Tipo -->
-      <div style="margin-bottom:16px;">
+      <div style="margin-bottom:16px;display:none;">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px;">¿Qué tipo de contenido es?</label>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;" id="know-type-grid">
           <div class="wiz-option selected" onclick="selectKnowType(this,'texto')"><span class="wiz-option-icon">✍️</span>Texto</div>
@@ -1557,7 +1557,7 @@
         <div style="font-size:10px;color:#9ca3af;margin-top:5px;">¿Tienes el archivo en Google Drive? <span style="color:#6366f1;cursor:pointer;font-weight:600;" onclick="showGDriveHelp()">¿Cómo conecto Google Drive?</span></div>
       </div>
       <!-- Nivel de confianza -->
-      <div style="margin-bottom:6px;">
+      <div style="margin-bottom:6px;display:none;">
         <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;">Nivel de confianza (¿qué tan seguro está este dato?)</label>
         <div style="display:flex;gap:6px;">
           <button onclick="setConfidence(this,1)" style="flex:1;padding:7px;border:1.5px solid #e5e7eb;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;background:white;">⭐ Tentativo</button>
@@ -2626,12 +2626,23 @@ function _renderCerebroList(snap, list) {
       const btnOnclick = isFotoMode && isFotoCard
         ? 'event.stopPropagation();_toggleFotoSelection(\'' + doc.id + '\',this.closest(\'[data-foto-id]\'))'
         : 'event.stopPropagation();verEntradaById(\'' + doc.id + '\')';
+      // Detect docs with missing/placeholder content
+      const isDocType = ['texto','documento','faq','guion','objecion','precio'].includes(d.type);
+      const hasRealContent = d.content && d.content.length > 60
+        && !d.content.startsWith('Archivo:') && !d.content.startsWith('PDF:')
+        && !d.content.startsWith('Video:') && !d.content.startsWith('Link:');
+      const needsContent = isDocType && !hasRealContent;
+      const addTextBtn = needsContent
+        ? '<button onclick="event.stopPropagation();_abrirEdicionContenido(\'' + doc.id + '\')" style="flex:1;background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;" title="Este documento no tiene texto — agrégalo para que la IA lo aprenda">📝 Agregar texto</button>'
+        : '';
+      const needsWarning = needsContent ? '<div style="font-size:9px;color:#d97706;background:#fef3c7;border-radius:4px;padding:2px 5px;margin-top:3px;font-weight:600;">⚠️ Sin texto — IA no puede leerlo</div>' : '';
       card.innerHTML = previewHtml
         + '<div style="padding:9px 10px;">'
         + '<div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;">' + (d.title||'Sin título') + '</div>'
         + '<div style="font-size:9px;color:#9ca3af;margin-top:2px;">' + (typeLabel[d.type]||d.type||'').toUpperCase() + ' · ' + (d.ts?.toDate ? d.ts.toDate().toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '') + '</div>'
+        + needsWarning
         + '<div style="display:flex;gap:5px;margin-top:7px;">'
-        + '<button onclick="' + btnOnclick + '" style="flex:1;background:' + btnBg + ';color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;">' + btnLabel + '</button>'
+        + (addTextBtn || ('<button onclick="' + btnOnclick + '" style="flex:1;background:' + btnBg + ';color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;">' + btnLabel + '</button>'))
         + '<button onclick="event.stopPropagation();eliminarEntradaCerebro(\'' + doc.id + '\',\'' + (d.title||'').replace(/'/g,'') + '\',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;" title="Eliminar">🗑</button>'
         + '</div></div>';
       entriesList.appendChild(card);
@@ -3387,9 +3398,18 @@ function getCerebroContext() {
 
     if (docs.length) {
       lines.push('\n📄 CONOCIMIENTO / DOCUMENTOS:');
-      docs.slice(0, 50).forEach(e => {
-        lines.push(`[${(e.type||'info').toUpperCase()}] ${e.title||''}${e.content ? ': ' + e.content.slice(0, 400) : ''}`);
+      const docsConContenido = docs.filter(e => e.content && e.content.length > 60 && !e.content.startsWith('Archivo:') && !e.content.startsWith('PDF:') && !e.content.startsWith('Video:') && !e.content.startsWith('Link:'));
+      const docsSinContenido = docs.filter(e => !e.content || e.content.length <= 60 || e.content.startsWith('Archivo:') || e.content.startsWith('PDF:') || e.content.startsWith('Video:') || e.content.startsWith('Link:'));
+      docsConContenido.slice(0, 50).forEach(e => {
+        lines.push(`[${(e.type||'info').toUpperCase()}] ${e.title||''}: ${e.content.slice(0, 600)}`);
       });
+      if (docsSinContenido.length > 0) {
+        lines.push(`\n⚠️ DOCUMENTOS SIN TEXTO EXTRAÍDO (${docsSinContenido.length} archivos — Paco los subió pero el contenido no fue leído aún):`);
+        docsSinContenido.forEach(e => lines.push(`  - "${e.title || 'Sin título'}" [pendiente de texto]`));
+        lines.push('INSTRUCCIÓN: Para estos documentos SIN TEXTO, actúa con lo que sabes del negocio.');
+        lines.push('NO hagas preguntas genéricas como "¿quién eres?" o "cuéntame de tu negocio".');
+        lines.push('Si necesitas contenido específico de uno de estos archivos, pídelo así: "necesito el contenido de [NOMBRE DEL ARCHIVO]".');
+      }
     }
     if (fotos.length) {
       lines.push(`\n🖼️ FOTOS REALES DEL NEGOCIO — YA SUBIDAS AL SISTEMA (${fotos.length} fotos):`);
@@ -4589,8 +4609,15 @@ function updateGuiaTocActive() {
 // ═══════════════════ AGENTES IA — CHAT POR AGENTE ═══════════════════
 const AGENT_DEFS = [
   { id:'secretaria', emoji:'🤖', name:'Secretaria General AI', role:'Centro de comando', level:'Nivel 3', active:true, color:'#6366f1',
-    greeting:'¡Hola! Soy la Secretaria General. ¿Qué necesitas hoy? Puedo coordinar tareas, responder preguntas del negocio, redactar contenido o lo que necesites.',
-    system: biz => `Eres la Secretaria General AI de la agencia para el negocio ${biz}. Eres el centro de comando. Coordinas todos los agentes especializados y puedes ayudar con cualquier tarea de marketing. Respondes en español mexicano, tono profesional y cercano.`
+    greeting:'¡Hola! Soy la Secretaria General. ¿Qué necesitas hoy? Puedo coordinar tareas, redactar contenido, analizar estrategia o lo que necesites.',
+    system: biz => `Eres la Secretaria General AI de la agencia para el negocio ${biz}. Eres el centro de comando y coordinas todos los agentes especializados.
+
+REGLAS DE COMPORTAMIENTO — MUY IMPORTANTES:
+1. NUNCA hagas preguntas genéricas como "¿quién eres?", "¿cuál es tu visión?", "¿cuál es tu tono?", "cuéntame de tu negocio", "¿cuáles son tus valores?". Esa información está en el Cerebro Vivo.
+2. Si el Cerebro tiene documentos sin texto extraído, menciona ÚNICAMENTE el nombre del archivo específico que necesitas. No hagas 5 preguntas genéricas.
+3. Trabaja SIEMPRE con la información que tienes. Sé proactiva y accionable.
+4. Si el usuario pide algo, hazlo de inmediato con lo que tienes — no pidas permiso ni más contexto innecesario.
+5. Responde en español mexicano, tono directo y profesional.`
   },
   { id:'director_mkt', emoji:'📊', name:'Director de Mercadotecnia', role:'Estrategia de campañas', level:'Nivel 2', active:true, color:'#f59e0b',
     greeting:'Hola, soy el Director de Mercadotecnia. ¿En qué campaña o estrategia estás trabajando? Te ayudo a definir objetivos, audiencia, mensajes clave y canales.',
@@ -6057,14 +6084,11 @@ async function saveKnowledge() {
   var content = (document.getElementById('know-content') ? document.getElementById('know-content').value : '').trim();
   var link    = (document.getElementById('know-link') ? document.getElementById('know-link').value : '').trim();
   var confidence = window._knowConfidence || 'alta';
-
   if (!title && !content && !link && !window._knowPendingFile) {
-    showToast('Escribe al menos un título o contenido'); return;
+    showToast('Escribe o pega algo primero'); return;
   }
-
   var saveBtn = document.querySelector('#knowledge-overlay .btn-primary');
-  if (saveBtn) { saveBtn.textContent = '⏳ Guardando...'; saveBtn.disabled = true; }
-
+  if (saveBtn) { saveBtn.textContent = 'Guardando...'; saveBtn.disabled = true; }
   try {
     var finalLink = link;
     if (window._knowPendingFile && type === 'foto') {
@@ -6076,10 +6100,9 @@ async function saveKnowledge() {
         finalLink = window._knowPastedImage;
       }
     }
-
     await db.collection('cerebro').add({
       type: type,
-      title: title || '(Sin título)',
+      title: title || '(Sin titulo)',
       content: content || '',
       link: finalLink || '',
       biz: state.currentBiz,
@@ -6087,26 +6110,66 @@ async function saveKnowledge() {
       uploadedBy: currentUser ? currentUser.email : 'admin',
       ts: firebase.firestore.FieldValue.serverTimestamp()
     });
-
-    showToast('✅ Guardado en Cerebro Vivo — los agentes ya lo saben');
+    showToast('Guardado en Cerebro Vivo');
     closeAddKnowledge();
     setTimeout(function() {
       if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz);
     }, 500);
   } catch(e) {
-    showToast('Error guardando: ' + e.message);
-    console.error('saveKnowledge error:', e);
+    showToast('Error: ' + e.message);
   } finally {
-    if (saveBtn) { saveBtn.textContent = 'Guardar en Cerebro Vivo →'; saveBtn.disabled = false; }
+    if (saveBtn) { saveBtn.textContent = 'Guardar en Cerebro Vivo'; saveBtn.disabled = false; }
   }
 }
 
 function showGDriveHelp() {
-  var overlay = document.getElementById('gdrive-overlay');
-  if (overlay) overlay.style.display = 'flex';
+  var o = document.getElementById('gdrive-overlay');
+  if (o) o.style.display = 'flex';
 }
 
-// ════════════════════════════════════════════════════════════════════
+async function _abrirEdicionContenido(docId) {
+  var docSnap = await db.collection('cerebro').doc(docId).get().catch(function() { return null; });
+  if (!docSnap || !docSnap.exists) { showToast('No encontrado'); return; }
+  var data = docSnap.data();
+  var existing = document.getElementById('_contenido-modal');
+  if (existing) existing.remove();
+  var modal = document.createElement('div');
+  modal.id = '_contenido-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML = '<div style="background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">'
+    + '<div style="background:linear-gradient(135deg,#1e1b4b,#312e81);padding:16px 20px;color:white;display:flex;align-items:center;justify-content:space-between;">'
+    + '<div><div style="font-size:15px;font-weight:800;">Agregar texto al documento</div>'
+    + '<div style="font-size:11px;opacity:0.75;">' + (data.title || 'Documento') + '</div></div>'
+    + '<button onclick="document.getElementById(\'_contenido-modal\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:6px;padding:4px 10px;cursor:pointer;">X</button>'
+    + '</div>'
+    + '<div style="padding:18px;overflow-y:auto;flex:1;">'
+    + '<p style="font-size:12px;color:#6b7280;margin-bottom:10px;">Pega el contenido de <strong>' + (data.title||'este documento') + '</strong>. Los agentes lo aprenderan de inmediato.</p>'
+    + '<textarea id="_contenido-txt" style="width:100%;height:260px;border:1.5px solid #d1d5db;border-radius:10px;padding:12px;font-size:12px;line-height:1.7;resize:vertical;outline:none;font-family:inherit;box-sizing:border-box;" placeholder="Pega el contenido aqui: precios, descripcion, informacion del negocio, lo que sea...">' + (data.content && !data.content.startsWith('Archivo:') ? data.content : '') + '</textarea>'
+    + '</div>'
+    + '<div style="padding:14px 18px;border-top:1px solid #f0f0f0;display:flex;gap:8px;justify-content:flex-end;">'
+    + '<button onclick="document.getElementById(\'_contenido-modal\').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:600;cursor:pointer;color:#6b7280;">Cancelar</button>'
+    + '<button onclick="_guardarContenidoCerebro(\'' + docId + '\')" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;">Guardar</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
+  setTimeout(function() { var ta = document.getElementById('_contenido-txt'); if (ta) ta.focus(); }, 100);
+}
+
+async function _guardarContenidoCerebro(docId) {
+  var ta = document.getElementById('_contenido-txt');
+  var content = ta ? ta.value.trim() : '';
+  if (!content) { showToast('Escribe el contenido primero'); return; }
+  try {
+    await db.collection('cerebro').doc(docId).update({ content: content });
+    showToast('Guardado — los agentes ya lo saben');
+    var m = document.getElementById('_contenido-modal');
+    if (m) m.remove();
+    setTimeout(function() {
+      if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz);
+    }, 400);
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+// ============================================================
 </script>
 </body>
 </html>
