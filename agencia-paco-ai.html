@@ -931,9 +931,15 @@
       <div class="page" id="page-cerebro">
         <div class="page-header">
           <div><h2>🧠 Cerebro Vivo</h2><p id="cerebro-biz-desc">Conocimiento de Caracol Diamante</p></div>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <button class="btn-sm" style="background:#fce7f3;color:#be185d;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;" onclick="_filtrarCerebroByType('foto');_cerebroViewMode='grid';">🖼️ Ver mis fotos</button>
-            <button class="btn-sm" style="background:#fce7f3;color:#be185d;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;" onclick="_filtrarCerebroByType('foto');_cerebroViewMode='grid';setTimeout(()=>{const inp=document.getElementById('_foto-multi-input');if(inp)inp.click();},400);">📤 Subir fotos</button>
+            <!-- Input siempre presente — independiente del modo de vista -->
+            <input id="_cerebro-bulk-master" type="file" accept="image/*" multiple style="display:none"
+              onchange="_bulkUploadFotos([...this.files]);this.value=''">
+            <button class="btn-sm" style="background:#be185d;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;"
+              onclick="document.getElementById('_cerebro-bulk-master').click()">
+              📦 Subir varias fotos
+            </button>
             <button class="btn-primary" onclick="openAddKnowledge()">＋ Agregar conocimiento</button>
           </div>
         </div>
@@ -2820,18 +2826,43 @@ async function _bulkUploadFotos(files) {
   const imgFiles = [...files].filter(f => f.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|avif|bmp)$/i.test(f.name));
   if (imgFiles.length === 0) { showToast('⚠️ Solo se aceptan imágenes (JPG, PNG, WEBP...)'); return; }
   const biz = state.currentBiz || 'general';
-  const dropzone = document.getElementById('_foto-dropzone');
-  if (dropzone) {
-    dropzone.innerHTML = '<div style="font-size:22px;">⏳</div><div style="font-size:13px;font-weight:800;color:#be185d;margin-top:4px;">Subiendo ' + imgFiles.length + ' foto' + (imgFiles.length > 1 ? 's' : '') + '...</div><div id="_bulk-progress" style="font-size:11px;color:#9ca3af;margin-top:4px;"></div>';
+
+  // ── Overlay de progreso ──────────────────────────────────────────
+  let overlay = document.getElementById('_bulk-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = '_bulk-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:20px;padding:32px 36px;width:360px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+        <div style="font-size:40px;margin-bottom:12px;">📦</div>
+        <div id="_bulk-title" style="font-size:16px;font-weight:800;color:#be185d;margin-bottom:6px;">Subiendo fotos al Cerebro Vivo</div>
+        <div id="_bulk-count" style="font-size:13px;color:#6b7280;margin-bottom:16px;">Preparando...</div>
+        <div style="background:#f3f4f6;border-radius:99px;height:10px;overflow:hidden;margin-bottom:12px;">
+          <div id="_bulk-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#be185d,#ec4899);border-radius:99px;transition:width 0.3s ease;"></div>
+        </div>
+        <div id="_bulk-file" style="font-size:11px;color:#9ca3af;min-height:16px;word-break:break-all;"></div>
+      </div>`;
+    document.body.appendChild(overlay);
   }
-  showToast('⏳ Preparando ' + imgFiles.length + ' foto' + (imgFiles.length > 1 ? 's' : '') + '...');
+  overlay.style.display = 'flex';
+
+  const setProgress = (done, total, filename, action) => {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const bar = document.getElementById('_bulk-bar');
+    const count = document.getElementById('_bulk-count');
+    const fileEl = document.getElementById('_bulk-file');
+    if (bar) bar.style.width = pct + '%';
+    if (count) count.textContent = done + ' de ' + total + ' fotos (' + pct + '%)';
+    if (fileEl) fileEl.textContent = action + ': ' + filename;
+  };
+
   let uploaded = 0; const errors = [];
   for (const file of imgFiles) {
-    const prog = document.getElementById('_bulk-progress');
     try {
-      if (prog) prog.textContent = (uploaded + 1) + ' de ' + imgFiles.length + ': comprimiendo ' + file.name + '...';
+      setProgress(uploaded, imgFiles.length, file.name, 'Comprimiendo');
       const compressed = await _compressImage(file);
-      if (prog) prog.textContent = (uploaded + 1) + ' de ' + imgFiles.length + ': subiendo ' + file.name + '...';
+      setProgress(uploaded, imgFiles.length, file.name, 'Subiendo');
       let url = '';
       if (fbStorage) {
         const safeName = file.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9._-]/g,'');
@@ -2845,10 +2876,21 @@ async function _bulkUploadFotos(files) {
       const folder = _cerebroFotoFolder || 'Sin clasificar';
       await db.collection('cerebro').add({ type:'foto', title, link:url, content:'', folder, biz, ts: firebase.firestore.FieldValue.serverTimestamp() });
       uploaded++;
+      setProgress(uploaded, imgFiles.length, file.name, '✅ Lista');
     } catch(e) { console.error('bulkUpload', file.name, e); errors.push(file.name); }
   }
-  if (errors.length > 0) showToast('⚠️ ' + uploaded + '/' + imgFiles.length + ' fotos subidas. Error en: ' + errors.join(', '));
-  else showToast('✅ ' + uploaded + ' foto' + (uploaded > 1 ? 's subidas!' : ' subida!'));
+
+  // ── Cerrar overlay y mostrar resultado ──────────────────────────
+  const titleEl = document.getElementById('_bulk-title');
+  const countEl = document.getElementById('_bulk-count');
+  const fileEl  = document.getElementById('_bulk-file');
+  const bar     = document.getElementById('_bulk-bar');
+  if (bar) bar.style.width = '100%';
+  if (titleEl) titleEl.textContent = errors.length > 0 ? '⚠️ Completado con errores' : '✅ ¡Listo!';
+  if (countEl) countEl.textContent = uploaded + ' foto' + (uploaded !== 1 ? 's' : '') + ' guardada' + (uploaded !== 1 ? 's' : '') + ' en el Cerebro Vivo';
+  if (fileEl) fileEl.textContent = errors.length > 0 ? 'Error en: ' + errors.join(', ') : 'Los agentes ya pueden usarlas';
+  setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 2200);
+
   setTimeout(() => { listenCerebro(biz); setTimeout(() => _filtrarCerebroByType('foto'), 600); }, 400);
 }
 
