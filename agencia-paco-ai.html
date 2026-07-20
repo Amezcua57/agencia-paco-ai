@@ -1299,6 +1299,16 @@
               <div id="api-key-status" style="font-size:11px;color:#6b7280;min-height:18px;"></div>
             </div>
           </div>
+          <!-- INSTRUCCIONES PARA LOS AGENTES -->
+          <div class="card" style="margin-top:12px;">
+            <div class="card-header"><span class="card-title">📋 Instrucciones para los agentes</span></div>
+            <div class="card-body">
+              <p style="font-size:12px;color:#6b7280;margin-bottom:14px;">Escribe aquí las reglas que <strong>TODOS los agentes deben obedecer siempre</strong>. Estas órdenes se aplican en cada conversación, sin importar el agente activo.</p>
+              <textarea id="agent-instructions-input" placeholder="Ej: No inventes precios ni datos que no estén en el Cerebro Vivo. Si no tienes la información, dilo claramente. El tono siempre es profesional y en español mexicano. Nunca hables de la competencia de forma negativa..." style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:10px 12px;font-size:12px;min-height:110px;resize:vertical;box-sizing:border-box;font-family:inherit;" oninput="this.style.borderColor='#6366f1'"></textarea>
+              <button class="btn-primary" style="margin-top:10px;font-size:12px;" onclick="saveAgentInstructions()">Guardar instrucciones</button>
+              <div id="agent-instructions-status" style="font-size:11px;color:#6b7280;min-height:18px;margin-top:6px;"></div>
+            </div>
+          </div>
         </div>
 
         <!-- Reglas -->
@@ -1525,6 +1535,7 @@
           <div class="wiz-option" onclick="selectKnowType(this,'objecion')"><span class="wiz-option-icon">🛡️</span>Objeción</div>
           <div class="wiz-option" onclick="selectKnowType(this,'faq')"><span class="wiz-option-icon">❓</span>FAQ</div>
           <div class="wiz-option" onclick="selectKnowType(this,'guion')"><span class="wiz-option-icon">🎙️</span>Guión</div>
+          <div class="wiz-option" onclick="selectKnowType(this,'estilo')"><span class="wiz-option-icon">🎨</span>Estilo</div>
         </div>
       </div>
       <!-- Título -->
@@ -3218,15 +3229,24 @@ function _emailKey(email) {
 
 // ─── CLAUDE REAL API ───
 let claudeApiKey = localStorage.getItem('claudeApiKey') || '';
+let agentInstructions = localStorage.getItem('agentInstructions') || '';
 
 async function loadGlobalApiKey() {
   if (!fbReady) return;
   try {
     const doc = await db.collection('config').doc('global').get();
-    if (doc.exists && doc.data().claudeApiKey) {
-      claudeApiKey = doc.data().claudeApiKey;
-      // cache locally so offline still works
-      localStorage.setItem('claudeApiKey', claudeApiKey);
+    if (doc.exists) {
+      const d = doc.data();
+      if (d.claudeApiKey) {
+        claudeApiKey = d.claudeApiKey;
+        localStorage.setItem('claudeApiKey', claudeApiKey);
+      }
+      if (d.agentInstructions !== undefined) {
+        agentInstructions = d.agentInstructions || '';
+        localStorage.setItem('agentInstructions', agentInstructions);
+        const el = document.getElementById('agent-instructions-input');
+        if (el) el.value = agentInstructions;
+      }
     }
   } catch(e) { /* silent — use whatever is in localStorage */ }
 }
@@ -3378,21 +3398,31 @@ function getCerebroContext() {
   const bizId = state.currentBiz;
   const all = _cerebroCache.filter(e => !e.biz || e.biz === bizId);
 
-  const lines = [
-    `════ INFORMACIÓN DEL NEGOCIO (ya cargada — NO la pidas al usuario) ════`,
-    `Negocio: ${biz?.name || 'Sin nombre'} | Tipo: ${biz?.type || 'marketing digital'}`,
-    `Cliente: Francisco "Paco" Amezcua, empresario mexicano | Agencia: Agencia Marketing AMEZ`,
-    `INSTRUCCIÓN CRÍTICA: Toda la información del negocio está en el Cerebro Vivo abajo.`,
-    `NUNCA pidas archivos, links, Google Drive ni documentos que ya estén listados aquí.`,
-    `Trabaja CON lo que tienes. Si falta algo específico, indícalo puntualmente.`,
-    ``
-  ];
+  const lines = [];
+
+  // ── Instrucciones personalizadas de Paco ──
+  const instrucciones = (typeof agentInstructions !== 'undefined' ? agentInstructions : localStorage.getItem('agentInstructions') || '').trim();
+  if (instrucciones) {
+    lines.push(`════ INSTRUCCIONES OBLIGATORIAS DE PACO (máxima prioridad) ════`);
+    lines.push(instrucciones);
+    lines.push('════ FIN INSTRUCCIONES OBLIGATORIAS ════');
+    lines.push('');
+  }
+
+  lines.push(`════ INFORMACIÓN DEL NEGOCIO (ya cargada — NO la pidas al usuario) ════`);
+  lines.push(`Negocio: ${biz?.name || 'Sin nombre'} | Tipo: ${biz?.type || 'marketing digital'}`);
+  lines.push(`Cliente: Francisco "Paco" Amezcua, empresario mexicano | Agencia: Agencia Marketing AMEZ`);
+  lines.push(`INSTRUCCIÓN CRÍTICA: Toda la información del negocio está en el Cerebro Vivo abajo.`);
+  lines.push(`NUNCA pidas archivos, links, Google Drive ni documentos que ya estén listados aquí.`);
+  lines.push(`Trabaja CON lo que tienes. Si falta algo específico, indícalo puntualmente.`);
+  lines.push('');
 
   if (all.length > 0) {
     lines.push(`════ CEREBRO VIVO — ${all.length} ENTRADAS CARGADAS ════`);
 
     const docs    = all.filter(e => ['texto','documento','faq','guion','objecion','precio'].includes(e.type));
     const fotos   = all.filter(e => e.type === 'foto');
+    const estilos = all.filter(e => e.type === 'estilo');
     const likes   = all.filter(e => e.feedback === 'like');
     const dislikes = all.filter(e => e.feedback === 'dislike');
 
@@ -3422,6 +3452,17 @@ function getCerebroContext() {
       });
       lines.push('↑ ESTAS son tus fotos. Trabaja con ellas. Menciónalas por nombre en tus planes.');
     }
+    if (estilos.length) {
+      lines.push(`\n🎨 REFERENCIAS DE ESTILO (${estilos.length} ejemplos — estudia y replica el estilo de Paco):`);
+      lines.push('INSTRUCCIÓN DE ESTILO: Analiza estos ejemplos para entender el tono, formato y personalidad que Paco quiere.');
+      lines.push('Cuando generes contenido, imita el estilo de estas referencias — NO uses el estilo genérico de IA.');
+      estilos.slice(0, 20).forEach((e, i) => {
+        const link = e.link ? ` → ${e.link}` : '';
+        const content = e.content ? ` | Descripción: ${e.content.slice(0, 250)}` : '';
+        lines.push(`  🎯 REF ${i+1}: "${e.title || 'Sin título'}"${link}${content}`);
+      });
+      lines.push('↑ ESTAS son las referencias de estilo. Úsalas como guía para el tono y formato de todo el contenido.');
+    }
     if (likes.length) {
       lines.push('\n✅ ESTILO APROBADO POR PACO (replicar):');
       likes.slice(0,15).forEach(e => lines.push(`  + ${(e.title||e.content||'').slice(0,150)}`));
@@ -3432,9 +3473,17 @@ function getCerebroContext() {
     }
     lines.push('\n════ FIN CEREBRO VIVO ════');
   } else {
-    lines.push('(Cerebro Vivo vacío — el admin aún no ha cargado información del negocio)');
+    lines.push('⚠️ CEREBRO VIVO VACÍO — REGLA CRÍTICA OBLIGATORIA:');
+    lines.push('El admin aún no ha cargado información del negocio en el Cerebro Vivo.');
+    lines.push('Si el usuario pide datos específicos del negocio (precios, características, horarios, nombres, servicios, etc.):');
+    lines.push('RESPONDE EXACTAMENTE: "No tengo esa información en el Cerebro Vivo. Para que pueda ayudarte, agrégala en Cerebro Vivo → Agregar conocimiento."');
+    lines.push('NUNCA inventes datos, precios, nombres ni características del negocio.');
   }
 
+  lines.push('\n🚨 REGLA ABSOLUTA ANTI-INVENCIÓN (aplica siempre, con o sin Cerebro Vivo):');
+  lines.push('Si necesitas un dato específico del negocio que NO aparece en el Cerebro Vivo:');
+  lines.push('Di EXACTAMENTE: "No tengo esa información en el Cerebro Vivo. Agrégala en Cerebro Vivo → Agregar conocimiento para que pueda usarla."');
+  lines.push('NUNCA inventes: precios, nombres, fechas, cantidades, horarios, ubicaciones, características ni ningún dato específico del negocio.');
   lines.push('\nResponde SIEMPRE en español mexicano. Sé directo y accionable.');
   return lines.join('\n');
 }
@@ -3477,6 +3526,22 @@ async function saveApiKey() {
   }
   document.getElementById('api-key-status').innerHTML = '<span style="color:#10b981;font-weight:700;">✅ API Key guardada — todos los agentes y clientes usan Claude real</span>';
   showToast('✅ ¡Claude activado! Aplica para todos tus clientes');
+}
+
+async function saveAgentInstructions() {
+  const input = document.getElementById('agent-instructions-input');
+  const text = (input ? input.value : '').trim();
+  agentInstructions = text;
+  localStorage.setItem('agentInstructions', text);
+  if (fbReady && isAdmin) {
+    try {
+      await db.collection('config').doc('global').set({ agentInstructions: text }, { merge: true });
+    } catch(e) { /* silent */ }
+  }
+  const status = document.getElementById('agent-instructions-status');
+  if (status) status.innerHTML = '<span style="color:#10b981;font-weight:700;">✅ Instrucciones guardadas — todos los agentes las obedecerán desde ahora</span>';
+  showToast('✅ Instrucciones guardadas');
+  setTimeout(() => { if (status) status.innerHTML = ''; }, 4000);
 }
 
 const aiResponses = {
@@ -5741,7 +5806,7 @@ function showPastePreview(detected, summary) {
 }
 
 function selectKnowTypeByKey(key) {
-  const map = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
+  const map = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️', estilo:'🎨' };
   document.querySelectorAll('#know-type-grid .wiz-option').forEach(el => {
     const label = el.textContent.trim();
     const matches = Object.entries(map).find(([k,e]) => k===key && label.includes(e.replace('️','')));
