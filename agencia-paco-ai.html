@@ -2324,7 +2324,11 @@ function toggleCerebroAll(btn) {
 
 function listenCerebroAll() {
   // Show ALL cerebro entries regardless of biz
-  if (!fbReady) return;
+  if (!fbReady) {
+    // Firebase not ready yet — retry in 800ms instead of silently returning empty
+    setTimeout(() => listenCerebroAll(), 800);
+    return;
+  }
   if (_cerebroListener) { try { _cerebroListener(); } catch(e){} }
   const list = document.getElementById('cerebro-items-list');
   const countEl = document.getElementById('cerebro-count');
