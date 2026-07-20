@@ -2446,9 +2446,9 @@ function _renderCerebroList(snap, list) {
   if (snap._fullSnap) { list._fullSnap = snap._fullSnap; }
   else { list._fullSnap = snap; }
   list._snap = snap; // store for re-render on view toggle
-  const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
-  const typeColor = {texto:'#dbeafe',foto:'#fce7f3',video:'#fee2e2',documento:'#fef3c7',precio:'#d1fae5',objecion:'#f3e8ff',faq:'#e0e7ff',guion:'#ffedd5'};
-  const typeLabel = {texto:'Texto',foto:'Foto',video:'Video',documento:'Doc',precio:'Precio',objecion:'Objeción',faq:'FAQ',guion:'Guión'};
+  const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️', estilo:'🎨' };
+  const typeColor = {texto:'#dbeafe',foto:'#fce7f3',video:'#fee2e2',documento:'#fef3c7',precio:'#d1fae5',objecion:'#f3e8ff',faq:'#e0e7ff',guion:'#ffedd5',estilo:'#fdf4ff'};
+  const typeLabel = {texto:'Texto',foto:'Foto',video:'Video',documento:'Doc',precio:'Precio',objecion:'Objeción',faq:'FAQ',guion:'Guión',estilo:'Estilo'};
   const searchId = 'cerebro-search-main';
   const isFotoMode = _cerebroActiveTypeFilter === 'foto';
 
@@ -2697,6 +2697,7 @@ function _renderCerebroList(snap, list) {
       const iconCell = thumbUrl
         ? `<div style="width:32px;height:32px;border-radius:5px;overflow:hidden;border:1px solid #e5e7eb;"><img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.outerHTML='<div style=\\'width:32px;height:32px;border-radius:5px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:14px;\\'>${typeEmoji[d.type]||'📁'}</div>'"></div>`
         : `<div style="width:32px;height:32px;border-radius:5px;background:${typeColor[d.type]||'#f3f4f6'};display:flex;align-items:center;justify-content:center;font-size:16px;">${typeEmoji[d.type]||'📁'}</div>`;
+      const hasStorageFile = d.link && /firebasestorage\.googleapis\.com/i.test(d.link) && !/\.(jpg|jpeg|png|gif|webp|svg)/i.test(d.link.split('?')[0]);
       row.innerHTML =
         `<div>${iconCell}</div>`
         + `<div style="font-size:12px;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${d.title||'Sin título'}</div>`
@@ -2704,7 +2705,7 @@ function _renderCerebroList(snap, list) {
         + `<div style="text-align:center;"><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${typeColor[d.type]||'#f3f4f6'};color:#374151;">${(typeLabel[d.type]||d.type||'').toUpperCase()}</span></div>`
         + `<div style="font-size:10px;color:#6b7280;text-align:center;">${sizeLabel}</div>`
         + `<div style="display:flex;gap:4px;justify-content:center;">`
-        + `<button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="background:#6366f1;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:9px;font-weight:800;cursor:pointer;">Abrir</button>`
+        + (hasStorageFile ? `<a href="${d.link}" target="_blank" onclick="event.stopPropagation()" style="background:#16a34a;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:9px;font-weight:800;cursor:pointer;text-decoration:none;">📂 Abrir</a>` : `<button onclick="event.stopPropagation();verEntradaById('${doc.id}')" style="background:#6366f1;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:9px;font-weight:800;cursor:pointer;">Abrir</button>`)
         + `<button onclick="event.stopPropagation();eliminarEntradaCerebro('${doc.id}','${(d.title||'').replace(/'/g,'')}',this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:5px;padding:4px 6px;font-size:10px;cursor:pointer;">🗑</button>`
         + `</div>`;
       tbody.appendChild(row);
@@ -3109,7 +3110,7 @@ async function verEntradaById(docId) {
     const snap = await db.collection('cerebro').doc(docId).get();
     if (!snap.exists) { modal.style.display='none'; showToast('No encontrado'); return; }
     const d = snap.data();
-    const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️' };
+    const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️', estilo:'🎨' };
     const chars = (d.content||'').length;
     const sizeKB = (chars/1024).toFixed(1);
     const confLabel = (d.confidence||3)>=5?'⭐⭐⭐⭐⭐ Oficial':(d.confidence||3)>=3?'⭐⭐⭐ Confiable':'⭐ Tentativo';
@@ -3117,15 +3118,22 @@ async function verEntradaById(docId) {
     const link = d.link || '';
     const content = d.content || '';
 
-    // Detect link type
-    const isDirectImg = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(link)
-                     || /firebasestorage\.googleapis\.com/i.test(link)
+    // Detect link type — Firebase Storage only counts as image if path has image extension
+    const isDirectImg = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(link.split('?')[0])
                      || link.startsWith('data:image/');
     const isYT = /youtube\.com|youtu\.be/i.test(link);
     const isDrive = /drive\.google\.com/i.test(link);
     const isDriveFolder = /drive\.google\.com\/drive\/folders/i.test(link);
     const isGDoc = /docs\.google\.com/i.test(link);
     const isDropbox = /dropbox\.com/i.test(link);
+    // Firebase Storage file (non-image) — for viewer
+    const isFirebaseStorage = /firebasestorage\.googleapis\.com/i.test(link);
+    const linkPath = link.split('?')[0];
+    const linkFileName = decodeURIComponent(linkPath.split('%2F').pop() || linkPath.split('/').pop() || '').replace(/^\d+_/, '');
+    const linkExt = (linkFileName.split('.').pop() || '').toLowerCase();
+    const isPDF = linkExt === 'pdf';
+    const isOfficeFile = ['doc','docx','xls','xlsx','ppt','pptx'].includes(linkExt);
+    const isFirebaseNonImage = isFirebaseStorage && !isDirectImg;
     // Extract image URLs from content (lines starting with http and ending in image extension)
     const contentImgUrls = content.split('\n').filter(l => /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)/i.test(l.trim()));
     const contentLinks = content.split('\n').filter(l => /^https?:\/\//i.test(l.trim()));
@@ -3181,8 +3189,30 @@ async function verEntradaById(docId) {
       </div>`;
     }
 
+    // ── FIREBASE STORAGE FILE VIEWER (non-image) ──
+    if (isFirebaseNonImage && link) {
+      const fileIcon = isPDF ? '📄' : isOfficeFile ? '📊' : '📎';
+      const viewerHtml = isPDF
+        ? `<iframe src="${link}" style="width:100%;height:620px;border-radius:8px;border:1px solid #e5e7eb;margin-top:10px;display:block;" title="${(d.title||'Documento').replace(/"/g,'')}"></iframe>`
+        : isOfficeFile
+        ? `<iframe src="https://docs.google.com/viewer?url=${encodeURIComponent(link)}&embedded=true" style="width:100%;height:620px;border-radius:8px;border:1px solid #e5e7eb;margin-top:10px;display:block;" title="${(d.title||'Documento').replace(/"/g,'')}"></iframe>`
+        : '';
+      bodyHtml += `<div style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:8px;">${fileIcon} ARCHIVO — ${(linkExt||'ARCHIVO').toUpperCase()}</div>
+        <div style="display:flex;gap:12px;align-items:center;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:12px 16px;margin-bottom:6px;">
+          <span style="font-size:32px;">${fileIcon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:800;color:#166534;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${linkFileName || d.title || 'Archivo'}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${(linkExt||'ARCHIVO').toUpperCase()} · guardado en Firebase Storage</div>
+          </div>
+          <a href="${link}" target="_blank" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap;flex-shrink:0;">📂 Abrir archivo</a>
+        </div>
+        ${viewerHtml}
+      </div>`;
+    }
+
     // ── DROPBOX / otro link ──
-    if (link && !isDirectImg && !isDrive && !isGDoc && !isYT) {
+    if (link && !isDirectImg && !isDrive && !isGDoc && !isYT && !isFirebaseNonImage) {
       bodyHtml += `<div style="margin-bottom:14px;">
         <div style="font-size:11px;font-weight:700;color:#6b7280;margin-bottom:8px;">🔗 ENLACE</div>
         <a href="${link}" target="_blank" style="display:flex;align-items:center;gap:10px;background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px;padding:12px 16px;text-decoration:none;">
@@ -6202,12 +6232,13 @@ async function saveKnowledge() {
   if (saveBtn) { saveBtn.textContent = 'Guardando...'; saveBtn.disabled = true; }
   try {
     var finalLink = link;
-    if (window._knowPendingFile && type === 'foto') {
+    if (window._knowPendingFile) {
       if (window.fbStorage) {
-        var path = 'cerebro/' + state.currentBiz + '/' + Date.now() + '_' + (window._knowPendingFile.name || 'foto').replace(/\s+/g, '_');
-        var snap = await fbStorage.ref(path).put(window._knowPendingFile);
-        finalLink = await snap.ref.getDownloadURL();
-      } else if (window._knowPastedImage) {
+        var safeFileName = (window._knowPendingFile.name || 'archivo').replace(/\s+/g, '_').replace(/[^\w.\-]/g, '_');
+        var path = 'cerebro/' + state.currentBiz + '/' + Date.now() + '_' + safeFileName;
+        var uploadSnap = await fbStorage.ref(path).put(window._knowPendingFile);
+        finalLink = await uploadSnap.ref.getDownloadURL();
+      } else if (type === 'foto' && window._knowPastedImage) {
         finalLink = window._knowPastedImage;
       }
     }
