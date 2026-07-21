@@ -932,15 +932,19 @@
         <div class="page-header">
           <div><h2>🧠 Cerebro Vivo</h2><p id="cerebro-biz-desc">Conocimiento de Caracol Diamante</p></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <button class="btn-sm" style="background:#fce7f3;color:#be185d;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;" onclick="_filtrarCerebroByType('foto');_cerebroViewMode='grid';">🖼️ Ver mis fotos</button>
+            <button class="btn-sm" style="background:#fce7f3;color:#be185d;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;" onclick="_filtrarCerebroByType('foto');_cerebroViewMode='grid';">🖼️ Ver fotos</button>
             <!-- Input siempre presente — independiente del modo de vista -->
             <input id="_cerebro-bulk-master" type="file" accept="image/*" multiple style="display:none"
               onchange="_bulkUploadFotos([...this.files]);this.value=''">
-            <button class="btn-sm" style="background:#be185d;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;"
+            <button class="btn-sm" style="background:#be185d;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;"
               onclick="document.getElementById('_cerebro-bulk-master').click()">
-              📦 Subir varias fotos
+              📦 Varias fotos
             </button>
-            <button class="btn-primary" onclick="openAddKnowledge()">＋ Agregar conocimiento</button>
+            <button class="btn-sm" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:800;cursor:pointer;"
+              onclick="_abrirImportadorIA()">🧠 Importar con IA</button>
+            <button id="_btn-limpiar-cerebro" class="btn-sm" style="background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;display:none;"
+              onclick="_limpiarCerebro()">🗑 Limpiar todo</button>
+            <button class="btn-primary" onclick="openAddKnowledge()">＋ Agregar</button>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
@@ -1962,6 +1966,9 @@ function enterApp() {
   // Hide API key input from non-admin users — they should never see or touch it
   const apiKeyCard = document.getElementById('api-key-card');
   if (apiKeyCard) apiKeyCard.style.display = isAdmin ? '' : 'none';
+  // Show "Limpiar Cerebro" button only for admin
+  const limpiarBtn = document.getElementById('_btn-limpiar-cerebro');
+  if (limpiarBtn) limpiarBtn.style.display = isAdmin ? '' : 'none';
   // Show Canal Claude nav item only for admin
   const canalNav = document.getElementById('nav-canal-claude');
   if (canalNav) canalNav.style.display = isAdmin ? '' : 'none';
@@ -6309,6 +6316,452 @@ async function _guardarContenidoCerebro(docId) {
       if (_cerebroShowAll) listenCerebroAll(); else listenCerebro(state.currentBiz);
     }, 400);
   } catch(e) { showToast('Error: ' + e.message); }
+}
+
+// ============================================================
+
+// ══════════════════════════════════════════════════════════════
+// IMPORTADOR INTELIGENTE CON IA — tiras todo junto, Claude organiza
+// ══════════════════════════════════════════════════════════════
+
+let _jsZipReady = false;
+window._importPendingFiles = [];
+window._importEntriesPending = [];
+window._importImgsPending = [];
+
+async function _loadJSZip() {
+  if (_jsZipReady && window.JSZip) return true;
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = () => { _jsZipReady = true; resolve(true); };
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+let _mammothReady = false;
+async function _loadMammoth() {
+  if (_mammothReady && window.mammoth) return true;
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+    s.onload = () => { _mammothReady = true; resolve(true); };
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+function _mimeFromName(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const map = {
+    'pdf':'application/pdf','docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'doc':'application/msword','xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'xls':'application/vnd.ms-excel','pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'txt':'text/plain','csv':'text/csv','jpg':'image/jpeg','jpeg':'image/jpeg',
+    'png':'image/png','gif':'image/gif','webp':'image/webp','zip':'application/zip'
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+async function _extractTextFromFileImport(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  try {
+    if (ext === 'txt' || ext === 'csv') {
+      return await file.text();
+    }
+    if (ext === 'pdf') {
+      if (typeof _extractPdfText === 'function') {
+        const text = await _extractPdfText(file);
+        return text || '';
+      }
+      return '';
+    }
+    if (ext === 'docx' || ext === 'doc') {
+      const ok = await _loadMammoth();
+      if (ok && window.mammoth) {
+        const ab = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: ab });
+        return result.value || '';
+      }
+      return '';
+    }
+    if (ext === 'xlsx' || ext === 'xls') {
+      // Basic text extraction attempt
+      return await file.text().catch(() => '');
+    }
+    return '';
+  } catch(e) {
+    return '';
+  }
+}
+
+function _abrirImportadorIA() {
+  const existing = document.getElementById('_import-ia-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = '_import-ia-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.onclick = e => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.4);">
+      <div style="background:linear-gradient(135deg,#1e1b4b,#6366f1);padding:20px 24px;border-radius:20px 20px 0 0;color:white;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1;">
+        <div>
+          <div style="font-size:18px;font-weight:900;">🧠 Importar y organizar con IA</div>
+          <div style="font-size:11px;opacity:0.8;margin-top:2px;">Sube todo junto — Claude lo organiza en el Cerebro</div>
+        </div>
+        <button onclick="document.getElementById('_import-ia-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;">✕</button>
+      </div>
+      <div style="padding:22px 24px;" id="_import-ia-body">
+        <div id="_import-dropzone"
+          ondragover="event.preventDefault();this.style.borderColor='#6366f1';this.style.background='#ede9fe';"
+          ondragleave="this.style.borderColor='#c4b5fd';this.style.background='#f5f3ff';"
+          ondrop="event.preventDefault();this.style.borderColor='#c4b5fd';this.style.background='#f5f3ff';_handleImportDrop([...event.dataTransfer.files])"
+          style="border:2.5px dashed #c4b5fd;border-radius:14px;padding:36px 24px;text-align:center;background:#f5f3ff;margin-bottom:16px;cursor:pointer;transition:all 0.2s;"
+          onclick="document.getElementById('_import-file-input').click()">
+          <div style="font-size:48px;margin-bottom:10px;">📦</div>
+          <div style="font-size:16px;font-weight:900;color:#4f46e5;">Arrastra TODOS tus archivos aquí</div>
+          <div style="font-size:12px;color:#7c3aed;margin-top:6px;">ZIP · PDF · Word · Excel · TXT · Imágenes</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px;">También acepta un ZIP con varios archivos adentro</div>
+          <input id="_import-file-input" type="file" multiple
+            accept=".zip,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.gif,.webp"
+            style="display:none" onchange="_handleImportDrop([...this.files]);this.value=''">
+        </div>
+        <div id="_import-status" style="font-size:12px;color:#6b7280;text-align:center;min-height:18px;"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function _handleImportDrop(rawFiles) {
+  if (!rawFiles || rawFiles.length === 0) return;
+  const bodyEl = document.getElementById('_import-ia-body');
+  const statusEl = document.getElementById('_import-status');
+  if (statusEl) statusEl.innerHTML = '<span style="color:#6366f1;font-weight:700;">⏳ Leyendo archivos...</span>';
+
+  let allFiles = [];
+
+  for (const file of rawFiles) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (ext === 'zip') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#6366f1;">📦 Extrayendo ZIP...</span>';
+      const ok = await _loadJSZip();
+      if (!ok) { showToast('❌ No se pudo cargar JSZip'); allFiles.push(file); continue; }
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const entries = Object.values(zip.files).filter(f => !f.dir && !f.name.includes('__MACOSX') && !f.name.split('/').pop().startsWith('.'));
+        for (const entry of entries) {
+          const blob = await entry.async('blob');
+          const shortName = entry.name.split('/').pop();
+          if (!shortName) continue;
+          const innerFile = new File([blob], shortName, { type: _mimeFromName(shortName) });
+          allFiles.push(innerFile);
+        }
+      } catch(e) {
+        showToast('❌ Error al extraer ZIP: ' + e.message);
+        allFiles.push(file);
+      }
+    } else {
+      allFiles.push(file);
+    }
+  }
+
+  window._importPendingFiles = allFiles;
+
+  const imgs = allFiles.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name));
+  const docs = allFiles.filter(f => !/\.(jpg|jpeg|png|gif|webp)$/i.test(f.name));
+
+  if (!bodyEl) return;
+  const typeIcon = name => {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    if (/\.(jpg|jpeg|png|gif|webp)$/.test(name)) return '🖼️';
+    if (ext === 'pdf') return '📄';
+    if (ext === 'docx' || ext === 'doc') return '📝';
+    if (ext === 'xlsx' || ext === 'xls') return '📊';
+    if (ext === 'txt' || ext === 'csv') return '📋';
+    return '📎';
+  };
+
+  bodyEl.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:800;color:#1e1b4b;margin-bottom:10px;">📁 ${allFiles.length} archivo${allFiles.length !== 1 ? 's' : ''} listos</div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#fafafa;">
+        ${allFiles.map(f => {
+          const sizeKB = Math.round(f.size / 1024);
+          return `<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#374151;">
+            <span>${typeIcon(f.name)}</span>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</span>
+            <span style="color:#9ca3af;flex-shrink:0;">${sizeKB > 0 ? sizeKB + ' KB' : '< 1 KB'}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      ${imgs.length > 0 ? `<div style="margin-top:8px;font-size:11px;color:#be185d;background:#fce7f3;padding:7px 12px;border-radius:8px;">📸 ${imgs.length} imagen${imgs.length !== 1 ? 'es' : ''} → se guardarán como Fotos</div>` : ''}
+      ${docs.length > 0 ? `<div style="margin-top:6px;font-size:11px;color:#1e40af;background:#eff6ff;padding:7px 12px;border-radius:8px;">📄 ${docs.length} documento${docs.length !== 1 ? 's' : ''} → Claude extraerá y organizará el contenido</div>` : ''}
+    </div>
+    <button onclick="_analizarImportConIA()" style="width:100%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:900;cursor:pointer;">🧠 Analizar y organizar con IA</button>
+    <button onclick="_abrirImportadorIA()" style="width:100%;background:#f3f4f6;color:#6b7280;border:none;border-radius:10px;padding:11px;font-size:12px;cursor:pointer;margin-top:8px;">↩ Cambiar archivos</button>
+    <div id="_import-status" style="font-size:12px;color:#6b7280;text-align:center;margin-top:10px;min-height:18px;"></div>`;
+}
+
+async function _analizarImportConIA() {
+  const files = window._importPendingFiles || [];
+  if (files.length === 0) { showToast('No hay archivos'); return; }
+
+  const statusEl = document.getElementById('_import-status');
+  const btns = document.querySelectorAll('#_import-ia-body button');
+  btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
+
+  // Separate images from docs
+  const imgs = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name));
+  const docFiles = files.filter(f => !/\.(jpg|jpeg|png|gif|webp)$/i.test(f.name));
+
+  // Extract text from all docs
+  let combinedText = '';
+  for (const file of docFiles) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:#6366f1;">📖 Leyendo ${file.name}...</span>`;
+    const text = await _extractTextFromFileImport(file);
+    if (text && text.trim().length > 10) {
+      combinedText += `\n\n===== ${file.name} =====\n${text.trim()}`;
+    }
+  }
+
+  if (!combinedText.trim() && docFiles.length > 0) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">⚠️ No se pudo extraer texto. Intenta con archivos TXT o PDF con texto.</span>';
+    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+    return;
+  }
+
+  if (statusEl) statusEl.innerHTML = '<span style="color:#6366f1;font-weight:700;">🧠 Claude está organizando el contenido...</span>';
+
+  const biz = state.businesses[state.currentBiz];
+  const bizName = biz ? (biz.name || biz.nombre || state.currentBiz) : state.currentBiz;
+
+  const systemPrompt = `Eres un organizador del Cerebro Vivo de "${bizName}".
+Analiza el contenido y divídelo en entradas para el Cerebro Vivo.
+
+TIPOS disponibles:
+- texto: información general, descripción del negocio, misión, valores, historia
+- precio: listas de precios, tarifas, paquetes, promociones
+- faq: preguntas frecuentes y sus respuestas
+- objecion: objeciones de clientes y cómo responderlas
+- guion: scripts de ventas, llamadas, WhatsApp, presentaciones
+- documento: procedimientos, contratos, reglamentos, políticas
+
+REGLAS:
+- Divide en entradas específicas y útiles, NO pongas todo en una sola
+- Títulos descriptivos y concretos
+- El contenido debe ser claro y accionable para un agente de ventas
+- Responde ÚNICAMENTE con un array JSON válido, sin texto adicional
+
+Formato exacto:
+[{"type":"texto","title":"Título","content":"Contenido..."},...]`;
+
+  const userContent = combinedText.length > 22000
+    ? combinedText.substring(0, 22000) + '\n\n[TRUNCADO — organiza lo que tienes]'
+    : combinedText;
+
+  try {
+    if (!claudeApiKey) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">❌ Necesitas configurar tu API Key de Claude en Configuración → IA</span>';
+      btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+      return;
+    }
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': claudeApiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Organiza este contenido de "${bizName}":\n\n${userContent}` }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444;">❌ Error ${res.status}: ${err.error?.message || 'Error de API'}</span>`;
+      btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+      return;
+    }
+
+    const data = await res.json();
+    const raw = data.content[0].text;
+
+    // Parse JSON
+    let entries = [];
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      try { entries = JSON.parse(jsonMatch[0]); } catch(e) {}
+    }
+
+    if (!entries || entries.length === 0) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">❌ Claude no devolvió entradas válidas. Intenta con menos archivos o archivos más limpios.</span>';
+      btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+      return;
+    }
+
+    _mostrarVistaPrevia(entries, imgs);
+
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444;">❌ Error: ${e.message}</span>`;
+    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+  }
+}
+
+function _mostrarVistaPrevia(entries, imgFiles = []) {
+  const bodyEl = document.getElementById('_import-ia-body');
+  if (!bodyEl) return;
+
+  window._importEntriesPending = entries;
+  window._importImgsPending = imgFiles;
+
+  const typeEmoji = { texto:'✍️', foto:'🖼️', video:'🎬', documento:'📄', precio:'💰', objecion:'🛡️', faq:'❓', guion:'🎙️', estilo:'🎨' };
+  const typeColor = { texto:'#dbeafe', precio:'#d1fae5', faq:'#e0e7ff', objecion:'#f3e8ff', guion:'#ffedd5', documento:'#fef3c7', estilo:'#fdf4ff' };
+  const total = entries.length + imgFiles.length;
+
+  bodyEl.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:15px;font-weight:900;color:#1e1b4b;margin-bottom:3px;">✅ Claude organizó ${entries.length} entrada${entries.length !== 1 ? 's' : ''}</div>
+      <div style="font-size:11px;color:#6b7280;">Revisa y guarda todo en el Cerebro Vivo</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;margin-bottom:16px;padding-right:4px;">
+      ${entries.map((e, i) => `
+        <div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:10px 12px;background:${typeColor[e.type] || '#f9fafb'};">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:15px;">${typeEmoji[e.type] || '📁'}</span>
+            <span style="font-size:10px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">${e.type || 'texto'}</span>
+          </div>
+          <div style="font-size:12px;font-weight:700;color:#111827;margin-bottom:3px;">${e.title || 'Sin título'}</div>
+          <div style="font-size:11px;color:#6b7280;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${(e.content || '').substring(0, 200)}</div>
+        </div>`).join('')}
+      ${imgFiles.length > 0 ? `
+        <div style="border:1.5px solid #fca5a5;border-radius:10px;padding:10px 12px;background:#fef2f2;">
+          <div style="font-size:12px;font-weight:800;color:#dc2626;margin-bottom:2px;">🖼️ ${imgFiles.length} imagen${imgFiles.length !== 1 ? 'es' : ''} → Carpeta "Importadas"</div>
+          <div style="font-size:11px;color:#6b7280;">${imgFiles.map(f => f.name).join(', ').substring(0, 120)}</div>
+        </div>` : ''}
+    </div>
+    <button onclick="_guardarEntradasImportadas()" style="width:100%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:900;cursor:pointer;">💾 Guardar ${total} entrada${total !== 1 ? 's' : ''} en el Cerebro</button>
+    <button onclick="_analizarImportConIA()" style="width:100%;background:#f3f4f6;color:#6b7280;border:none;border-radius:10px;padding:11px;font-size:12px;cursor:pointer;margin-top:8px;">🔄 Reorganizar con IA</button>
+    <div id="_import-status" style="font-size:12px;color:#6b7280;text-align:center;margin-top:10px;min-height:18px;"></div>`;
+}
+
+async function _guardarEntradasImportadas() {
+  const entries = window._importEntriesPending || [];
+  const imgFiles = window._importImgsPending || [];
+  if (entries.length === 0 && imgFiles.length === 0) { showToast('No hay entradas'); return; }
+
+  const statusEl = document.getElementById('_import-status');
+  const btns = document.querySelectorAll('#_import-ia-body button');
+  btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
+
+  const biz = state.currentBiz;
+  const ts = firebase.firestore.FieldValue.serverTimestamp();
+  let saved = 0;
+  const total = entries.length + imgFiles.length;
+
+  // Save text entries in batches (Firestore batch max = 500)
+  let batch = db.batch();
+  let batchCount = 0;
+
+  for (const entry of entries) {
+    const ref = db.collection('cerebro').doc();
+    batch.set(ref, {
+      type: entry.type || 'texto',
+      title: entry.title || 'Sin título',
+      content: entry.content || '',
+      link: '',
+      biz: biz,
+      confidence: 'alta',
+      uploadedBy: currentUser ? currentUser.email : 'admin',
+      ts: ts
+    });
+    batchCount++;
+    saved++;
+    if (batchCount === 400) {
+      await batch.commit();
+      batch = db.batch();
+      batchCount = 0;
+    }
+    if (statusEl) statusEl.innerHTML = `<span style="color:#6366f1;">💾 Guardando ${saved}/${total}...</span>`;
+  }
+  if (batchCount > 0) await batch.commit();
+
+  // Upload images one by one (Firebase Storage)
+  for (const imgFile of imgFiles) {
+    try {
+      let link = '';
+      if (window.fbStorage) {
+        const path = 'cerebro/' + biz + '/' + Date.now() + '_' + imgFile.name.replace(/\s+/g, '_');
+        const snap = await fbStorage.ref(path).put(imgFile);
+        link = await snap.ref.getDownloadURL();
+      }
+      await db.collection('cerebro').add({
+        type: 'foto',
+        title: imgFile.name.replace(/\.[^.]+$/, ''),
+        content: '',
+        link: link,
+        folder: 'Importadas',
+        biz: biz,
+        confidence: 'alta',
+        uploadedBy: currentUser ? currentUser.email : 'admin',
+        ts: ts
+      });
+      saved++;
+    } catch(e) { /* silent — continue */ }
+    if (statusEl) statusEl.innerHTML = `<span style="color:#6366f1;">📸 Imágenes ${saved}/${total}...</span>`;
+  }
+
+  // Done
+  const modal = document.getElementById('_import-ia-modal');
+  if (modal) modal.remove();
+  showToast('✅ ' + saved + ' entradas guardadas en el Cerebro Vivo');
+  window._importPendingFiles = [];
+  window._importEntriesPending = [];
+  window._importImgsPending = [];
+  setTimeout(() => {
+    if (typeof _cerebroShowAll !== 'undefined' && _cerebroShowAll) listenCerebroAll();
+    else listenCerebro(state.currentBiz);
+  }, 500);
+}
+
+// ── LIMPIAR TODO EL CEREBRO DE UN NEGOCIO (solo admin) ──
+async function _limpiarCerebro() {
+  if (!isAdmin) { showToast('Solo el admin puede limpiar el Cerebro'); return; }
+  const biz = state.currentBiz;
+  const b = state.businesses[biz];
+  const bizName = b ? (b.name || b.nombre || biz) : biz;
+  const ok1 = window.confirm('⚠️ ¿Eliminar TODAS las entradas del Cerebro Vivo de "' + bizName + '"?\n\nEsta acción NO se puede deshacer.');
+  if (!ok1) return;
+  const ok2 = window.confirm('Última confirmación — ¿seguro que quieres borrar todo el Cerebro de "' + bizName + '"?');
+  if (!ok2) return;
+  showToast('🗑 Limpiando Cerebro...');
+  try {
+    const snap = await db.collection('cerebro').where('biz', '==', biz).get();
+    if (snap.empty) { showToast('El Cerebro ya estaba vacío'); return; }
+    // Batch delete in chunks of 400
+    let batch = db.batch();
+    let count = 0;
+    for (const doc of snap.docs) {
+      batch.delete(doc.ref);
+      count++;
+      if (count === 400) { await batch.commit(); batch = db.batch(); count = 0; }
+    }
+    if (count > 0) await batch.commit();
+    showToast('✅ Cerebro limpiado — ' + snap.size + ' entradas eliminadas');
+    setTimeout(() => {
+      if (typeof _cerebroShowAll !== 'undefined' && _cerebroShowAll) listenCerebroAll();
+      else listenCerebro(state.currentBiz);
+    }, 400);
+  } catch(e) {
+    showToast('❌ Error: ' + e.message);
+  }
 }
 
 // ============================================================
