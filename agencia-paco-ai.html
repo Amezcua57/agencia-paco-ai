@@ -6504,22 +6504,68 @@ async function _handleImportDrop(rawFiles) {
     <div id="_import-status" style="font-size:12px;color:#6b7280;text-align:center;margin-top:10px;min-height:18px;"></div>`;
 }
 
+// ── Helper: send one chunk to Claude, return parsed entries array ──
+async function _procesarChunkConClaude(chunkText, bizName, chunkNum, totalChunks) {
+  const systemPrompt = `Eres un organizador del Cerebro Vivo de "${bizName}".
+Analiza el bloque ${chunkNum} de ${totalChunks} y divídelo en entradas para el Cerebro Vivo.
+
+TIPOS: texto, precio, faq, objecion, guion, documento
+REGLAS:
+- Entradas específicas y útiles — NO todo en una sola
+- Títulos descriptivos y concretos
+- Contenido claro y accionable para agentes de ventas
+- Responde ÚNICAMENTE con array JSON válido, sin texto adicional
+
+Formato: [{"type":"texto","title":"Título","content":"Contenido..."},...]`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': claudeApiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: `Organiza este contenido de "${bizName}":\n\n${chunkText}` }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Error ${res.status}: ${err.error?.message || 'Error API'}`);
+  }
+  const data = await res.json();
+  const raw = data.content[0].text;
+  const jsonMatch = raw.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return [];
+  try { return JSON.parse(jsonMatch[0]); } catch(e) { return []; }
+}
+
 async function _analizarImportConIA() {
   const files = window._importPendingFiles || [];
   if (files.length === 0) { showToast('No hay archivos'); return; }
+
+  if (!claudeApiKey) {
+    const s = document.getElementById('_import-status');
+    if (s) s.innerHTML = '<span style="color:#ef4444;">❌ Configura tu API Key en Configuración → IA primero</span>';
+    return;
+  }
 
   const statusEl = document.getElementById('_import-status');
   const btns = document.querySelectorAll('#_import-ia-body button');
   btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
 
-  // Separate images from docs
   const imgs = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name));
   const docFiles = files.filter(f => !/\.(jpg|jpeg|png|gif|webp)$/i.test(f.name));
 
-  // Extract text from all docs
+  // ── 1. Extraer texto de todos los archivos ──
   let combinedText = '';
-  for (const file of docFiles) {
-    if (statusEl) statusEl.innerHTML = `<span style="color:#6366f1;">📖 Leyendo ${file.name}...</span>`;
+  for (let i = 0; i < docFiles.length; i++) {
+    const file = docFiles[i];
+    if (statusEl) statusEl.innerHTML = `<span style="color:#6366f1;">📖 Leyendo ${i+1}/${docFiles.length}: ${file.name}...</span>`;
     const text = await _extractTextFromFileImport(file);
     if (text && text.trim().length > 10) {
       combinedText += `\n\n===== ${file.name} =====\n${text.trim()}`;
@@ -6527,92 +6573,61 @@ async function _analizarImportConIA() {
   }
 
   if (!combinedText.trim() && docFiles.length > 0) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">⚠️ No se pudo extraer texto. Intenta con archivos TXT o PDF con texto.</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">⚠️ Sin texto extraíble. Usa TXT, PDF con texto o Word.</span>';
     btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
     return;
   }
 
-  if (statusEl) statusEl.innerHTML = '<span style="color:#6366f1;font-weight:700;">🧠 Claude está organizando el contenido...</span>';
-
   const biz = state.businesses[state.currentBiz];
   const bizName = biz ? (biz.name || biz.nombre || state.currentBiz) : state.currentBiz;
 
-  const systemPrompt = `Eres un organizador del Cerebro Vivo de "${bizName}".
-Analiza el contenido y divídelo en entradas para el Cerebro Vivo.
-
-TIPOS disponibles:
-- texto: información general, descripción del negocio, misión, valores, historia
-- precio: listas de precios, tarifas, paquetes, promociones
-- faq: preguntas frecuentes y sus respuestas
-- objecion: objeciones de clientes y cómo responderlas
-- guion: scripts de ventas, llamadas, WhatsApp, presentaciones
-- documento: procedimientos, contratos, reglamentos, políticas
-
-REGLAS:
-- Divide en entradas específicas y útiles, NO pongas todo en una sola
-- Títulos descriptivos y concretos
-- El contenido debe ser claro y accionable para un agente de ventas
-- Responde ÚNICAMENTE con un array JSON válido, sin texto adicional
-
-Formato exacto:
-[{"type":"texto","title":"Título","content":"Contenido..."},...]`;
-
-  const userContent = combinedText.length > 22000
-    ? combinedText.substring(0, 22000) + '\n\n[TRUNCADO — organiza lo que tienes]'
-    : combinedText;
-
-  try {
-    if (!claudeApiKey) {
-      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">❌ Necesitas configurar tu API Key de Claude en Configuración → IA</span>';
-      btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-      return;
+  // ── 2. Dividir en bloques de ~18,000 caracteres ──
+  const CHUNK_SIZE = 18000;
+  const chunks = [];
+  let remaining = combinedText.trim();
+  while (remaining.length > 0) {
+    let end = Math.min(CHUNK_SIZE, remaining.length);
+    if (end < remaining.length) {
+      const breakAt = remaining.lastIndexOf('\n\n', end);
+      if (breakAt > CHUNK_SIZE * 0.6) end = breakAt;
     }
-
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': claudeApiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: `Organiza este contenido de "${bizName}":\n\n${userContent}` }]
-      })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444;">❌ Error ${res.status}: ${err.error?.message || 'Error de API'}</span>`;
-      btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-      return;
-    }
-
-    const data = await res.json();
-    const raw = data.content[0].text;
-
-    // Parse JSON
-    let entries = [];
-    const jsonMatch = raw.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      try { entries = JSON.parse(jsonMatch[0]); } catch(e) {}
-    }
-
-    if (!entries || entries.length === 0) {
-      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">❌ Claude no devolvió entradas válidas. Intenta con menos archivos o archivos más limpios.</span>';
-      btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-      return;
-    }
-
-    _mostrarVistaPrevia(entries, imgs);
-
-  } catch(e) {
-    if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444;">❌ Error: ${e.message}</span>`;
-    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+    chunks.push(remaining.substring(0, end).trim());
+    remaining = remaining.substring(end).trim();
   }
+
+  if (chunks.length === 0 && imgs.length > 0) {
+    _mostrarVistaPrevia([], imgs);
+    return;
+  }
+
+  // ── 3. Procesar cada bloque con Claude ──
+  let allEntries = [];
+  for (let i = 0; i < chunks.length; i++) {
+    if (statusEl) statusEl.innerHTML = `
+      <div style="text-align:center;padding:4px 0;">
+        <div style="font-size:13px;font-weight:800;color:#4f46e5;margin-bottom:8px;">🧠 Procesando bloque ${i+1} de ${chunks.length}...</div>
+        <div style="background:#e5e7eb;border-radius:20px;height:8px;overflow:hidden;max-width:280px;margin:0 auto;">
+          <div style="background:linear-gradient(90deg,#4f46e5,#7c3aed);height:100%;width:${Math.round((i/chunks.length)*100)}%;transition:width 0.5s;border-radius:20px;"></div>
+        </div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:6px;">${allEntries.length} entradas encontradas</div>
+      </div>`;
+    try {
+      const chunkEntries = await _procesarChunkConClaude(chunks[i], bizName, i+1, chunks.length);
+      allEntries = allEntries.concat(chunkEntries);
+    } catch(e) {
+      // Continue with remaining chunks even if one fails
+      await new Promise(r => setTimeout(r, 800));
+    }
+  }
+
+  // ── 4. Mostrar vista previa ──
+  if (allEntries.length === 0 && imgs.length === 0) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">❌ Sin entradas válidas. Revisa que los archivos tengan texto legible.</span>';
+    btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+    return;
+  }
+
+  _mostrarVistaPrevia(allEntries, imgs);
 }
 
 function _mostrarVistaPrevia(entries, imgFiles = []) {
