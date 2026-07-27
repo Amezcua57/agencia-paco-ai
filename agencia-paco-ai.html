@@ -5800,34 +5800,51 @@ async function _procesarArchivoDropped(file) {
     _procesarArchivoImagen(file, 'archivo');
     return;
   }
-  if (['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv'].includes(ext)) {
-    showPastePreview('📄 Documento detectado', `${file.name} · ${sizeKB} KB`);
+  const TEXT_EXTS = ['txt','csv','html','htm','md','json','xml','js','ts','py','css','yaml','yml','sql','sh','ini','log'];
+  if (['pdf','doc','docx','xls','xlsx','ppt','pptx'].concat(TEXT_EXTS).includes(ext)) {
+    showPastePreview('📄 Documento detectado', `${file.name} · ${sizeKB} KB — leyendo...`);
     selectKnowTypeByKey('documento');
     setFieldValue('know-title', file.name.replace(/\.[^.]+$/, ''));
     window._knowPendingFile = file;
-    if (ext === 'txt' || ext === 'csv') {
-      try {
-        const text = await file.text();
-        setFieldValue('know-content', text.slice(0, 12000));
-        showPastePreview('📄 Texto extraído', `${file.name} · ${text.length} caracteres listos para guardar`);
-        showToast('✅ Texto leído — revisa y guarda');
-      } catch(e) {
-        setFieldValue('know-content', `Archivo: ${file.name} (${sizeKB} KB)`);
+    let extracted = '';
+    try {
+      if (TEXT_EXTS.includes(ext)) {
+        extracted = await file.text();
+        showToast('✅ ' + ext.toUpperCase() + ' leído correctamente');
+      } else if (ext === 'pdf') {
+        showToast('📄 Leyendo PDF...');
+        extracted = await _extractPdfText(file);
+        if (!extracted || extracted.length < 50) {
+          setFieldValue('know-content', `PDF: ${file.name} (${sizeKB} KB) — PDF escaneado sin texto extraíble. Describe el contenido aquí.`);
+          showToast('⚠️ PDF escaneado — escribe el contenido manualmente');
+          return;
+        }
+        showToast('✅ PDF leído — ' + extracted.length + ' caracteres');
+      } else if (ext === 'docx' || ext === 'doc') {
+        showToast('📄 Leyendo DOCX con mammoth...');
+        const ok = await _loadMammoth();
+        if (ok && window.mammoth) {
+          const ab = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer: ab });
+          extracted = result.value || '';
+          showToast('✅ DOCX leído — ' + extracted.length + ' caracteres');
+        }
+      } else if (ext === 'pptx' || ext === 'ppt') {
+        showToast('📊 Leyendo PPTX...');
+        extracted = await _extractPptxText(file);
+        showToast('✅ PPTX leído — ' + (extracted.length) + ' caracteres');
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        showToast('📊 Leyendo Excel...');
+        extracted = await _extractXlsxText(file);
+        showToast('✅ Excel leído');
       }
-    } else if (ext === 'pdf') {
-      showToast('📄 Leyendo PDF... un momento');
-      const extracted = await _extractPdfText(file);
-      if (extracted && extracted.length > 50) {
-        setFieldValue('know-content', extracted);
-        showPastePreview('📄 PDF leído exitosamente', `${file.name} · ${extracted.length} caracteres extraídos`);
-        showToast('✅ PDF leído — revisa el contenido y guarda');
-      } else {
-        setFieldValue('know-content', `PDF: ${file.name} (${sizeKB} KB) — describe el contenido manualmente aquí`);
-        showToast('⚠️ PDF escaneado sin texto — escribe el contenido a mano');
-      }
+    } catch(e) { extracted = ''; }
+    if (extracted && extracted.length > 30) {
+      setFieldValue('know-content', extracted.slice(0, 14000));
+      showPastePreview('📄 ' + ext.toUpperCase() + ' leído', `${file.name} · ${extracted.length} caracteres listos`);
     } else {
       setFieldValue('know-content', `Archivo: ${file.name} (${sizeKB} KB) — describe el contenido aquí para que la IA lo aprenda`);
-      showToast('📄 Describe el contenido del archivo en el campo de texto');
+      showToast('📄 No se pudo extraer texto — escribe el contenido manualmente');
     }
     return;
   }
@@ -6383,6 +6400,51 @@ async function _loadJSZip() {
   });
 }
 
+// ── FILE TYPE HELPERS ──────────────────────────────────────────────────────────
+async function _loadScript(url, globalName) {
+  if (window[globalName]) return true;
+  return new Promise(res => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = () => res(true);
+    s.onerror = () => res(false);
+    document.head.appendChild(s);
+  });
+}
+
+async function _extractPptxText(file) {
+  const ok = await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', 'JSZip');
+  if (!ok) return '';
+  try {
+    const ab = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(ab);
+    const slideFiles = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a,b) => {
+      const na = parseInt(a.match(/\d+/)?.[0]||0); const nb = parseInt(b.match(/\d+/)?.[0]||0); return na-nb;
+    });
+    const parts = [];
+    for (const sf of slideFiles) {
+      const xml = await zip.files[sf].async('string');
+      const matches = xml.match(/<a:t[^>]*>([^<]*)<\/a:t>/g) || [];
+      const t = matches.map(m => m.replace(/<[^>]+>/g,'')).filter(s=>s.trim()).join(' ');
+      if (t.trim()) parts.push(t.trim());
+    }
+    return parts.join('\n\n');
+  } catch(e) { return ''; }
+}
+
+async function _extractXlsxText(file) {
+  const ok = await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'XLSX');
+  if (!ok) return '';
+  try {
+    const ab = await file.arrayBuffer();
+    const wb = XLSX.read(ab, {type:'array'});
+    return wb.SheetNames.map(name => {
+      const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+      return csv.trim() ? `=== Hoja: ${name} ===\n${csv}` : '';
+    }).filter(Boolean).join('\n\n');
+  } catch(e) { return ''; }
+}
+
 let _mammothReady = false;
 async function _loadMammoth() {
   if (_mammothReady && window.mammoth) return true;
@@ -6410,7 +6472,8 @@ function _mimeFromName(name) {
 async function _extractTextFromFileImport(file) {
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   try {
-    if (ext === 'txt' || ext === 'csv') {
+    // Plain text types
+    if (['txt','csv','html','htm','md','json','xml','js','ts','py','css','yaml','yml','sql','sh','bat','ini','cfg','log'].includes(ext)) {
       return await file.text();
     }
     if (ext === 'pdf') {
@@ -6429,9 +6492,11 @@ async function _extractTextFromFileImport(file) {
       }
       return '';
     }
+    if (ext === 'pptx' || ext === 'ppt') {
+      return await _extractPptxText(file);
+    }
     if (ext === 'xlsx' || ext === 'xls') {
-      // Basic text extraction attempt
-      return await file.text().catch(() => '');
+      return await _extractXlsxText(file);
     }
     return '';
   } catch(e) {
