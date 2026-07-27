@@ -5903,13 +5903,27 @@ function _detectAndFillPaste(text) {
     setFieldValue('know-content', text);
     return;
   }
-  // Generic URL
+  // Generic URL — offer web page analysis
   if (isUrl) {
-    showPastePreview('🔗 Link detectado', text.substring(0,80));
-    selectKnowTypeByKey('documento');
+    const domain = text.replace(/^https?:\/\//,'').split('/')[0];
     setFieldValue('know-link', text);
-    setFieldValue('know-title', 'Link: ' + text.replace(/^https?:\/\//,'').split('/')[0]);
+    setFieldValue('know-title', 'Sitio analizado: ' + domain);
     setFieldValue('know-content', text);
+    selectKnowTypeByKey('estilo');
+    showPastePreview('🌐 Página web detectada', domain + ' — ¿analizo su estilo y lo aprendo?');
+    // Show analysis CTA in the preview area
+    const prevBox = document.getElementById('paste-preview');
+    if (prevBox) {
+      const existBtn = prevBox.querySelector('._analyze-btn');
+      if (!existBtn) {
+        const btn = document.createElement('button');
+        btn.className = '_analyze-btn';
+        btn.style.cssText = 'margin-top:10px;width:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:9px;padding:10px 16px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;';
+        btn.innerHTML = '🤖 Analizar página y aprender su estilo';
+        btn.onclick = () => _analizarPaginaWeb(text);
+        prevBox.appendChild(btn);
+      }
+    }
     return;
   }
   // Price detection
@@ -6884,6 +6898,83 @@ async function _limpiarCerebro() {
     }, 400);
   } catch(e) {
     showToast('❌ Error: ' + e.message);
+  }
+}
+
+// ── ANALIZADOR DE PÁGINAS WEB — aprende estilos de cualquier URL ──────────────
+async function _analizarPaginaWeb(url) {
+  if (!claudeApiKey) { showToast('⚠️ Necesitas configurar la API Key de Claude en Configuración → IA'); return; }
+  const domain = url.replace(/^https?:\/\//,'').split('/')[0];
+  const prevBox = document.getElementById('paste-preview');
+  if (prevBox) {
+    prevBox.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px;">'
+      + '<div style="width:20px;height:20px;border:3px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;"></div>'
+      + '<div><div style="font-size:13px;font-weight:700;color:#1e293b;">Analizando ' + domain + '...</div>'
+      + '<div style="font-size:11px;color:#6b7280;margin-top:2px;">Descargando página → extrayendo texto → Claude analiza el estilo</div></div></div>';
+  }
+  try {
+    // Fetch via CORS proxy
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+    const resp = await fetch(proxyUrl, {signal: AbortSignal.timeout(15000)});
+    if (!resp.ok) throw new Error('No se pudo descargar la página (HTTP ' + resp.status + ')');
+    const data = await resp.json();
+    const rawHtml = data.contents || '';
+    if (!rawHtml || rawHtml.length < 100) throw new Error('La página devolvió contenido vacío — puede estar bloqueando scraping');
+
+    // Strip HTML to get readable text (keep structure)
+    const tmp = document.createElement('div');
+    tmp.innerHTML = rawHtml;
+    // Remove scripts, styles, nav, footer
+    tmp.querySelectorAll('script,style,noscript,nav,footer,header,aside,[class*="menu"],[class*="nav"],[id*="nav"],[id*="menu"]').forEach(el => el.remove());
+    let text = (tmp.innerText || tmp.textContent || '').replace(/\s{3,}/g,'\n\n').trim();
+    text = text.slice(0, 8000); // limit for Claude
+
+    const biz = state.businesses[state.currentBiz] || {};
+    const cerebroCtx = getCerebroContext().substring(0, 1500);
+    const systemPrompt = 'Eres un estratega de marketing experto en aprender de sitios web de competidores y referencias. Tu trabajo es extraer los elementos más valiosos para que un negocio inmobiliario los adopte y adapte.';
+    const userMsg = `Analiza este contenido del sitio web "${domain}" y extrae los elementos más valiosos para que mi negocio "${biz.name || 'Caracol Diamante'}" los aprenda y adapte:
+
+CONTENIDO DE LA PÁGINA:
+${text}
+
+CONTEXTO DE MI NEGOCIO:
+${cerebroCtx}
+
+Por favor devuelve un análisis estructurado con:
+1. **TITULAR Y PROPUESTA DE VALOR** — cómo se presentan, qué prometen
+2. **FRASES Y COPY QUE FUNCIONAN** — las mejores frases, slogans y argumentos de venta
+3. **CTAs (llamadas a la acción)** — qué botones/textos usan para convertir
+4. **ESTRUCTURA DE CONTENIDO** — cómo organizan la info, qué secciones tienen
+5. **TONO Y VOZ** — formal/informal, qué emociones evocan
+6. **LO QUE MI NEGOCIO PUEDE COPIAR/ADAPTAR** — recomendaciones concretas
+7. **DIFERENCIAS** — en qué podemos ser mejores o distintos`;
+
+    const analysis = await callClaude([{role:'user', content:userMsg}], systemPrompt);
+    if (!analysis || analysis.length < 50) throw new Error('Claude no devolvió análisis');
+
+    // Save to Cerebro as 'estilo'
+    const title = 'Estilo aprendido: ' + domain + ' — ' + new Date().toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'2-digit'});
+    setFieldValue('know-title', title);
+    setFieldValue('know-content', '# Análisis de: ' + url + '\n\n' + analysis);
+    selectKnowTypeByKey('estilo');
+
+    if (prevBox) {
+      prevBox.innerHTML = '<div style="background:linear-gradient(135deg,#d1fae5,#ede9fe);border-radius:12px;padding:14px 16px;">'
+        + '<div style="font-size:13px;font-weight:800;color:#065f46;margin-bottom:6px;">✅ Análisis completo — ' + domain + '</div>'
+        + '<div style="font-size:11px;color:#374151;white-space:pre-wrap;max-height:180px;overflow-y:auto;background:white;border-radius:8px;padding:10px;line-height:1.5;">' + analysis.substring(0,1200).replace(/</g,'&lt;') + (analysis.length>1200?'...':'') + '</div>'
+        + '<div style="margin-top:10px;font-size:11px;color:#6366f1;font-weight:700;">💾 El análisis ya está en el campo de texto abajo — haz clic en "Guardar" para añadirlo al Cerebro como Estilo</div>'
+        + '</div>';
+    }
+    showToast('✅ Página analizada — guarda para añadir al Cerebro');
+
+  } catch(e) {
+    if (prevBox) {
+      prevBox.innerHTML = '<div style="background:#fee2e2;border-radius:10px;padding:12px;">'
+        + '<div style="font-size:12px;font-weight:700;color:#dc2626;">❌ ' + e.message + '</div>'
+        + '<div style="font-size:11px;color:#6b7280;margin-top:4px;">Algunos sitios bloquean la lectura automática. Puedes copiar el texto manualmente y pegarlo aquí.</div>'
+        + '</div>';
+    }
+    showToast('❌ ' + e.message);
   }
 }
 
