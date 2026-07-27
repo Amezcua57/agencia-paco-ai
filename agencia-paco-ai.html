@@ -996,7 +996,36 @@
       <!-- ── OTHER PAGES (placeholder) ── -->
       <div class="page" id="page-ideas"><div class="empty-state"><div class="empty-icon">💡</div><p>Bandeja de ideas pendientes<br><br>Todo lo que Paco menciona y quiere retomar después.</p><br><button class="btn-primary" onclick="showPage('chat',null)">Ir a Hablar con la Agencia</button></div></div>
       <div class="page" id="page-calendar"><div class="empty-state"><div class="empty-icon">📅</div><p>Calendario de seguimiento inteligente<br><br>Próximas acciones, mensajes sugeridos y citas por lead.</p></div></div>
-      <div class="page" id="page-landings"><div class="empty-state"><div class="empty-icon">📄</div><p>Constructor de landing pages<br><br>Cada negocio con sus propias páginas configurables.</p><br><button class="btn-primary" onclick="showToast('Abriendo constructor...')">Crear landing page</button></div></div>
+      <div class="page" id="page-landings">
+        <div class="page-header">
+          <div><h2>📄 Landing Pages</h2><p>Páginas con tus fotos reales — sin inventar nada</p></div>
+          <button class="btn-primary" onclick="_abrirLandingBuilder()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;padding:10px 20px;font-size:13px;font-weight:800;">🖼️ Crear landing con mis fotos</button>
+        </div>
+        <!-- Info banner -->
+        <div style="background:linear-gradient(135deg,#ede9fe,#dbeafe);border-radius:14px;padding:18px 22px;margin-bottom:20px;display:flex;gap:16px;align-items:center;">
+          <div style="font-size:36px;">🎯</div>
+          <div>
+            <div style="font-size:14px;font-weight:800;color:#3730a3;">Cómo funciona la regla 70/30</div>
+            <div style="font-size:12px;color:#4338ca;margin-top:4px;line-height:1.6;">
+              Seleccionas tus fotos del Cerebro → las buenas van <strong>sin tocar</strong> (0% modificación) → Claude organiza el diseño con esas fotos → <strong>no inventa imágenes</strong>.<br>
+              El 30% restante es texto, CTAs y estructura — todo basado en lo que ya está en tu Cerebro.
+            </div>
+          </div>
+        </div>
+        <!-- Saved landing pages list -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Landing pages guardadas</span>
+            <button class="btn-sm" onclick="_renderLandingPages()" style="background:#ede9fe;color:#6366f1;">🔄 Actualizar</button>
+          </div>
+          <div class="card-body" id="_landings-list">
+            <div style="text-align:center;padding:30px;color:#9ca3af;">
+              <div style="font-size:32px;">📄</div>
+              <div style="font-size:12px;margin-top:8px;">Aún no hay landing pages. Crea la primera arriba ↑</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <!-- ══════════════ WHATSAPP ══════════════ -->
       <div class="page" id="page-whatsapp">
         <div class="page-header">
@@ -2044,6 +2073,7 @@ function showPage(id, el) {
   if (id === 'canal-claude') { if (!isAdmin) { showToast('⛔ Acceso restringido — solo administrador'); showPage('dashboard', null); return; } loadCanalClaude(); }
   if (id === 'mensajes') loadClientMessages();
   if (id === 'whatsapp') initWAPage();
+  if (id === 'landings') _renderLandingPages();
 }
 
 // ─── BIZ SWITCHER ───
@@ -2581,9 +2611,22 @@ function _renderCerebroList(snap, list) {
   }
   // ══════════════ END FOTO MODE ══════════════
 
-  // Build drop zone HTML — not in foto mode
+  // ══════════════ ALL MODE: CATEGORY FOLDER GRID ══════════════
+  if (!_cerebroActiveTypeFilter) {
+    _renderCerebroFolderGrid(snap, list, typeEmoji, typeColor, typeLabel);
+    return;
+  }
 
-  list.innerHTML = `
+  // ══════════════ CATEGORY VIEW: inside a specific type ══════════════
+  const _catAccent = _cerebroFolderAccent(_cerebroActiveTypeFilter);
+  const _catHeaderHtml = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:9px 13px;background:' + (typeColor[_cerebroActiveTypeFilter]||'#f3f4f6') + ';border-radius:10px;border:1.5px solid ' + _catAccent + '30;">'
+    + '<button onclick="_filtrarCerebroByType(null)" style="background:white;border:1px solid #e5e7eb;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;flex-shrink:0;">← Carpetas</button>'
+    + '<span style="font-size:22px;">' + (typeEmoji[_cerebroActiveTypeFilter]||'📁') + '</span>'
+    + '<span style="font-size:14px;font-weight:800;color:#1e293b;">' + (typeLabel[_cerebroActiveTypeFilter]||_cerebroActiveTypeFilter) + '</span>'
+    + '<span style="font-size:10px;background:white;padding:2px 8px;border-radius:8px;font-weight:700;color:#374151;">' + snap.docs.length + ' archivo' + (snap.docs.length!==1?'s':'') + '</span>'
+    + '</div>';
+
+  list.innerHTML = _catHeaderHtml + `
     <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input id="${searchId}" type="text" placeholder="🔍 Buscar en ${snap.size} archivos..."
         style="flex:1;min-width:160px;padding:7px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;outline:none;"
@@ -6777,6 +6820,324 @@ async function _limpiarCerebro() {
   } catch(e) {
     showToast('❌ Error: ' + e.message);
   }
+}
+
+// ── CEREBRO FOLDER GRID (all categories view) ─────────────────────────────────
+function _cerebroFolderAccent(type) {
+  const a = {foto:'#ec4899',video:'#ef4444',documento:'#f59e0b',precio:'#10b981',faq:'#6366f1',objecion:'#8b5cf6',guion:'#f97316',estilo:'#a855f7',texto:'#3b82f6'};
+  return a[type] || '#6366f1';
+}
+
+function _renderCerebroFolderGrid(snap, list, typeEmoji, typeColor, typeLabel) {
+  const all = snap.docs || [];
+  const TYPES = ['foto','documento','texto','precio','faq','objecion','guion','estilo','video'];
+  const groups = {};
+  TYPES.forEach(t => groups[t] = { docs:[], thumb:null });
+  all.forEach(doc => {
+    const d = doc.data();
+    const t = d.type || 'texto';
+    if (!groups[t]) groups[t] = { docs:[], thumb:null };
+    groups[t].docs.push(doc);
+    if (!groups[t].thumb) {
+      const url = d.link || '';
+      if (/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url.split('?')[0]) || url.startsWith('data:image/')) groups[t].thumb = url;
+    }
+  });
+  const activeTypes = TYPES.filter(t => groups[t].docs.length > 0);
+  if (activeTypes.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:48px;margin-bottom:10px;">🧠</div><div style="font-size:14px;font-weight:700;">Cerebro vacío</div><div style="font-size:11px;margin-top:6px;">Usa "🧠 Importar con IA" o "+ Agregar" para añadir conocimiento</div></div>';
+    return;
+  }
+  list.innerHTML = '<div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
+    + '<span style="font-size:15px;font-weight:800;color:#1e293b;">📂 Explorador del Cerebro</span>'
+    + '<span style="font-size:10px;background:#ede9fe;color:#6366f1;padding:3px 10px;border-radius:12px;font-weight:700;">' + all.length + ' archivos en total</span>'
+    + '</div>'
+    + '<div id="_cerebro-folder-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;"></div>';
+  const grid = document.getElementById('_cerebro-folder-grid');
+  activeTypes.forEach((type, i) => {
+    const info = groups[type];
+    const card = document.createElement('div');
+    card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden;background:white;cursor:pointer;transition:all 0.15s;opacity:0;box-shadow:0 1px 4px rgba(0,0,0,0.06);';
+    const acc = _cerebroFolderAccent(type);
+    const bgCol = typeColor[type] || '#f3f4f6';
+    card.onmouseenter = () => { card.style.borderColor=acc; card.style.transform='translateY(-3px)'; card.style.boxShadow='0 8px 24px rgba(0,0,0,0.12)'; };
+    card.onmouseleave = () => { card.style.borderColor='#e5e7eb'; card.style.transform=''; card.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'; };
+    card.onclick = () => _filtrarCerebroByType(type);
+    const previewHtml = (info.thumb && type === 'foto')
+      ? '<div style="width:100%;height:110px;overflow:hidden;position:relative;background:#f5f5f5;"><img src="' + info.thumb + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;filter:brightness(0.85);" onerror="this.parentNode.style.background=\'' + bgCol + '\';this.style.display=\'none\'"><div style="position:absolute;bottom:5px;right:7px;background:rgba(0,0,0,0.5);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;">' + info.docs.length + '</div></div>'
+      : '<div style="width:100%;height:110px;background:' + bgCol + ';display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;"><span style="font-size:40px;">' + (typeEmoji[type]||'📁') + '</span><span style="font-size:10px;font-weight:700;color:#374151;background:rgba(255,255,255,0.75);padding:2px 8px;border-radius:8px;">' + info.docs.length + ' archivo' + (info.docs.length!==1?'s':'') + '</span></div>';
+    card.innerHTML = previewHtml
+      + '<div style="padding:9px 11px;display:flex;align-items:center;gap:7px;">'
+      + '<div style="flex:1;"><div style="font-size:12px;font-weight:800;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (typeLabel[type]||type) + '</div>'
+      + '<div style="font-size:10px;color:#9ca3af;margin-top:1px;">' + info.docs.length + ' archivo' + (info.docs.length!==1?'s':'') + '</div></div>'
+      + '<div style="font-size:18px;color:#cbd5e1;">›</div></div>';
+    grid.appendChild(card);
+    setTimeout(() => { card.style.opacity='1'; card.style.transition='opacity 0.2s, transform 0.15s, box-shadow 0.15s'; }, Math.min(i*50, 400));
+  });
+}
+
+// ── LANDING PAGE BUILDER ──────────────────────────────────────────────────────
+async function _abrirLandingBuilder() {
+  let modal = document.getElementById('_landing-builder-modal');
+  if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = '_landing-builder-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+  document.body.appendChild(modal);
+  modal._selectedPhotos = [];
+  modal._selectedStyle = 'navy-orange';
+  _landingStep1(modal);
+}
+
+function _landingStep1(modal) {
+  const photos = _cerebroCache.filter(e => {
+    if (e.type !== 'foto' || !e.link) return false;
+    const lk = e.link.toLowerCase();
+    return /\.(jpg|jpeg|png|gif|webp|svg)/.test(lk.split('?')[0]) || lk.startsWith('data:image/') || /firebasestorage/.test(lk);
+  });
+  const selectedIds = new Set();
+  modal._selectedPhotos = [];
+  modal.innerHTML = '<div style="background:white;border-radius:20px;width:100%;max-width:720px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">'
+    + '<div style="padding:16px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;">'
+    + '<div style="font-size:15px;font-weight:800;">🖼️ Nueva Landing Page</div>'
+    + '<span style="font-size:11px;color:#6b7280;background:#f3f4f6;border-radius:20px;padding:3px 10px;margin-left:4px;">Paso 1/2 — Fotos</span>'
+    + '<button onclick="document.getElementById(\'_landing-builder-modal\').remove()" style="margin-left:auto;background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;">✕</button>'
+    + '</div>'
+    + '<div style="padding:12px 20px 6px;font-size:12px;color:#6b7280;">Selecciona las fotos que quieres usar. Las que estén bien van <strong>sin modificar</strong> al 100% — solo Claude organiza el diseño alrededor de ellas.</div>'
+    + '<div style="padding:8px 20px 16px;flex:1;overflow-y:auto;">'
+    + (photos.length === 0
+        ? '<div style="text-align:center;padding:50px;color:#9ca3af;"><div style="font-size:48px;">📷</div><div style="margin-top:10px;font-size:13px;">No hay fotos en el Cerebro todavía.<br>Ve al Cerebro Vivo → 🖼️ Fotos para subirlas.</div></div>'
+        : '<div id="_lp1-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;"></div>')
+    + '</div>'
+    + '<div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-shrink:0;">'
+    + '<span id="_lp1-count" style="font-size:12px;font-weight:700;color:#9ca3af;">Ninguna seleccionada</span>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button onclick="document.getElementById(\'_landing-builder-modal\').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;">Cancelar</button>'
+    + '<button id="_lp1-next" disabled style="background:#e5e7eb;color:#9ca3af;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:not-allowed;">Siguiente →</button>'
+    + '</div></div></div>';
+
+  const grid = document.getElementById('_lp1-grid');
+  if (!grid) return;
+  photos.forEach((photo, idx) => {
+    const id = photo._docId || photo.id || 'photo_' + idx;
+    photo._resolvedId = id;
+    const card = document.createElement('div');
+    card.style.cssText = 'border:2px solid #e5e7eb;border-radius:10px;overflow:hidden;cursor:pointer;transition:all 0.15s;';
+    card.dataset.id = id;
+    card.onclick = function() {
+      const sel = selectedIds.has(id);
+      if (sel) { selectedIds.delete(id); this.style.borderColor='#e5e7eb'; this.style.boxShadow=''; this.querySelector('._lp-ck').style.display='none'; }
+      else { selectedIds.add(id); this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.2)'; this.querySelector('._lp-ck').style.display='flex'; }
+      const n = selectedIds.size;
+      document.getElementById('_lp1-count').textContent = n === 0 ? 'Ninguna seleccionada' : n + ' foto' + (n!==1?'s':'') + ' seleccionada' + (n!==1?'s':'');
+      document.getElementById('_lp1-count').style.color = n > 0 ? '#6366f1' : '#9ca3af';
+      const btn = document.getElementById('_lp1-next');
+      btn.disabled = n === 0; btn.style.background = n > 0 ? '#6366f1' : '#e5e7eb';
+      btn.style.color = n > 0 ? 'white' : '#9ca3af'; btn.style.cursor = n > 0 ? 'pointer' : 'not-allowed';
+      if (n > 0) btn.onclick = () => _landingStep2(document.getElementById('_landing-builder-modal'));
+      modal._selectedPhotos = photos.filter(p => selectedIds.has(p._resolvedId));
+    };
+    card.innerHTML = '<div style="position:relative;width:100%;height:108px;overflow:hidden;background:#f5f5f5;">'
+      + '<img src="' + photo.link + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.parentNode.innerHTML=\'<div style=display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;background:#fce7f3;>📷</div>\'">'
+      + '<div class="_lp-ck" style="display:none;position:absolute;top:5px;left:5px;width:20px;height:20px;background:#6366f1;border-radius:4px;align-items:center;justify-content:center;"><span style="color:white;font-size:11px;font-weight:900;">✓</span></div>'
+      + '</div>'
+      + '<div style="padding:5px 8px;font-size:10px;font-weight:600;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (photo.title||'Foto') + '</div>';
+    grid.appendChild(card);
+  });
+}
+
+function _landingStep2(modal) {
+  const STYLES = [
+    { id:'navy-orange', name:'Navy + Naranja', desc:'Tu marca — profesional', bg:'linear-gradient(135deg,#1a3a5c,#0d2137)', accent:'#e85d04' },
+    { id:'tropical',    name:'Playa Tropical', desc:'Verde — fresco y aspiracional', bg:'linear-gradient(135deg,#1D9E75,#0a5c40)', accent:'#10b981' },
+    { id:'luxury',      name:'Lujo Premium',   desc:'Negro y dorado — exclusividad', bg:'linear-gradient(135deg,#1a1a1a,#2d2d2d)', accent:'#c9a84c' },
+    { id:'fresh',       name:'Blanco Moderno', desc:'Limpio y minimalista', bg:'linear-gradient(135deg,#f8fafc,#e0e7ff)', accent:'#6366f1' },
+  ];
+  modal._selectedStyle = modal._selectedStyle || 'navy-orange';
+  const n = (modal._selectedPhotos||[]).length;
+  modal.innerHTML = '<div style="background:white;border-radius:20px;width:100%;max-width:680px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">'
+    + '<div style="padding:16px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;">'
+    + '<button onclick="_landingStep1(document.getElementById(\'_landing-builder-modal\'))" style="background:#f3f4f6;border:none;border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;">← Fotos</button>'
+    + '<div style="font-size:15px;font-weight:800;">🎨 Estilo y opciones</div>'
+    + '<span style="font-size:11px;color:#6b7280;background:#f3f4f6;border-radius:20px;padding:3px 10px;margin-left:4px;">Paso 2/2</span>'
+    + '<button onclick="document.getElementById(\'_landing-builder-modal\').remove()" style="margin-left:auto;background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;">✕</button>'
+    + '</div>'
+    + '<div style="padding:16px 20px;flex:1;overflow-y:auto;">'
+    + '<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:10px;">Usarás ' + n + ' foto' + (n!==1?'s':'') + ' de tu Cerebro. Elige el estilo visual:</div>'
+    + '<div id="_lp2-styles" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;"></div>'
+    + '<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;margin-bottom:12px;">'
+    + '<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:7px;">💬 Mensaje principal (opcional)</div>'
+    + '<textarea id="_lp2-msg" placeholder="Ej: Departamentos frente al mar desde $2.8M MXN · ¡Agenda tu cita hoy!" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:9px;font-size:12px;resize:none;box-sizing:border-box;outline:none;" rows="2"></textarea>'
+    + '</div>'
+    + '<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;">'
+    + '<div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:7px;">📲 CTA — ¿Qué quieres que hagan?</div>'
+    + '<select id="_lp2-cta" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;outline:none;">'
+    + '<option value="whatsapp">WhatsApp directo</option>'
+    + '<option value="llamada">Llamar al número</option>'
+    + '<option value="formulario">Formulario de contacto</option>'
+    + '<option value="agendar">Agendar cita</option>'
+    + '</select>'
+    + '</div>'
+    + '</div>'
+    + '<div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px;flex-shrink:0;">'
+    + '<button onclick="document.getElementById(\'_landing-builder-modal\').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;">Cancelar</button>'
+    + '<button onclick="_landingGenerar(document.getElementById(\'_landing-builder-modal\'))" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:800;cursor:pointer;">🤖 Generar Landing Page →</button>'
+    + '</div></div>';
+  const sg = document.getElementById('_lp2-styles');
+  STYLES.forEach(s => {
+    const card = document.createElement('div');
+    const isSel = modal._selectedStyle === s.id;
+    card.style.cssText = 'border:' + (isSel?'2.5px solid #6366f1':'1.5px solid #e5e7eb') + ';border-radius:12px;overflow:hidden;cursor:pointer;transition:all 0.15s;background:' + (isSel?'#f5f3ff':'white') + ';';
+    card.onclick = function() {
+      modal._selectedStyle = s.id;
+      document.querySelectorAll('#_lp2-styles > div').forEach(c => { c.style.border='1.5px solid #e5e7eb'; c.style.background='white'; });
+      this.style.border='2.5px solid #6366f1'; this.style.background='#f5f3ff';
+    };
+    card.innerHTML = '<div style="height:54px;background:' + s.bg + ';position:relative;">'
+      + '<div style="position:absolute;bottom:6px;right:8px;width:16px;height:16px;background:' + s.accent + ';border-radius:50%;border:2px solid rgba(255,255,255,0.6);"></div>'
+      + '</div>'
+      + '<div style="padding:8px 10px;">'
+      + '<div style="font-size:11px;font-weight:800;color:#1e293b;">' + s.name + '</div>'
+      + '<div style="font-size:10px;color:#6b7280;margin-top:1px;">' + s.desc + '</div>'
+      + '</div>';
+    sg.appendChild(card);
+  });
+}
+
+async function _landingGenerar(modal) {
+  if (!claudeApiKey) { showToast('⚠️ Necesitas configurar la API Key de Claude en Configuración → IA'); return; }
+  const photos = modal._selectedPhotos || [];
+  const style = modal._selectedStyle || 'navy-orange';
+  const msg = document.getElementById('_lp2-msg')?.value?.trim() || '';
+  const cta = document.getElementById('_lp2-cta')?.value || 'whatsapp';
+  const biz = state.businesses[state.currentBiz] || {};
+  const STYLE_MAP = {
+    'navy-orange': { bg:'#1a3a5c', accent:'#e85d04', text:'white', font:'Georgia, serif' },
+    'tropical':    { bg:'#1D9E75', accent:'#0F6E56', text:'white', font:'system-ui, sans-serif' },
+    'luxury':      { bg:'#1a1a1a', accent:'#c9a84c', text:'white', font:'Georgia, serif' },
+    'fresh':       { bg:'#f8fafc', accent:'#6366f1', text:'#1e293b', font:'system-ui, sans-serif' },
+  };
+  const st = STYLE_MAP[style] || STYLE_MAP['navy-orange'];
+  const photoUrls = photos.map(p => p.link).slice(0, 8);
+  const cerebroCtx = getCerebroContext().substring(0, 3000);
+  modal.innerHTML = '<div style="background:white;border-radius:20px;width:100%;max-width:600px;padding:60px 40px;text-align:center;">'
+    + '<div style="font-size:40px;margin-bottom:16px;">🤖</div>'
+    + '<div style="font-size:16px;font-weight:800;color:#1e293b;">Generando tu landing page...</div>'
+    + '<div style="font-size:12px;color:#6b7280;margin-top:8px;">Claude está leyendo tu Cerebro y componiendo la página con tus fotos reales</div>'
+    + '<div style="margin-top:24px;height:5px;background:#e5e7eb;border-radius:4px;overflow:hidden;"><div id="_lp-progress" style="height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:4px;width:5%;transition:width 0.6s ease;"></div></div>'
+    + '</div>';
+  let prog = 5;
+  const pi = setInterval(() => { prog = Math.min(prog + 7, 85); const el=document.getElementById('_lp-progress'); if(el) el.style.width=prog+'%'; }, 500);
+  const photoSection = photoUrls.length > 0
+    ? 'Usa EXACTAMENTE estas ' + photoUrls.length + ' fotos reales (no inventes otras imágenes):\n' + photoUrls.map((u,i)=>'Foto '+(i+1)+': '+u).join('\n')
+    : 'No hay fotos disponibles.';
+  const ctaMap = { whatsapp:'Botón WhatsApp directo que abra wa.me con el número del negocio', llamada:'Botón click-to-call', formulario:'Formulario simple: nombre + teléfono + submit', agendar:'Botón para agendar cita por WhatsApp' };
+  const systemPrompt = 'Eres experto en landing pages de alta conversión para inmobiliarias de lujo. Genera HTML completo, listo para usar en el navegador. REGLAS CRÍTICAS: 1) Devuelve SOLO HTML (con html, head, body). 2) Usa las URLs de fotos reales exactas en img tags — no pongas placeholders. 3) Si la foto falla, muestra un div de respaldo elegante. 4) Diseño móvil-first, responsive. 5) No inventes precios ni datos no mencionados. 6) Haz el CTA grande y visible. 7) El HTML debe ser completo y funcional.';
+  const userMsg = 'Crea una landing page para "' + (biz.name||'Caracol Diamante') + '".\n\nContexto del negocio:\n' + cerebroCtx + '\n\n' + photoSection + '\n\nMensaje principal: ' + (msg||'Departamentos frente al mar · Inversión que vale la pena') + '\nCTA: ' + ctaMap[cta] + '\nEstilo: background ' + st.bg + ', acento ' + st.accent + ', texto ' + st.text + ', tipografía ' + st.font;
+  try {
+    const html = await callClaude([{role:'user',content:userMsg}], systemPrompt);
+    clearInterval(pi);
+    const el=document.getElementById('_lp-progress'); if(el) el.style.width='100%';
+    setTimeout(() => { modal._generatedHtml=html; modal._usedPhotos=photos; modal._usedStyle=style; _landingPreview(modal, html); }, 500);
+  } catch(e) {
+    clearInterval(pi);
+    modal.innerHTML='<div style="background:white;border-radius:20px;padding:40px;text-align:center;"><div style="font-size:36px;margin-bottom:12px;">❌</div><div style="font-size:14px;font-weight:700;color:#1e293b;">Error al generar</div><div style="font-size:12px;color:#6b7280;margin:8px 0 16px;">'+e.message+'</div><button onclick="document.getElementById(\'_landing-builder-modal\').remove()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;">Cerrar</button></div>';
+  }
+}
+
+function _landingPreview(modal, html) {
+  modal.innerHTML = '<div style="background:white;border-radius:20px;width:100%;max-width:860px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;">'
+    + '<div style="padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;flex-shrink:0;">'
+    + '<div style="font-size:15px;font-weight:800;">👀 Vista previa — Landing Page</div>'
+    + '<span style="font-size:11px;color:#6b7280;background:#d1fae5;color:#065f46;border-radius:20px;padding:3px 10px;margin-left:4px;font-weight:700;">✅ Generada con tus fotos reales</span>'
+    + '<button onclick="document.getElementById(\'_landing-builder-modal\').remove()" style="margin-left:auto;background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:16px;">✕</button>'
+    + '</div>'
+    + '<div style="flex:1;overflow:hidden;min-height:300px;">'
+    + '<iframe id="_lp-preview-iframe" style="width:100%;height:100%;border:none;display:block;" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>'
+    + '</div>'
+    + '<div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-shrink:0;">'
+    + '<button onclick="_landingStep2(document.getElementById(\'_landing-builder-modal\'))" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;">← Cambiar estilo</button>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button onclick="_landingDescargar()" style="background:#e0e7ff;color:#6366f1;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">⬇ Descargar HTML</button>'
+    + '<button onclick="_landingPublicar(document.getElementById(\'_landing-builder-modal\'))" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:800;cursor:pointer;">✅ Guardar Landing Page</button>'
+    + '</div></div></div>';
+  setTimeout(() => { const f=document.getElementById('_lp-preview-iframe'); if(f) f.srcdoc=html; }, 100);
+}
+
+function _landingDescargar() {
+  const modal=document.getElementById('_landing-builder-modal');
+  const html=modal?._generatedHtml;
+  if(!html) return;
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='landing-page.html'; a.click();
+  showToast('⬇ Descargando landing-page.html');
+}
+
+async function _landingPublicar(modal) {
+  const html=modal._generatedHtml;
+  const photos=modal._usedPhotos||[];
+  const style=modal._usedStyle||'navy-orange';
+  if(!html||!fbReady){showToast('❌ Sin contenido o sin conexión');return;}
+  const biz=state.currentBiz;
+  const bizName=state.businesses[biz]?.name||'Negocio';
+  try {
+    await db.collection('landing_pages').add({
+      biz, bizName, html, style,
+      photoCount:photos.length,
+      photoUrls:photos.map(p=>p.link),
+      title:bizName+' — Landing '+new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}),
+      createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy:currentUser?.email||'admin'
+    });
+    await _guardarEstiloAprendido(photos, style, bizName);
+    modal.remove();
+    showToast('✅ Landing page guardada');
+    setTimeout(_renderLandingPages, 600);
+  } catch(e) { showToast('❌ Error: '+e.message); }
+}
+
+async function _guardarEstiloAprendido(photos, style, bizName) {
+  if(!fbReady||!state.currentBiz) return;
+  const SNAMES={'navy-orange':'Navy + Naranja',tropical:'Tropical Esmeralda',luxury:'Lujo Premium',fresh:'Blanco Moderno'};
+  const content='Landing page aprobada el '+new Date().toLocaleDateString('es-MX')+'.\nEstilo elegido: '+(SNAMES[style]||style)+'.\nFotos usadas: '+photos.length+' imágenes del Cerebro.\nTítulos: '+photos.map(p=>p.title||'sin título').join(', ')+'.\nPreferencia confirmada: fotos reales sin modificar, el dueño aprobó este estilo.';
+  try {
+    await db.collection('cerebro').add({
+      biz:state.currentBiz, type:'estilo',
+      title:'Estilo aprendido — Landing '+new Date().toLocaleDateString('es-MX'),
+      content, tags:['landing',style,'aprobado'],
+      ts:firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e){ console.warn('style learn err:',e); }
+}
+
+async function _renderLandingPages() {
+  const container=document.getElementById('_landings-list');
+  if(!container||!fbReady) return;
+  container.innerHTML='<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Cargando...</div>';
+  try {
+    const snap=await db.collection('landing_pages').where('biz','==',state.currentBiz).orderBy('createdAt','desc').limit(20).get();
+    if(snap.empty){container.innerHTML='<div style="text-align:center;padding:30px;color:#9ca3af;"><div style="font-size:32px;">📄</div><div style="font-size:12px;margin-top:8px;">Aún no hay landing pages. ¡Crea la primera arriba! ↑</div></div>';return;}
+    container.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;background:white;margin-bottom:8px;';
+      row.innerHTML='<div style="font-size:28px;">📄</div>'
+        +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#111;">'+(d.title||'Landing page')+'</div>'
+        +'<div style="font-size:11px;color:#6b7280;margin-top:2px;">'+(d.photoCount||0)+' fotos · Estilo '+(d.style||'—')+' · '+(d.createdAt?.toDate?d.createdAt.toDate().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}):'—')+'</div></div>'
+        +'<button onclick="_landingVerDoc(\''+doc.id+'\')" style="background:#e0e7ff;color:#6366f1;border:none;border-radius:7px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">👁 Ver</button>'
+        +'<button onclick="if(confirm(\'¿Eliminar?\'))db.collection(\'landing_pages\').doc(\''+doc.id+'\').delete().then(()=>{showToast(\'Eliminada\');_renderLandingPages();})" style="background:#fee2e2;color:#dc2626;border:none;border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;">🗑</button>';
+      container.appendChild(row);
+    });
+  } catch(e){ container.innerHTML='<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px;">Error: '+e.message+'</div>'; }
+}
+
+async function _landingVerDoc(docId) {
+  const doc=await db.collection('landing_pages').doc(docId).get();
+  if(!doc.exists) return;
+  const html=doc.data().html;
+  const w=window.open('','_blank'); if(w){w.document.write(html);w.document.close();}
 }
 
 // ============================================================
